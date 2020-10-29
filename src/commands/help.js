@@ -10,7 +10,7 @@ async function execute(bot, msg, args) {
     };
   });
   embed
-    .setAuthor('UNITY Commands Help', bot.user.avatarURL())
+    .setAuthor('UNITY Commands list', bot.user.avatarURL())
     .setDescription(concatHelpStr)
     .setColor('#C1FF00');
   msg.channel.send({ embed });
