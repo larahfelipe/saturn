@@ -13,38 +13,38 @@ const path = require('path');
 
 const commandsDir = fs.readdirSync(path.join(__dirname, '/commands'));
 commandsDir.filter(file => {
-    file.endsWith('.js');
+  file.endsWith('.js');
 });
 for (let file of commandsDir) {
-    const handleCommand = require(`./commands/${file}`);
-    bot.commands.set(handleCommand.name, handleCommand);
+  const handleCommand = require(`./commands/${file}`);
+  bot.commands.set(handleCommand.name, handleCommand);
 };
 
 
 bot.once('ready', () => {
-    console.log('\n[unity] Okay, I\'m listening ...\n');
+  console.log('\n[unity] Okay, I\'m listening ...\n');
 });
 
 bot.on('message', async msg => {
-    bot.user.setActivity('.help');
+  bot.user.setActivity('.help');
 
-    const prefix = process.env.BOT_PREFIX; 
-    if (!msg.content.startsWith(prefix) || msg.author.bot) return;
+  const prefix = process.env.BOT_PREFIX;
+  if (!msg.content.startsWith(prefix) || msg.author.bot) return;
 
-    const args = msg.content.slice(prefix.length).trim().split(/ +/);
-    const commandListener = prefix + args.shift().toLowerCase();
-    console.log(`[@${msg.author.tag}] >> ${commandListener} ${args.join(' ')}`);
+  const args = msg.content.slice(prefix.length).trim().split(/ +/);
+  const commandListener = prefix + args.shift().toLowerCase();
+  console.log(`[@${msg.author.tag}] >> ${commandListener} ${args.join(' ')}`);
 
-    try {
-        bot.commands.get(commandListener).execute(bot, msg, args);
-    } catch (e) {
-        console.error(e);
-        embed
-        .setAuthor('🤖 Error 404: Command not found!')
-        .setDescription('If you need help with commands type **\`.help\`**')
-        .setColor('#C1FF00');
-        msg.channel.send({ embed });
-    };
+  try {
+    bot.commands.get(commandListener).execute(bot, msg, args);
+  } catch (e) {
+    console.error(e);
+    embed
+      .setAuthor('🤖 Error 404: Command not found!')
+      .setDescription('If you need help with commands type **\`.help\`**')
+      .setColor('#C1FF00');
+    msg.channel.send({ embed });
+  };
 });
 
 bot.login(process.env.BOT_TOKEN);
