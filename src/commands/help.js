@@ -1,7 +1,3 @@
-const MessageEmbed = require('discord.js').MessageEmbed;
-const embed = new MessageEmbed();
-
-
 async function execute(bot, msg, args) {
   let concatHelpStr = '';
   bot.commands.forEach(command => {
@@ -9,11 +5,17 @@ async function execute(bot, msg, args) {
       concatHelpStr += `\`${command.name}\` → ${command.help}.\n`;
     };
   });
-  embed
-    .setAuthor('UNITY Commands list', bot.user.avatarURL())
-    .setDescription(concatHelpStr)
-    .setColor('#C1FF00');
-  msg.channel.send({ embed });
+
+  msg.channel.send({
+    embed: {
+      author: {
+        name: 'UNITY Commands List',
+        icon_url: bot.user.avatarURL()
+      },
+      description: concatHelpStr,
+      color: 'C1FF00'
+    }
+  });
 };
 
 module.exports = {

@@ -1,20 +1,20 @@
-const MessageEmbed = require('discord.js').MessageEmbed;
-const embed = new MessageEmbed();
-
-
 async function execute(bot, msg, args) {
-  embed
-    .setAuthor('Server Information', msg.guild.iconURL())
-    .addFields({
-      name: 'Server name:',
-      value: msg.guild.name
-    },
-    {
-      name: 'Total members:',
-      value: msg.guild.memberCount + ' user(s)'
-    })
-    .setColor('#C1FF00');
-  msg.channel.send({ embed });
+  msg.channel.send({
+    embed: {
+      author: {
+        name: 'Server Information',
+        icon_url: msg.guild.iconURL()
+      },
+      fields: [{
+        name: 'Server name',
+        value: msg.guild.name
+      }, {
+        name: 'Total members',
+        value: msg.guild.memberCount + ' user(s)'
+      }],
+      color: 'C1FF00'
+    }
+  });
 };
 
 module.exports = {
