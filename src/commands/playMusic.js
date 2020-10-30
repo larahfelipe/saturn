@@ -69,7 +69,7 @@ async function execute(bot, msg, args) {
         if (!isQueueAlreadyExists) {
           try {
             playMusic(bot, msg, song);
-  
+
             embed
               .setAuthor('')
               .setTitle('🎵  Music Playback')

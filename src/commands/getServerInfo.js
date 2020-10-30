@@ -9,10 +9,10 @@ async function execute(bot, msg, args) {
       name: 'Server name:',
       value: msg.guild.name
     },
-      {
-        name: 'Total members:',
-        value: msg.guild.memberCount + ' user(s)'
-      })
+    {
+      name: 'Total members:',
+      value: msg.guild.memberCount + ' user(s)'
+    })
     .setColor('#C1FF00');
   msg.channel.send({ embed });
 };
