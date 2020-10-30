@@ -48,7 +48,7 @@ async function playMusic(bot, msg, song) {
 
   queue.dispatcher.on('finish', () => {
     queue.songs.shift();
-    playMusic(bot, msg, song[0]);
+    playMusic(bot, msg, queue.songs[0]);
   });
 
   bot.queues.set(msg.member.guild.id, queue);
@@ -67,15 +67,19 @@ async function execute(bot, msg, args) {
 
         const isQueueAlreadyExists = bot.queues.get(msg.guild.id);
         if (!isQueueAlreadyExists) {
-          playMusic(bot, msg, song);
-
-          embed
-            .setAuthor('')
-            .setTitle('🎵  Music Playback')
-            .setThumbnail('')
-            .setDescription(`Joining channel \`${msg.member.voice.channel.name}\``)
-            .setColor('#C1FF00');
-          msg.channel.send({ embed });
+          try {
+            playMusic(bot, msg, song);
+  
+            embed
+              .setAuthor('')
+              .setTitle('🎵  Music Playback')
+              .setThumbnail('')
+              .setDescription(`Joining channel \`${msg.member.voice.channel.name}\``)
+              .setColor('#C1FF00');
+            msg.channel.send({ embed });
+          } catch (e) {
+            console.error(e);
+          };
         } else {
           queue.songs.push(song);
           bot.queues.set(msg.guild.id, queue);
