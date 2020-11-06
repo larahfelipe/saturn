@@ -11,13 +11,18 @@ dotenv.config();
 const fs = require('fs');
 const path = require('path');
 
+
 const commandsDir = fs.readdirSync(path.join(__dirname, '/commands'));
-commandsDir.filter(file => {
-  file.endsWith('.js');
-});
-for (let file of commandsDir) {
-  const handleCommand = require(`./commands/${file}`);
-  bot.commands.set(handleCommand.name, handleCommand);
+for (let section of commandsDir) {
+  const currentSection = fs.readdirSync(path.join(__dirname, '/commands', section));
+  currentSection.filter(file => {
+    file.endsWith('.js');
+  });
+
+  for (let file of currentSection) {
+    const handleCommand = require(`./commands/${section}/${file}`);
+    bot.commands.set(handleCommand.name, handleCommand);
+  };
 };
 
 
