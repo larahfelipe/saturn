@@ -19,8 +19,13 @@ async function execute(bot, msg, args) {
     await msg.channel.send({ embed });
   };
 
-  await bot.queues.delete(msg.member.guild.id);
   await bot.destroy();
+  bot.queues.forEach(queue => {
+    if (queue.connection) {
+      queue.connection.disconnect();
+      bot.queues.delete(msg.member.guild.id);
+    };
+  });
 
   setTimeout(() => {
     bot.login(process.env.BOT_TOKEN)

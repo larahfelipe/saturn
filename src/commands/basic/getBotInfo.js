@@ -1,3 +1,6 @@
+const botVersion = require('../../../package.json').version;
+
+
 async function execute(bot, msg, args) {
   msg.channel.send({
     embed: {
@@ -16,7 +19,7 @@ async function execute(bot, msg, args) {
       timestamp: new Date(),
       footer: {
         icon_url: bot.user.avatarURL(),
-        text: 'Unity © Discord Bot — ver 1.0'
+        text: `Unity © Discord Bot — version ${botVersion.slice(0, 3)}`
       },
       color: 'C1FF00'
     }
