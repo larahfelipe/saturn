@@ -5,7 +5,7 @@ const MessageEmbed = require('discord.js').MessageEmbed;
 const embed = new MessageEmbed();
 
 
-async function playMusic(bot, msg, song) {
+async function playMusic(bot, msg, song, reqSongAuthorId) {
   let isQueueExists = bot.queues.get(msg.member.guild.id);
 
   if (!song) {
@@ -25,7 +25,8 @@ async function playMusic(bot, msg, song) {
       volume: 10,
       connection: botConnection,
       dispatcher: null,
-      songs: [song]
+      songs: [song],
+      author: [reqSongAuthorId]
     };
   };
 
@@ -33,7 +34,7 @@ async function playMusic(bot, msg, song) {
     .setAuthor('We hear you 💚')
     .setTitle('')
     .setThumbnail(song.thumbnail)
-    .setDescription(`Now playing **[${song.title}](${song.url})** requested by <@${msg.author.id}>`)
+    .setDescription(`Now playing **[${song.title}](${song.url})** requested by <@${queue.author}>`)
     .setColor('#C1FF00');
   msg.channel.send({ embed });
 
@@ -43,12 +44,12 @@ async function playMusic(bot, msg, song) {
       filter: 'audioonly'
     }), {
     type: 'opus'
-  }
-  );
+  });
 
   queue.dispatcher.on('finish', () => {
     queue.songs.shift();
-    playMusic(bot, msg, queue.songs[0]);
+    queue.author.shift();
+    playMusic(bot, msg, queue.songs[0], queue.author[0]);
   });
 
   bot.queues.set(msg.member.guild.id, queue);
@@ -64,11 +65,12 @@ async function execute(bot, msg, args) {
       } else if (res && res.videos.length > 0) {
         //console.log(res);
         const song = res.videos[0];
+        const reqSongAuthorId = msg.author.id;
 
         const isQueueAlreadyExists = bot.queues.get(msg.guild.id);
         if (!isQueueAlreadyExists) {
           try {
-            playMusic(bot, msg, song);
+            playMusic(bot, msg, song, reqSongAuthorId);
 
             embed
               .setAuthor('')
@@ -82,6 +84,7 @@ async function execute(bot, msg, args) {
           };
         } else {
           queue.songs.push(song);
+          queue.author.push(reqSongAuthorId);
           bot.queues.set(msg.guild.id, queue);
 
           embed

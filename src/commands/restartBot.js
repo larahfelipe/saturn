@@ -5,27 +5,28 @@ const embed = new MessageEmbed();
 async function execute(bot, msg, args) {
   if (args.length === 0) {
     embed
-      .setAuthor('Event Manager', bot.user.avatarURL())
+      .setAuthor('UNITY Boot Manager', bot.user.avatarURL())
       .setDescription('\`EXEC UNITY SHUTDOWN --RESTART NOW\`\n\nSee you soon.. 👋')
       .setFooter('All services was stopped.')
       .setColor('#C1FF00');
     await msg.channel.send({ embed });
   } else {
     embed
-      .setAuthor('Event Manager', bot.user.avatarURL())
+      .setAuthor('UNITY Boot Manager', bot.user.avatarURL())
       .setDescription(`\`EXEC UNITY SHUTDOWN --RESTART --TIME ${args}s\`\n\nSee you soon.. 👋`)
       .setFooter('All services was stopped.')
       .setColor('#C1FF00');
     await msg.channel.send({ embed });
   };
 
-  bot.destroy();
+  await bot.queues.delete(msg.member.guild.id);
+  await bot.destroy();
 
   setTimeout(() => {
     bot.login(process.env.BOT_TOKEN)
       .then(() => {
         embed
-          .setAuthor('Event Manager', bot.user.avatarURL())
+          .setAuthor('UNITY Boot Manager', bot.user.avatarURL())
           .setDescription('\`EXEC UNITY INIT\`\n\nHello world! 🤗')
           .setFooter('All services are now running.')
           .setColor('#C1FF00');
