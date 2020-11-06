@@ -7,7 +7,7 @@
 
 <p align="center">
     <a href="https://github.com/felpshn/unity-bot">
-        <img src="https://img.shields.io/badge/version-1.0-lightgrey">
+        <img src="https://img.shields.io/badge/version-2.0-lightgrey">
     </a>
     <a href="https://nodejs.org/en/">
         <img src="https://img.shields.io/badge/built%20with-Node%20JS-brightgreen">
