@@ -5,7 +5,7 @@ const MessageEmbed = require('discord.js').MessageEmbed;
 const embed = new MessageEmbed();
 
 
-async function playMusic(bot, msg, song, reqSongAuthorId) {
+async function playSong(bot, msg, song, reqSongAuthorId) {
   let isQueueExists = bot.queues.get(msg.member.guild.id);
 
   if (!song) {
@@ -34,7 +34,7 @@ async function playMusic(bot, msg, song, reqSongAuthorId) {
     .setAuthor('We hear you 💚')
     .setTitle('')
     .setThumbnail(song.thumbnail)
-    .setDescription(`Now playing **[${song.title}](${song.url})** requested by <@${queue.author}>`)
+    .setDescription(`Now playing **[${song.title}](${song.url})** requested by <@${queue.author[0]}>`)
     .setColor('#C1FF00');
   msg.channel.send({ embed });
 
@@ -49,7 +49,7 @@ async function playMusic(bot, msg, song, reqSongAuthorId) {
   queue.dispatcher.on('finish', () => {
     queue.songs.shift();
     queue.author.shift();
-    playMusic(bot, msg, queue.songs[0], queue.author[0]);
+    playSong(bot, msg, queue.songs[0], queue.author);
   });
 
   bot.queues.set(msg.member.guild.id, queue);
@@ -70,7 +70,7 @@ async function execute(bot, msg, args) {
         const isQueueAlreadyExists = bot.queues.get(msg.guild.id);
         if (!isQueueAlreadyExists) {
           try {
-            playMusic(bot, msg, song, reqSongAuthorId);
+            playSong(bot, msg, song, reqSongAuthorId);
 
             embed
               .setAuthor('')
@@ -107,5 +107,6 @@ async function execute(bot, msg, args) {
 module.exports = {
   name: '.play',
   help: 'Plays music from YouTube',
-  execute
+  execute,
+  playSong
 };
