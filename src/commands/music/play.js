@@ -1,11 +1,11 @@
-const onSearch = require('yt-search');
+const handleSearch = require('yt-search');
 const ytdl = require('ytdl-core-discord');
 
 const MessageEmbed = require('discord.js').MessageEmbed;
 const embed = new MessageEmbed();
 
 
-async function playSong(bot, msg, song, reqSongAuthorId) {
+async function playSong(bot, msg, song, reqSongUserId) {
   let isQueueExists = bot.queues.get(msg.member.guild.id);
 
   if (!song) {
@@ -26,7 +26,7 @@ async function playSong(bot, msg, song, reqSongAuthorId) {
       connection: botConnection,
       dispatcher: null,
       songs: [song],
-      author: [reqSongAuthorId]
+      author: [reqSongUserId]
     };
   };
 
@@ -57,48 +57,58 @@ async function playSong(bot, msg, song, reqSongAuthorId) {
 };
 
 async function execute(bot, msg, args) {
-  const strConcat = args.join(' ');
   try {
-    onSearch(strConcat, (err, res) => {
-      if (err) {
-        throw err;
-      } else if (res && res.videos.length > 0) {
-        //console.log(res);
-        const song = res.videos[0];
-        const reqSongAuthorId = msg.author.id;
+    let song = args.join(' ');
 
-        const isQueueAlreadyExists = bot.queues.get(msg.guild.id);
-        if (!isQueueAlreadyExists) {
-          try {
-            playSong(bot, msg, song, reqSongAuthorId);
-
-            embed
-              .setAuthor('')
-              .setTitle('🎵  Music Playback')
-              .setThumbnail('')
-              .setDescription(`Joining channel \`${msg.member.voice.channel.name}\``)
-              .setColor('#C1FF00');
-            msg.channel.send({ embed });
-          } catch (e) {
-            console.error(e);
-          };
+    if (song.startsWith('https://')) {
+      const videoUrl = song.slice(song.indexOf('=') + 1, song.length);
+      song = await handleSearch({ videoId: videoUrl });
+      handlePlaySong();
+    } else {
+      handleSearch(song, (err, res) => {
+        if (err) {
+          throw err;
+        } else if (res && res.videos.length > 0) {
+          //console.log(res);
+          song = res.videos[0];
+          handlePlaySong();
         } else {
-          queue.songs.push(song);
-          queue.author.push(reqSongAuthorId);
-          bot.queues.set(msg.guild.id, queue);
+          return msg.reply('Sorry!, I couldn\'t find any song related to your search.');
+        };
+      });
+    };
+
+    function handlePlaySong() {
+      const reqSongUserId = msg.author.id;
+      const isQueueAlreadyExists = bot.queues.get(msg.guild.id);
+      if (!isQueueAlreadyExists) {
+        try {
+          playSong(bot, msg, song, reqSongUserId);
 
           embed
             .setAuthor('')
-            .setTitle('🗒  Queue')
+            .setTitle('🎵  Music Playback')
             .setThumbnail('')
-            .setDescription(`Got it! [${song.title}](${song.url}) was added to the guild queue.`)
+            .setDescription(`Joining channel \`${msg.member.voice.channel.name}\``)
             .setColor('#C1FF00');
           msg.channel.send({ embed });
+        } catch (e) {
+          console.error(e);
         };
       } else {
-        return msg.reply('Sorry!, I couldn\'t find any song related to your search.');
+        queue.songs.push(song);
+        queue.author.push(reqSongUserId);
+        bot.queues.set(msg.guild.id, queue);
+
+        embed
+          .setAuthor('')
+          .setTitle('🗒  Queue')
+          .setThumbnail('')
+          .setDescription(`Got it! [${song.title}](${song.url}) was added to the guild queue.`)
+          .setColor('#C1FF00');
+        msg.channel.send({ embed });
       };
-    });
+    };
   } catch (e) {
     console.error(e);
   };
