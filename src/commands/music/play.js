@@ -1,4 +1,4 @@
-const handleSearch = require('yt-search');
+const yts = require('yt-search');
 const ytdl = require('ytdl-core-discord');
 
 const MessageEmbed = require('discord.js').MessageEmbed;
@@ -40,8 +40,8 @@ async function playSong(bot, msg, song, reqSongUserId) {
 
   queue.dispatcher = await queue.connection.play(
     await ytdl(song.url, {
-      highWaterMark: 1 << 25,
-      filter: 'audioonly'
+      filter: 'audioonly',
+      quality: 'highestaudio'
     }), {
     type: 'opus'
   });
@@ -61,11 +61,11 @@ async function execute(bot, msg, args) {
     let song = args.join(' ');
 
     if (song.startsWith('https://')) {
-      const videoUrl = song.slice(song.indexOf('=') + 1, song.length);
-      song = await handleSearch({ videoId: videoUrl });
+      const ytVideoId = song.slice(song.indexOf('=') + 1, song.length);
+      song = await yts({ videoId: ytVideoId });
       handlePlaySong();
     } else {
-      handleSearch(song, (err, res) => {
+      yts(song, (err, res) => {
         if (err) {
           throw err;
         } else if (res && res.videos.length > 0) {
