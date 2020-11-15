@@ -1,7 +1,7 @@
-const MessageEmbed = require('discord.js').MessageEmbed;
+const { MessageEmbed } = require('discord.js');
 const embed = new MessageEmbed();
 
-const playSong = require('./play').playSong;
+const { playSong } = require('./play');
 
 
 async function execute(bot, msg, args) {

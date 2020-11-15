@@ -1,4 +1,4 @@
-const botVersion = require('../../../package.json').version;
+const { version } = require('../../../package.json');
 
 
 async function execute(bot, msg, args) {
@@ -19,7 +19,7 @@ async function execute(bot, msg, args) {
       timestamp: new Date(),
       footer: {
         icon_url: bot.user.avatarURL(),
-        text: `Unity © Discord Bot — version ${botVersion.slice(0, 3)}`
+        text: `Unity © Discord Bot — version ${version.slice(0, 3)}`
       },
       color: 'C1FF00'
     }

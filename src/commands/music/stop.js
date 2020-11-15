@@ -1,4 +1,4 @@
-const MessageEmbed = require('discord.js').MessageEmbed;
+const { MessageEmbed } = require('discord.js');
 const embed = new MessageEmbed();
 
 

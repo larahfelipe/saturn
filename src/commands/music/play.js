@@ -1,8 +1,10 @@
 const yts = require('yt-search');
 const ytdl = require('ytdl-core-discord');
 
-const MessageEmbed = require('discord.js').MessageEmbed;
+const { MessageEmbed } = require('discord.js');
 const embed = new MessageEmbed();
+
+const { dropConnection } = require('../../events/dropConnection');
 
 
 async function playSong(bot, msg, song, reqSongUserId) {
@@ -67,6 +69,7 @@ async function execute(bot, msg, args) {
     } else {
       yts(song, (err, res) => {
         if (err) {
+          dropConnection(bot, msg, args);
           throw err;
         } else if (res && res.videos.length > 0) {
           //console.log(res);
@@ -102,9 +105,9 @@ async function execute(bot, msg, args) {
 
         embed
           .setAuthor('')
-          .setTitle('🗒  Queue')
+          .setTitle('📃  Queue')
           .setThumbnail('')
-          .setDescription(`Got it! [${song.title}](${song.url}) was added to the guild queue.`)
+          .setDescription(`Got it! [${song.title}](${song.url}) was added to the guild queue.\n\nTo see the guild's music queue, type \`.queue\``)
           .setColor('#C1FF00');
         msg.channel.send({ embed });
       };

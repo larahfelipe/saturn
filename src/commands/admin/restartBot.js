@@ -1,5 +1,7 @@
-const MessageEmbed = require('discord.js').MessageEmbed;
+const { MessageEmbed } = require('discord.js');
 const embed = new MessageEmbed();
+
+const { dropConnection } = require('../../events/dropConnection');
 
 
 async function execute(bot, msg, args) {
@@ -20,12 +22,7 @@ async function execute(bot, msg, args) {
   };
 
   await bot.destroy();
-  bot.queues.forEach(queue => {
-    if (queue.connection) {
-      queue.connection.disconnect();
-      bot.queues.delete(msg.member.guild.id);
-    };
-  });
+  dropConnection(bot, msg, args);
 
   setTimeout(() => {
     bot.login(process.env.BOT_TOKEN)
