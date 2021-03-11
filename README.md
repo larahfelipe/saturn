@@ -5,8 +5,8 @@
 </p>
 
 <p align="center">
-    <a href="https://github.com/felpshn/saturn-bot">
-        <img src="https://img.shields.io/badge/version-5.0-lightgrey">
+    <a href="https://github.com/felpshn/saturn-bot/releases">
+        <img src="https://img.shields.io/badge/version-2.0-lightgrey">
     </a>
     <a href="https://www.typescriptlang.org/">
         <img src="https://img.shields.io/badge/built%20with-TypeScript-blue">
@@ -18,7 +18,7 @@
         <img src="https://img.shields.io/badge/built%20with-Discord.js-9cf">
     </a>
     <a href="https://github.com/felpshn/saturn-bot/blob/master/LICENSE">
-        <img src="https://img.shields.io/badge/license-MIT-orange">
+        <img src="https://img.shields.io/badge/license-GPL--3.0-orange">
     </a>
     <a href="https://makeapullrequest.com/">
         <img src="https://img.shields.io/badge/PRs-welcome-blueviolet">
@@ -27,9 +27,12 @@
 
 ## About
 
-Saturn is a modular multipurpose discord bot built with TypeScript, Node.js and Discord.js
+Saturn is a modular multipurpose, user-friendly discord bot, which has a ton of features like server moderation, music function, weather report and many more. All of that together in the most awesome planet in our solar system! xD
 
-### Other technologies used
+### Technologies used
+- [TypeScript](https://www.typescriptlang.org/)
+- [Node.js](https://nodejs.org/en/)
+- [Discord.js](https://github.com/discordjs/discord.js)
 - [Axios](https://github.com/axios/axios)
 - [Mongoose](https://github.com/Automattic/mongoose)
 - [Ytdl](https://github.com/fent/node-ytdl-core)
@@ -38,15 +41,15 @@ Saturn is a modular multipurpose discord bot built with TypeScript, Node.js and 
 
 ## How to use
 
-If your only goal is using Saturn, you can invite him to your server by using this [Discord Invite Link](https://github.com/felpshn/saturn-bot) (Temp unavailable). After this, we're already done, have fun!
+Saturn is a *self-hosted* bot, this means you will need to host and maintain your own instance. For that, you can instantiate at your own machine or you can use a cloud platform to do so. A great cloud platform that I personally use and recommend is [Heroku](https://www.heroku.com/), it's a nice cloud service which offers a great compatibility for apps like this one, and also has a free plan option.
 
-Saturn is hosted at [Heroku | Cloud Application Platform](https://www.heroku.com/), but you can also host it yourself, for that check out the next topics.
+In this step-by-step I will only cover about how you can set Saturn in your own machine. Also, note that each topic in the next sections has a brief explanation in the title saying what we're about to do. With that said, let's move on.
 
 ### Getting started
 
-First things first, make sure that you have `git`, `node` and `npm` installed. After checking this out, we can move to the next step.
+First things first, make sure that you have `git`, `node` and `npm` installed. Then open your terminal or cmd and type the commands below.
 
-#### Clone this repo and cd into project's folder
+#### Cloning this repository & cd'ing into project's folder
 
 ```elm
 git clone https://github.com/felpshn/saturn-bot.git
@@ -54,7 +57,7 @@ git clone https://github.com/felpshn/saturn-bot.git
 cd saturn-bot
 ```
 
-#### Creating dotenv file and installing dependencies
+#### Creating and setting the environment file & installing dependencies
 
 ```elm
 touch .env
@@ -62,18 +65,18 @@ touch .env
 npm install
 ```
 
-After setting up all dependencies, go to `.env` that we just created. 
+After setting up all dependencies, find the `.env` file that we just created and open it with some text editor of your choice. 
 
-Now, make sure that you have your own bot token in hands. Copy n' paste the `.env` template below and replace `HELLO_WORLD` with your token.
+Now, make sure that you have your own bot token in hands - in case you don't know how to get it, just go at the [Discord developers portal](https://discord.com/developers/) and create a new app. Copy and paste the `.env` template below and replace `HELLO_WORLD` with your token.
 
 ```bash
 BOT_PREFIX=.
 BOT_TOKEN=HELLO_WORLD
 ```
 
-This bot has a weather report function and also supports a MongoDB database linked to it. In case you wanna use these features, you will also need to set in `.env` a OpenWeather API token and your database's connection link.
+As mentioned before, this bot has a weather report function and also supports a MongoDB database linked to it. In case you wanna use these features, you will also need to set in `.env` a OpenWeather API token and your database's connection link.
 
-To get these features working properly, your `.env` file should have this template below with your credentials settled in the `HELLO_WORLD` place.
+To get these features working properly, your `.env` file should have this template below with your credentials settled in the `HELLO_WORLD`'s place.
 
 ```bash
 BOT_PREFIX=.
@@ -82,7 +85,7 @@ DB_ACCESS=HELLO_WORLD
 OPENWEATHER_TOKEN=HELLO_WORLD
 ```
 
-Note that, these are extra features! If you don't wanna use them, just follow the first `.env` template introduced and your bot still will work normally.
+Note that, these are **extra** features! If you don't wanna use them, just follow the first `.env` template introduced in this step-by-step and your bot still will work normally.
 
 #### Running
 ```elm
@@ -91,10 +94,10 @@ npm run dev
 
 #### We're done!
 
-Thanks for using Saturn! Don't forget to read the **Additional Info** section for more details about this discord bot project.
+That's pretty much it, thanks for using Saturn, have fun! Also, don't forget to read the **Additional Info** section for more details about this discord bot project.
 
 ## Additional Info
 
 PRs are more than welcome, just remind to keep your code concise and clean in case you're planning to add more features to the bot.
 
-> This project is licensed under a [MIT License](https://github.com/felpshn/saturn-bot/blob/master/LICENSE)
+> **This project is licensed under a [GNU General Public License v3.0 License](https://github.com/felpshn/saturn-bot/blob/master/LICENSE)**
