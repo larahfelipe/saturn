@@ -9,7 +9,7 @@ function run (bot: Bot, msg: Message, args: string[]) {
 
   if (queueExists.songs.length > 1) {
     queueExists.songs.shift();
-    queueExists.author.shift();
+    queueExists.authors.shift();
 
     const embed = new MessageEmbed();
     embed
@@ -18,7 +18,7 @@ function run (bot: Bot, msg: Message, args: string[]) {
       .setColor('#6E76E5');
     msg.channel.send({ embed });
 
-    setSong(bot, msg, queueExists.songs[0], queueExists.author[0]);
+    setSong(bot, msg, queueExists.songs[0], queueExists.authors[0]);
   }
 }
 
