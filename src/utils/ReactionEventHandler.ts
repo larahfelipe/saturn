@@ -15,43 +15,43 @@ interface IUser {
 
 async function handleMusicControlsReaction (bot: Bot, msg: Message, playerMsg: Message) {
   enum Control {
-    play = '▶️',
-    pause = '⏸',
-    stop = '⏹️',
-    skip = '⏭️'
+    PLAY = '▶️',
+    PAUSE = '⏸',
+    STOP = '⏹️',
+    SKIP = '⏭️'
   }
 
   await playerMsg
-    .react(Control.pause)
-    .then(() => playerMsg.react(Control.play))
-    .then(() => playerMsg.react(Control.skip))
-    .then(() => playerMsg.react(Control.stop));
+    .react(Control.PAUSE)
+    .then(() => playerMsg.react(Control.PLAY))
+    .then(() => playerMsg.react(Control.SKIP))
+    .then(() => playerMsg.react(Control.STOP));
 
-  const controls: string[] = [Control.play, Control.pause, Control.stop, Control.skip];
+  const controls: string[] = [Control.PLAY, Control.PAUSE, Control.STOP, Control.SKIP];
   const queue: IQueue = bot.queues.get(msg.guild!.id);
 
   const filter = (reaction: IReaction, user: IUser) => {
-    return controls.includes(reaction.emoji.name) && user.id === msg.author.id;
+    return controls.includes(reaction.emoji.name) && user.id !== bot.user!.id;
   };
-  const reactionsListener = playerMsg.createReactionCollector(filter, { time: queue.songs[0].seconds * 1000 });
+  const reactionsListener = playerMsg.createReactionCollector(filter);
 
   reactionsListener.on('collect', (reaction: IReaction, user: IUser) => {
     const getReaction = reaction.emoji.name;
 
-    if (getReaction === Control.play) {
+    if (getReaction === Control.PLAY) {
       queue.connection.dispatcher.resume();
-      playerMsg.reactions.resolve(Control.play)!.users.remove(user.id);
-    } else if (getReaction === Control.pause) {
+      playerMsg.reactions.resolve(Control.PLAY)!.users.remove(user.id);
+    } else if (getReaction === Control.PAUSE) {
       queue.connection.dispatcher.pause();
-      playerMsg.reactions.resolve(Control.pause)!.users.remove(user.id);
-    } else if (getReaction === Control.stop) {
+      playerMsg.reactions.resolve(Control.PAUSE)!.users.remove(user.id);
+    } else if (getReaction === Control.STOP) {
       queue.connection.disconnect();
-    } else if (getReaction === Control.skip) {
+    } else if (getReaction === Control.SKIP) {
       if (queue.songs.length > 1) {
         queue.songs.shift();
         queue.authors.shift();
         setSong(bot, msg, queue.songs[0], queue.authors[0]);
-        playerMsg.reactions.resolve(Control.skip)!.users.remove(user.id);
+        playerMsg.reactions.resolve(Control.SKIP)!.users.remove(user.id);
       } else return;
     }
   });
