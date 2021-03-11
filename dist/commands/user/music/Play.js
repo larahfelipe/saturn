@@ -8,6 +8,7 @@ const axios_1 = __importDefault(require("axios"));
 const yt_search_1 = __importDefault(require("yt-search"));
 const ytdl_core_1 = __importDefault(require("ytdl-core"));
 const discord_js_1 = require("discord.js");
+const ReactionEventHandler_1 = require("../../../utils/ReactionEventHandler");
 const DropBotQueueConnection_1 = require("../../../utils/DropBotQueueConnection");
 async function run(bot, msg, args) {
     let querySong = args.join(' ');
@@ -59,7 +60,7 @@ async function run(bot, msg, args) {
         }
         else {
             queueExists.songs.push(song);
-            queueExists.author.push(msg.author.id);
+            queueExists.authors.push(msg.author.id);
             bot.queues.set(msg.guild.id, queueExists);
             const embed = new discord_js_1.MessageEmbed();
             embed
@@ -88,7 +89,7 @@ async function setSong(bot, msg, song, msgAuthor) {
         queue = {
             connection: botConnection,
             songs: [song],
-            author: [msgAuthor],
+            authors: [msgAuthor],
             volume: 10,
             dispatcher: null
         };
@@ -102,14 +103,15 @@ async function setSong(bot, msg, song, msgAuthor) {
         embed
             .setAuthor('We hear you 💜', 'https://raw.githubusercontent.com/felpshn/saturn-bot/master/assets/cd.gif')
             .setThumbnail(song.thumbnail)
-            .setDescription(`Now playing **[${song.title}](${song.url})** requested by <@${queue.author[0]}>`)
+            .setDescription(`Now playing **[${song.title}](${song.url})** requested by <@${queue.authors[0]}>`)
             .setFooter(`Song duration: ${song.timestamp}`)
             .setColor('#6E76E5');
-        msg.channel.send({ embed });
+        msg.channel.send({ embed })
+            .then((sentMsg) => { ReactionEventHandler_1.handleMusicControlsReaction(bot, msg, sentMsg); });
         queue.dispatcher.on('finish', () => {
             queue.songs.shift();
-            queue.author.shift();
-            setSong(bot, msg, queue.songs[0], queue.author[0]);
+            queue.authors.shift();
+            setSong(bot, msg, queue.songs[0], queue.authors[0]);
         });
         bot.queues.set(msg.guild.id, queue);
     }

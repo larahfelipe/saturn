@@ -8,14 +8,14 @@ function run(bot, msg, args) {
         return msg.reply('There\'s no song currently playing.');
     if (queueExists.songs.length > 1) {
         queueExists.songs.shift();
-        queueExists.author.shift();
+        queueExists.authors.shift();
         const embed = new discord_js_1.MessageEmbed();
         embed
             .setTitle('⏭  Skip Music')
             .setDescription('Okay! Setting up the next song for you.')
             .setColor('#6E76E5');
         msg.channel.send({ embed });
-        Play_1.setSong(bot, msg, queueExists.songs[0], queueExists.author[0]);
+        Play_1.setSong(bot, msg, queueExists.songs[0], queueExists.authors[0]);
     }
 }
 exports.default = {
