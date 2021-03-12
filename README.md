@@ -27,7 +27,7 @@
 
 ## About
 
-Saturn is a modular multipurpose, user-friendly discord bot, which has a ton of features like server moderation, music function, weather report and many more. All of that together in the most awesome planet in our solar system! xD
+Saturn is a modular multipurpose, user-friendly discord bot, which has a lot of features such as server moderation, music function, weather report and many more, all of that together on the most amazing planet in our solar system!
 
 ### Technologies used
 - [TypeScript](https://www.typescriptlang.org/)
@@ -43,7 +43,7 @@ Saturn is a modular multipurpose, user-friendly discord bot, which has a ton of 
 
 Saturn is a *self-hosted* bot, this means you will need to host and maintain your own instance. For that, you can instantiate at your own machine or you can use a cloud platform to do so. A great cloud platform that I personally use and recommend is [Heroku](https://www.heroku.com/), it's a nice cloud service which offers a great compatibility for apps like this one, and also has a free plan option.
 
-In this step-by-step I will only cover about how you can set Saturn in your own machine. Also, note that each topic in the next sections has a brief explanation in the title saying what we're about to do. With that said, let's move on.
+In this step-by-step I will only cover about how you can set Saturn in your own machine. Also, note that each topic in the next sections has a brief description in the title explaining what we're about to do. With that been said, let's move on.
 
 ### Getting started
 
@@ -65,16 +65,16 @@ touch .env
 npm install
 ```
 
-After setting up all dependencies, find the `.env` file that we just created and open it with some text editor of your choice. 
+After setting up all dependencies, find the `.env` file that we just created and open it with some text editor of your choice.
 
-Now, make sure that you have your own bot token in hands - in case you don't know how to get it, just go at the [Discord developers portal](https://discord.com/developers/) and create a new app. Copy and paste the `.env` template below and replace `HELLO_WORLD` with your token.
+Now, make sure that you have your own bot token in hands — in case you don't know how to get it, just go at the [Discord developers portal](https://discord.com/developers/) and create a new app. Copy and paste the `.env` template below and replace `HELLO_WORLD` with your token.
 
 ```bash
 BOT_PREFIX=.
 BOT_TOKEN=HELLO_WORLD
 ```
 
-As mentioned before, this bot has a weather report function and also supports a MongoDB database linked to it. In case you wanna use these features, you will also need to set in `.env` a OpenWeather API token and your database's connection link.
+As mentioned before, this bot has a weather report function and also supports a MongoDB database linked to it. In case you wanna use these features, you will also need to set in `.env` an OpenWeather API token and your database's connection link.
 
 To get these features working properly, your `.env` file should have this template below with your credentials settled in the `HELLO_WORLD`'s place.
 
@@ -94,7 +94,7 @@ npm run dev
 
 #### We're done!
 
-That's pretty much it, thanks for using Saturn, have fun! Also, don't forget to read the **Additional Info** section for more details about this discord bot project.
+That's pretty much it, thanks for using Saturn and have fun! Also, don't forget to read the **Additional Info** section for more details about this discord bot project.
 
 ## Additional Info
 
