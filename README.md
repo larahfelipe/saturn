@@ -43,7 +43,7 @@ Saturn is a modular multipurpose, user-friendly discord bot, which has a lot of 
 
 Saturn is a *self-hosted* bot, this means you will need to host and maintain your own instance. For that, you can instantiate at your own machine or you can use a cloud platform to do so. A great cloud platform that I personally use and recommend is [Heroku](https://www.heroku.com/), it's a nice cloud service which offers a great compatibility for apps like this one, and also has a free plan option.
 
-In this step-by-step I will only cover about how you can set Saturn in your own machine. Also, note that each topic in the next sections has a brief description in the title explaining what we're about to do. With that been said, let's move on.
+In this step-by-step I will only cover about how you can set Saturn in your own machine. Also, notice that each topic in the next sections has a brief description in the title explaining what we're about to do. With that been said, let's move on.
 
 ### Getting started
 
@@ -85,7 +85,7 @@ DB_ACCESS=HELLO_WORLD
 OPENWEATHER_TOKEN=HELLO_WORLD
 ```
 
-Note that, these are **extra** features! If you don't wanna use them, just follow the first `.env` template introduced in this step-by-step and your bot still will work normally.
+Notice these are **extra** features! If you don't wanna use them, just follow the first `.env` template introduced in this step-by-step and your bot still will work normally.
 
 #### Running
 ```elm
