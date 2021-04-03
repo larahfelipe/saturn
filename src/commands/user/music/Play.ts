@@ -6,7 +6,7 @@ import ytdl from 'ytdl-core';
 import { Message, MessageEmbed, VoiceConnection, StreamDispatcher } from 'discord.js';
 import { Bot } from '../../..';
 
-import { handleMusicControlsReaction } from '../../../utils/ReactionEventHandler';
+import { Reaction } from '../../../utils/ReactionsHandler';
 import { dropBotQueueConnection } from '../../../utils/DropBotQueueConnection';
 
 type Song = VideoMetadataResult | VideoSearchResult;
@@ -129,11 +129,13 @@ export async function setSong (bot: Bot, msg: Message, song: any, msgAuthor: str
       .setColor('#6E76E5');
 
     msg.channel.send({ embed })
-      .then((sentMsg) => { handleMusicControlsReaction(bot, msg, sentMsg) });
+      .then((sentMsg) => { Reaction.handleMusicControls(bot, msg, sentMsg) });
 
     queue.dispatcher.on('finish', () => {
       queue.songs.shift();
       queue.authors.shift();
+      Reaction.handleDeletion(true);
+
       setSong(bot, msg, queue.songs[0], queue.authors[0]);
     });
 

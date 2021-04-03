@@ -1,10 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const FetchMessages_1 = require("../../utils/FetchMessages");
 async function run(bot, msg, args) {
     if (msg.channel.type === 'dm')
         return;
-    let fetchedMessages = await msg.channel.messages.fetch({ limit: 100 });
-    msg.channel.bulkDelete(fetchedMessages);
+    let fetchMsgs = await FetchMessages_1.FetchMessages.firstHundredSent(msg);
+    msg.channel.bulkDelete(fetchMsgs);
 }
 exports.default = {
     name: '.clear',

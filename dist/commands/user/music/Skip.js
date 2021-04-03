@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const discord_js_1 = require("discord.js");
+const ReactionsHandler_1 = require("../../../utils/ReactionsHandler");
 const Play_1 = require("./Play");
 function run(bot, msg, args) {
     const queueExists = bot.queues.get(msg.guild.id);
@@ -9,6 +10,7 @@ function run(bot, msg, args) {
     if (queueExists.songs.length > 1) {
         queueExists.songs.shift();
         queueExists.authors.shift();
+        ReactionsHandler_1.Reaction.handleDeletion(true);
         const embed = new discord_js_1.MessageEmbed();
         embed
             .setTitle('⏭  Skip Music')
