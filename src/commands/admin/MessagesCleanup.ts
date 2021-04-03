@@ -1,11 +1,13 @@
 import { Message } from 'discord.js';
 import { Bot } from '../..';
 
+import { FetchMessages } from '../../utils/FetchMessages';
+
 async function run (bot: Bot, msg: Message, args: string[]) {
   if (msg.channel.type === 'dm') return;
   
-  let fetchedMessages = await msg.channel.messages.fetch({ limit: 100 });
-  msg.channel.bulkDelete(fetchedMessages);
+  let fetchMsgs = await FetchMessages.firstHundredSent(msg);
+  msg.channel.bulkDelete(fetchMsgs);
 }
 
 export default {

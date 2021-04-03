@@ -1,6 +1,7 @@
 import { Message, MessageEmbed } from 'discord.js';
 import { Bot } from '../../..';
 
+import { Reaction } from '../../../utils/ReactionsHandler';
 import { setSong, IQueue } from './Play';
 
 function run (bot: Bot, msg: Message, args: string[]) {
@@ -10,6 +11,7 @@ function run (bot: Bot, msg: Message, args: string[]) {
   if (queueExists.songs.length > 1) {
     queueExists.songs.shift();
     queueExists.authors.shift();
+    Reaction.handleDeletion(true);
 
     const embed = new MessageEmbed();
     embed

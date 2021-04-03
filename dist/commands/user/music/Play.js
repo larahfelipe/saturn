@@ -8,7 +8,7 @@ const axios_1 = __importDefault(require("axios"));
 const yt_search_1 = __importDefault(require("yt-search"));
 const ytdl_core_1 = __importDefault(require("ytdl-core"));
 const discord_js_1 = require("discord.js");
-const ReactionEventHandler_1 = require("../../../utils/ReactionEventHandler");
+const ReactionsHandler_1 = require("../../../utils/ReactionsHandler");
 const DropBotQueueConnection_1 = require("../../../utils/DropBotQueueConnection");
 async function run(bot, msg, args) {
     let querySong = args.join(' ');
@@ -107,10 +107,11 @@ async function setSong(bot, msg, song, msgAuthor) {
             .setFooter(`Song duration: ${song.timestamp}`)
             .setColor('#6E76E5');
         msg.channel.send({ embed })
-            .then((sentMsg) => { ReactionEventHandler_1.handleMusicControlsReaction(bot, msg, sentMsg); });
+            .then((sentMsg) => { ReactionsHandler_1.Reaction.handleMusicControls(bot, msg, sentMsg); });
         queue.dispatcher.on('finish', () => {
             queue.songs.shift();
             queue.authors.shift();
+            ReactionsHandler_1.Reaction.handleDeletion(true);
             setSong(bot, msg, queue.songs[0], queue.authors[0]);
         });
         bot.queues.set(msg.guild.id, queue);
