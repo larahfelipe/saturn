@@ -5,8 +5,16 @@ import { IQueue } from './Play';
 
 function run (bot: Bot, msg: Message, args: string[]) {
   const queueExists: IQueue = bot.queues.get(msg.guild!.id);
-  let concatQueueStr = '';
+  if (!queueExists) {
+    const embed = new MessageEmbed();
+    embed
+      .setAuthor('❌ No queue established on the server!')
+      .setDescription('If you want to play a song type \`.play\` and the name/link of the song in front of it to get the party started! 🥳')
+      .setColor('#6E76E5');
+    return msg.channel.send({ embed });
+  }
 
+  let concatQueueStr = '';
   if (queueExists.songs.length === 1) {
     concatQueueStr = 'Hmm.. Seems like the queue is empty 🤔\nTry add a song!';
   } else {

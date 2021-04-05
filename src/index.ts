@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 
-import { Database } from './utils/Database';
+import { Database } from './utils/DatabaseConnection';
 import { handleMemberAuth } from './services/AuthenticateMemberService';
 
 import Discord, { Message } from 'discord.js';
@@ -58,8 +58,8 @@ bot.on('message', async (msg: Message) => {
   } catch (err) {
     console.error(err);
     embed
-      .setAuthor('🤖 Error 404: Command not found!')
-      .setDescription('If you need help with commands type **\`.help\`**')
+      .setAuthor('❌ Whoops, a wild error appeared!')
+      .setDescription('**Why I\'m seeing this?!** 🤔\n\nYou probably have a typo in your command\'s message or you currently don\'t have permission to execute this command.\n\nYou can get a full commands list by typing **\`.help\`**')
       .setColor('#6E76E5');
     msg.channel.send({ embed });
   }
