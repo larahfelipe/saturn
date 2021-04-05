@@ -5,7 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Bot = void 0;
 const dotenv_1 = __importDefault(require("dotenv"));
-const Database_1 = require("./utils/Database");
+const DatabaseConnection_1 = require("./utils/DatabaseConnection");
 const AuthenticateMemberService_1 = require("./services/AuthenticateMemberService");
 const discord_js_1 = __importDefault(require("discord.js"));
 const CommandsHandler_1 = require("./utils/CommandsHandler");
@@ -16,8 +16,8 @@ if (!prefix || !process.env.BOT_TOKEN)
 let hasDBConnection = false;
 if (process.env.DB_ACCESS) {
     console.log('\n[Saturn] Requesting access to database ...\n');
-    Database_1.Database.setConnection();
-    hasDBConnection = Database_1.Database.isConnected;
+    DatabaseConnection_1.Database.setConnection();
+    hasDBConnection = DatabaseConnection_1.Database.isConnected;
 }
 class Bot extends discord_js_1.default.Client {
 }
@@ -57,8 +57,8 @@ bot.on('message', async (msg) => {
     catch (err) {
         console.error(err);
         embed
-            .setAuthor('🤖 Error 404: Command not found!')
-            .setDescription('If you need help with commands type **\`.help\`**')
+            .setAuthor('❌ Whoops, a wild error appeared!')
+            .setDescription('**Why I\'m seeing this?!** 🤔\n\nYou probably have a typo in your command\'s message or you currently don\'t have permission to execute this command.\n\nYou can get a full commands list by typing **\`.help\`**')
             .setColor('#6E76E5');
         msg.channel.send({ embed });
     }

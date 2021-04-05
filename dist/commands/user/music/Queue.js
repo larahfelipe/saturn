@@ -3,6 +3,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const discord_js_1 = require("discord.js");
 function run(bot, msg, args) {
     const queueExists = bot.queues.get(msg.guild.id);
+    if (!queueExists) {
+        const embed = new discord_js_1.MessageEmbed();
+        embed
+            .setAuthor('❌ No queue established on the server!')
+            .setDescription('If you want to play a song type \`.play\` and the name/link of the song in front of it to get the party started! 🥳')
+            .setColor('#6E76E5');
+        return msg.channel.send({ embed });
+    }
     let concatQueueStr = '';
     if (queueExists.songs.length === 1) {
         concatQueueStr = 'Hmm.. Seems like the queue is empty 🤔\nTry add a song!';
