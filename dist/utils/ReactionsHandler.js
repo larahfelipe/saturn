@@ -54,6 +54,7 @@ class Reaction {
             }
             else if (getReaction === Control.STOP) {
                 queue.connection.disconnect();
+                bot.queues.delete(msg.guild.id);
             }
             else if (getReaction === Control.SKIP) {
                 if (queue.songs.length > 1) {
