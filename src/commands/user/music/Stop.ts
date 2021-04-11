@@ -1,6 +1,7 @@
 import { Message, MessageEmbed } from 'discord.js';
 import { Bot } from '../../..';
 
+import { Reaction } from '../../../utils/ReactionsHandler';
 import { IQueue } from './Play';
 
 function run (bot: Bot, msg: Message, args: string[]) {
@@ -16,6 +17,7 @@ function run (bot: Bot, msg: Message, args: string[]) {
 
   queueExists.connection.disconnect();
   bot.queues.delete(msg.guild!.id);
+  Reaction.handleDeletion(true);
 }
 
 export default {
