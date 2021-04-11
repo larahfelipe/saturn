@@ -72,11 +72,14 @@ export class Reaction {
       } else if (getReaction === Control.STOP) {
         queue.connection.disconnect();
         bot.queues.delete(msg.guild!.id);
+        setTimeout(() => {
+          this.handleDeletion(true);
+        }, 5000);
       } else if (getReaction === Control.SKIP) {
         if (queue.songs.length > 1) {
           queue.songs.shift();
           queue.authors.shift();
-          this.handleDeletion(false, Control.SKIP, user.id);
+          this.handleDeletion(true);
           
           setSong(bot, msg, queue.songs[0], queue.authors[0]);
         } else return;

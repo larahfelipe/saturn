@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const discord_js_1 = require("discord.js");
+const ReactionsHandler_1 = require("../../../utils/ReactionsHandler");
 function run(bot, msg, args) {
     const queueExists = bot.queues.get(msg.guild.id);
     if (!queueExists)
@@ -13,6 +14,7 @@ function run(bot, msg, args) {
     msg.channel.send({ embed });
     queueExists.connection.disconnect();
     bot.queues.delete(msg.guild.id);
+    ReactionsHandler_1.Reaction.handleDeletion(true);
 }
 exports.default = {
     name: '.stop',
