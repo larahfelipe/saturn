@@ -35,7 +35,7 @@ function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: '.queue',
+  name: `${process.env.BOT_PREFIX}queue`,
   help: 'Shows the server\'s music queue',
   permissionLvl: 0,
   run

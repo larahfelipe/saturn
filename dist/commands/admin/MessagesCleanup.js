@@ -8,7 +8,7 @@ async function run(bot, msg, args) {
     msg.channel.bulkDelete(fetchMsgs);
 }
 exports.default = {
-    name: '.clear',
+    name: `${process.env.BOT_PREFIX}clear`,
     help: 'Cleans the messages in the current text channel',
     permissionLvl: 1,
     run

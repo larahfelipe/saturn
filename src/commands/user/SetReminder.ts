@@ -35,7 +35,7 @@ function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: '.remind',
+  name: `${process.env.BOT_PREFIX}remind`,
   help: 'Reminds you about whatever you want',
   permissionLvl: 0,
   run

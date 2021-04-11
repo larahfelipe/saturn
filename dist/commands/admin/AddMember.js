@@ -24,7 +24,7 @@ async function run(bot, msg, args) {
     }
 }
 exports.default = {
-    name: '.add',
+    name: `${process.env.BOT_PREFIX}add`,
     help: 'Adds a new member to the database',
     permissionLvl: 1,
     run

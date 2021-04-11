@@ -8,7 +8,7 @@ async function run(bot, msg, args) {
     queueExists.connection.dispatcher.resume();
 }
 exports.default = {
-    name: '.resume',
+    name: `${process.env.BOT_PREFIX}resume`,
     help: 'Resumes the current song',
     permissionLvl: 0,
     run

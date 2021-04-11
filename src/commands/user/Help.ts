@@ -29,7 +29,7 @@ function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: '.help',
+  name: `${process.env.BOT_PREFIX}help`,
   help: 'Commands help',
   permissionLvl: 0,
   run

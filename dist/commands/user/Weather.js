@@ -40,7 +40,7 @@ async function run(bot, msg, args) {
     });
 }
 exports.default = {
-    name: '.weather',
+    name: `${process.env.BOT_PREFIX}weather`,
     help: 'Gets the weather of the location that you want',
     permissionLvl: 0,
     run

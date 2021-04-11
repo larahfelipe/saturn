@@ -21,7 +21,7 @@ function run(bot, msg, args) {
     }
 }
 exports.default = {
-    name: '.skip',
+    name: `${process.env.BOT_PREFIX}skip`,
     help: 'Skips the current song',
     permissionLvl: 0,
     run

@@ -6,7 +6,7 @@ function run(bot, msg, args) {
     msg.channel.send(messageCapitalized);
 }
 exports.default = {
-    name: '.say',
+    name: `${process.env.BOT_PREFIX}say`,
     help: 'Repeats what user says',
     permissionLvl: 0,
     run

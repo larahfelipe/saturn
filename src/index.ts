@@ -59,7 +59,7 @@ bot.on('message', async (msg: Message) => {
     console.error(err);
     embed
       .setAuthor('❌ Whoops, a wild error appeared!')
-      .setDescription('**Why I\'m seeing this?!** 🤔\n\nYou probably have a typo in your command\'s message or you currently don\'t have permission to execute this command.\n\nYou can get a full commands list by typing **\`.help\`**')
+      .setDescription(`**Why I\'m seeing this?!** 🤔\n\nYou probably have a typo in your command\'s message or you currently don\'t have permission to execute this command.\n\nYou can get a full commands list by typing **\`${prefix}help\`**`)
       .setColor('#6E76E5');
     msg.channel.send({ embed });
   }

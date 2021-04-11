@@ -9,7 +9,7 @@ function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: '.say',
+  name: `${process.env.BOT_PREFIX}say`,
   help: 'Repeats what user says',
   permissionLvl: 0,
   run

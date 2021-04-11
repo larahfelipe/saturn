@@ -12,7 +12,7 @@ async function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: '.resume',
+  name: `${process.env.BOT_PREFIX}resume`,
   help: 'Resumes the current song',
   permissionLvl: 0,
   run

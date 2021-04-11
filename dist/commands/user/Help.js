@@ -27,7 +27,7 @@ function run(bot, msg, args) {
     msg.channel.send({ embed });
 }
 exports.default = {
-    name: '.help',
+    name: `${process.env.BOT_PREFIX}help`,
     help: 'Commands help',
     permissionLvl: 0,
     run

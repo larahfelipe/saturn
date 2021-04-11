@@ -6,7 +6,7 @@ async function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: '.leave',
+  name: `${process.env.BOT_PREFIX}leave`,
   help: 'Leaves the server',
   permissionLvl: 2,
   run

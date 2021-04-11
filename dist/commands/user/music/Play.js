@@ -123,7 +123,7 @@ async function setSong(bot, msg, song, msgAuthor) {
 }
 exports.setSong = setSong;
 exports.default = {
-    name: '.play',
+    name: `${process.env.BOT_PREFIX}play`,
     help: 'Plays song from YouTube or Spotify',
     permissionLvl: 0,
     run

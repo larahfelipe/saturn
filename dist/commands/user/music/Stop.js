@@ -17,7 +17,7 @@ function run(bot, msg, args) {
     ReactionsHandler_1.Reaction.handleDeletion(true);
 }
 exports.default = {
-    name: '.stop',
+    name: `${process.env.BOT_PREFIX}stop`,
     help: 'Stops the music function',
     permissionLvl: 0,
     run
