@@ -6,7 +6,7 @@
 
 <p align="center">
     <a href="https://github.com/felpshn/saturn-bot/releases">
-        <img src="https://img.shields.io/badge/version-2.0-lightgrey">
+        <img src="https://img.shields.io/badge/version-2.x-lightgrey">
     </a>
     <a href="https://www.typescriptlang.org/">
         <img src="https://img.shields.io/badge/built%20with-TypeScript-blue">
@@ -67,11 +67,11 @@ npm install
 
 After setting up all dependencies, find the `.env` file that we just created and open it with some text editor of your choice.
 
-Now, make sure that you have your own bot token in hands — in case you don't know how to get it, just go at the [Discord developers portal](https://discord.com/developers/) and create a new app. Copy and paste the `.env` template below and replace `HELLO_WORLD` with your token.
+Now, make sure that you have your own bot token in hands — in case you don't know how to get it, just go at the [Discord developers portal](https://discord.com/developers/) and create a new app. Copy and paste the `.env` template below and replace `HELLO_WORLD` with your token and a prefix of your choice (e.g: !, +, .).
 
 ```bash
-BOT_PREFIX=.
 BOT_TOKEN=HELLO_WORLD
+BOT_PREFIX=HELLO_WORLD
 ```
 
 As mentioned before, this bot has a weather report function and also supports a MongoDB database linked to it. In case you wanna use these features, you will also need to set in `.env` an OpenWeather API token and your database's connection link.
@@ -79,10 +79,10 @@ As mentioned before, this bot has a weather report function and also supports a 
 To get these features working properly, your `.env` file should have this template below with your credentials settled in the `HELLO_WORLD`'s place.
 
 ```bash
-BOT_PREFIX=.
 BOT_TOKEN=HELLO_WORLD
 DB_ACCESS=HELLO_WORLD
 OPENWEATHER_TOKEN=HELLO_WORLD
+BOT_PREFIX=HELLO_WORLD
 ```
 
 Notice these are **extra** features! If you don't wanna use them, just follow the first `.env` template introduced in this step-by-step and your bot still will work normally.
