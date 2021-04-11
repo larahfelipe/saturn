@@ -12,7 +12,7 @@ async function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: '.pause',
+  name: `${process.env.BOT_PREFIX}pause`,
   help: 'Pauses the current song',
   permissionLvl: 0,
   run

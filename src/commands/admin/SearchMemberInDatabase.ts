@@ -17,7 +17,7 @@ async function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: '.find',
+  name: `${process.env.BOT_PREFIX}find`,
   help: 'Searches a member in database',
   permissionLvl: 1,
   run

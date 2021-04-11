@@ -40,7 +40,7 @@ async function run (bot: Bot, msg: Message, args: number) {
 }
 
 export default {
-  name: '.reboot',
+  name: `${process.env.BOT_PREFIX}restart`,
   help: 'Restarts the bot',
   permissionLvl: 2,
   run

@@ -24,7 +24,7 @@ async function run(bot, msg, args) {
     }
 }
 exports.default = {
-    name: '.del',
+    name: `${process.env.BOT_PREFIX}del`,
     help: 'Deletes a member from database',
     permissionLvl: 1,
     run

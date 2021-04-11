@@ -16,7 +16,7 @@ async function run(bot, msg, args) {
     msg.channel.send({ embed });
 }
 exports.default = {
-    name: '.server',
+    name: `${process.env.BOT_PREFIX}server`,
     help: 'Displays server information',
     permissionLvl: 1,
     run

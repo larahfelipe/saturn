@@ -8,7 +8,7 @@ async function run(bot, msg, args) {
     queueExists.connection.dispatcher.pause();
 }
 exports.default = {
-    name: '.pause',
+    name: `${process.env.BOT_PREFIX}pause`,
     help: 'Pauses the current song',
     permissionLvl: 0,
     run

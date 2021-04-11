@@ -30,7 +30,7 @@ function run(bot, msg, args) {
     }, numberTimestamp);
 }
 exports.default = {
-    name: '.remind',
+    name: `${process.env.BOT_PREFIX}remind`,
     help: 'Reminds you about whatever you want',
     permissionLvl: 0,
     run

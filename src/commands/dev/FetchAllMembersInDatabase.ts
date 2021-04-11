@@ -24,7 +24,7 @@ async function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: '.findall',
+  name: `${process.env.BOT_PREFIX}findall`,
   help: 'List all members in database',
   permissionLvl: 2,
   run

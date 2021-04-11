@@ -21,7 +21,7 @@ function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: '.stop',
+  name: `${process.env.BOT_PREFIX}stop`,
   help: 'Stops the music function',
   permissionLvl: 0,
   run

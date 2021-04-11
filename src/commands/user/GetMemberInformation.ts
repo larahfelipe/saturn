@@ -17,7 +17,7 @@ function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: '.profile',
+  name: `${process.env.BOT_PREFIX}profile`,
   help: 'Shows your profile information',
   permissionLvl: 0,
   run

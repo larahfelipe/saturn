@@ -25,7 +25,7 @@ async function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: '.unsetadmin',
+  name: `${process.env.BOT_PREFIX}unsetadmin`,
   help: 'Unsets a member as server administrator',
   permissionLvl: 1,
   run

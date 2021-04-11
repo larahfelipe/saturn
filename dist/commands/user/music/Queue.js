@@ -32,7 +32,7 @@ function run(bot, msg, args) {
     msg.channel.send({ embed });
 }
 exports.default = {
-    name: '.queue',
+    name: `${process.env.BOT_PREFIX}queue`,
     help: 'Shows the server\'s music queue',
     permissionLvl: 0,
     run

@@ -18,7 +18,7 @@ async function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: '.server',
+  name: `${process.env.BOT_PREFIX}server`,
   help: 'Displays server information',
   permissionLvl: 1,
   run
