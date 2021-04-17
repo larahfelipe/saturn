@@ -6,6 +6,7 @@ import ytdl from 'ytdl-core';
 import { Message, MessageEmbed, VoiceConnection, StreamDispatcher } from 'discord.js';
 import { Bot } from '../../..';
 
+import { formatSecondsToTime } from '../../../utils/FormatSecondsToTime';
 import { Reaction } from '../../../utils/ReactionsHandler';
 import { dropBotQueueConnection } from '../../../utils/DropBotQueueConnection';
 
@@ -24,45 +25,119 @@ export interface IQueue {
   dispatcher: StreamDispatcher | null;
 }
 
-async function run (bot: Bot, msg: Message, args: string[]) {
-  let querySong = args.join(' ');
-  let song: Song;
-  try {
-    if (ytdl.validateURL(querySong)) {
-      song = await yts({ videoId: ytdl.getURLVideoID(querySong) });
-      handlePlaySong();
-    } else {
-      if (querySong.startsWith('https://open.spotify.com/track/')) {
-        await axios
-          .get(querySong)
-          .then(({ data }: AxiosResponse<string>) => {
-            const htmlData = data;
-            querySong = htmlData.substring(htmlData.indexOf('<ti') + 7, htmlData.indexOf('|') - 1);
-          })
-          .catch((err: AxiosError) => {
-            console.log('Error search');
-            throw err;
-          });
+interface ISpotifyPlaylist {
+  name: string;
+  owner: {
+    display_name: string;
+  }
+  images: [{
+    url: string;
+  }]
+  tracks: {
+    items: [{
+      track: {
+        name: string;
+        duration_ms: number;
+        album: {
+          artists: [{
+            name: string;
+          }]
+        }
       }
+    }]
+  }
+}
 
-      yts(querySong, (err: SearchError, res: SearchResult) => {
-        if (err) return console.error(err);
+async function run (bot: Bot, msg: Message, args: string[]) {
+  if (!args) return msg.reply('You need to give me a song to play it!');
 
+  let requestedSong = args.join(' ');
+  let spotifyPlaylistTracks: string[] = [];
+  let spotifyPlaylistDuration = 0;
+  let song: Song;
+
+  try {
+    if (ytdl.validateURL(requestedSong)) {
+      song = await yts({ videoId: ytdl.getURLVideoID(requestedSong) });
+      return handlePlaySong(true);
+    } else if (requestedSong.startsWith('https://open.spotify.com/')) {
+      await axios
+        .get(requestedSong)
+        .then(({ data }: AxiosResponse<string>) => {
+          let contextSelector: string;
+          if (requestedSong.charAt(25) === 't') {
+            contextSelector = data.substring(data.indexOf('<ti') + 7, data.indexOf('|') - 1);
+            requestedSong = contextSelector;
+
+          } else if (requestedSong.charAt(25) === 'p') {
+            contextSelector = data.substring(data.indexOf('Spotify.Entity') + 17, data.indexOf('"available_markets"') - 1) + '}';
+            const spotifyPlaylist: ISpotifyPlaylist = JSON.parse(contextSelector);
+            spotifyPlaylistTracks = spotifyPlaylist.tracks.items.map(song => {
+              spotifyPlaylistDuration += song.track.duration_ms;
+              return `${song.track.name} - ${song.track.album.artists[0].name}`;
+            });
+
+            const embed = new MessageEmbed();
+            embed
+              .setAuthor(`"${spotifyPlaylist.name}"\nSpotify playlist by ${spotifyPlaylist.owner.display_name}`)
+              .setDescription(`\n• Total playlist tracks: \`${spotifyPlaylist.tracks.items.length}\`\n• Playlist duration: \`${formatSecondsToTime(spotifyPlaylistDuration / 1000)}\``)
+              .setThumbnail(spotifyPlaylist.images[0].url)
+              .setTimestamp(Date.now())
+              .setFooter('Spotify | Music for everyone')
+              .setColor('#6E76E5');
+            msg.channel.send({ embed });
+          } else throw new Error('Invalid URL');
+        })
+        .catch((err: AxiosError) => console.error(err));
+    }
+
+    if (spotifyPlaylistTracks.length > 0) {
+      const playlistTracks = new Map<number, Song>();
+
+      spotifyPlaylistTracks.map((track, index) => {
+        yts(track, (err: SearchError, res: SearchResult) => {
+          if (err) throw err;
+          if (res && res.videos.length > 0) {
+            playlistTracks.set(index, res.videos[0]);
+          }
+        });
+      });
+
+      const embed = new MessageEmbed();
+      embed
+        .setTitle('Gotcha!, loading playlist songs ... ⏳')
+        .setDescription('I\'ll join the party in 1 minute, please wait')
+        .setColor('#6E76E5');
+      msg.channel.send({ embed });
+
+      setTimeout(() => {
+        song = <Song>playlistTracks.get(0);
+        handlePlaySong();
+        playlistTracks.delete(0);
+
+        for (let [index] of playlistTracks) {
+          setTimeout(() => {
+            song = <Song>playlistTracks.get(index);
+            handlePlaySong();
+          }, 5000);
+        }
+      }, 60000);
+    } else {
+      yts(requestedSong, (err: SearchError, res: SearchResult) => {
+        if (err) throw err;
         if (res && res.videos.length > 0) {
           song = res.videos[0];
-          handlePlaySong();
+          handlePlaySong(true);
         } else return msg.reply('Sorry!, I couldn\'t find any song related to your search.');
       });
     }
   } catch (err) {
     console.error(err);
-    msg.reply('You need to give me a song in order to play it!');
   }
 
-
-  function handlePlaySong() {
-    const queueExists = bot.queues.get(msg.guild!.id);
-    if (!queueExists) {
+  function handlePlaySong (sendQueueNotifMsg = false) {
+    const queue: IQueue = bot.queues.get(msg.guild!.id);
+    if (!queue) {
       setSong(bot, msg, song, msg.author.id);
 
       const embed = new MessageEmbed();
@@ -72,18 +147,20 @@ async function run (bot: Bot, msg: Message, args: string[]) {
         .setColor('#6E76E5');
       msg.channel.send({ embed });
     } else {
-      queueExists.songs.push(song);
-      queueExists.authors.push(msg.author.id);
-      bot.queues.set(msg.guild!.id, queueExists);
+      queue.songs.push(song);
+      queue.authors.push(msg.author.id);
+      bot.queues.set(msg.guild!.id, queue);
 
-      const embed = new MessageEmbed();
-      embed
-        .setTitle('📃  Queue')
-        .setDescription(`Got it! [${song.title}](${song.url}) was added to the queue and his current position is \`${queueExists.songs.indexOf(song)}\`.\n\nYou can see the guild's queue anytime using \`.queue\``)
-        .setFooter(`Added by ${msg.author.username}`, msg.author.displayAvatarURL())
-        .setTimestamp(new Date())
-        .setColor('#6E76E5');
-      msg.channel.send({ embed });
+      if (sendQueueNotifMsg) {
+        const embed = new MessageEmbed();
+        embed
+          .setTitle('📃  Queue')
+          .setDescription(`Got it! [${song.title}](${song.url}) was added to the queue and his current position is \`${queue.songs.indexOf(song)}\`.\n\nYou can see the guild's queue anytime using \`.queue\``)
+          .setFooter(`Added by ${msg.author.username}`, msg.author.displayAvatarURL())
+          .setTimestamp(new Date())
+          .setColor('#6E76E5');
+        msg.channel.send({ embed });
+      }
     }
   }
 }
@@ -98,7 +175,7 @@ export async function setSong (bot: Bot, msg: Message, song: any, msgAuthor: str
     }
   }
 
-  if (!msg.member?.voice.channel) return msg.reply('You need to be in a voice channel in order to play a song!');
+  if (!msg.member?.voice.channel) return msg.reply('You need to be in a voice channel to play a song!');
 
   if (!queue) {
     const botConnection = await msg.member.voice.channel.join();

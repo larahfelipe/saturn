@@ -11,7 +11,7 @@ async function run(bot, msg, args) {
     embed
         .setAuthor(`SATURN Database Manager`, (_b = bot.user) === null || _b === void 0 ? void 0 : _b.avatarURL())
         .setDescription(`**» ${targetMember} REGISTRY HAS BEEN UPDATED.**\n*Database was updated at ${msg.createdAt}.*`)
-        .setTimestamp(new Date())
+        .setTimestamp(Date.now())
         .setFooter('MongoDB', 'https://pbs.twimg.com/profile_images/1234528105819189248/b6F1hk_6_400x400.jpg')
         .setColor('#6E76E5');
     try {

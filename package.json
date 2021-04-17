@@ -19,14 +19,14 @@
   },
   "homepage": "https://github.com/felpshn/saturn-bot#readme",
   "dependencies": {
-    "@discordjs/opus": "^0.4.0",
+    "@discordjs/opus": "^0.5.0",
     "axios": "^0.21.1",
-    "discord.js": "^12.5.1",
+    "discord.js": "^12.5.3",
     "dotenv": "^8.2.0",
     "ffmpeg": "0.0.4",
     "fluent-ffmpeg": "^2.1.2",
-    "mongoose": "^5.11.19",
-    "yt-search": "^2.7.3",
+    "mongoose": "^5.12.5",
+    "yt-search": "^2.8.0",
     "ytdl-core": "^4.5.0"
   },
   "devDependencies": {
