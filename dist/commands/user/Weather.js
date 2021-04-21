@@ -29,7 +29,7 @@ async function run(bot, msg, args) {
             .addField('Current Temperature', `• ${currentTemp} ºC, Feels like ${tempFeelsLike} ºC`)
             .addField('Min & Max Temperatures', `• ${minTemp} ºC, ${maxTemp} ºC`)
             .addField('Humidity & Wind Speed', `• ${humidityPercentage}%, ${windSpeed} km/h`)
-            .setTimestamp(new Date())
+            .setTimestamp(Date.now())
             .setFooter('OpenWeather', 'https://openweathermap.org/themes/openweathermap/assets/img/mobile_app/android_icon.png')
             .setColor('#6E76E5');
         msg.channel.send({ embed });
