@@ -17,7 +17,7 @@ function run (bot: Bot, msg: Message, args: string[]) {
     .addField('Bot Status', `• Currently **ONLINE** and listening commands on **"${msg.guild!.name}"** server`)
     .addField('Host Status', `• OS: ${hostInformation}\n• Uptime: ${formatSecondsToTime(uptime())}\n• Memory Usage: ${memoryUsage.toFixed(2)} MB (${(memoryUsage * 100 / 512).toFixed(2)}%)\n• Discord API Latency: ${bot.ws.ping} ms`)
     .addField('Source', '• [GitHub | Where the world builds software](https://github.com/felpshn/saturn-bot)')
-    .setTimestamp(new Date())
+    .setTimestamp(Date.now())
     .setFooter(`Discord Inc. — version ${discordVersion}`, 'https://discord.com/assets/2c21aeda16de354ba5334551a883b481.png')
     .setColor('#6E76E5');
   msg.channel.send({ embed });
