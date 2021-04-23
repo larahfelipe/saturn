@@ -32,7 +32,7 @@ bot.once('ready', () => {
 });
 bot.on('message', async (msg) => {
     var _a, _b;
-    (_a = bot.user) === null || _a === void 0 ? void 0 : _a.setActivity('.help');
+    (_a = bot.user) === null || _a === void 0 ? void 0 : _a.setActivity(`${prefix}help`);
     if (!msg.content.startsWith(prefix) || msg.author.bot)
         return;
     const args = msg.content.slice(prefix.length).trim().split(/ +/);

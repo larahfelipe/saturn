@@ -34,7 +34,7 @@ bot.once('ready', () => {
 });
 
 bot.on('message', async (msg: Message) => {
-  bot.user?.setActivity('.help');
+  bot.user?.setActivity(`${prefix}help`);
 
   if (!msg.content.startsWith(prefix) || msg.author.bot) return;
 
