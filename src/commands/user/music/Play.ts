@@ -92,13 +92,13 @@ async function run (bot: Bot, msg: Message, args: string[]) {
     }
 
     if (spotifyPlaylistTracks.length > 0) {
-      const playlistTracks: Song[] = [];
+      const playlistTracks = new Map<number, Song>();
 
-      spotifyPlaylistTracks.forEach(track => {
+      spotifyPlaylistTracks.map((track, index) => {
         yts(track, (err: SearchError, res: SearchResult) => {
           if (err) throw err;
           if (res && res.videos.length > 0) {
-            playlistTracks.push(res.videos[0]);
+            playlistTracks.set(index, res.videos[0]);
           }
         });
       });
@@ -111,16 +111,16 @@ async function run (bot: Bot, msg: Message, args: string[]) {
       msg.channel.send({ embed });
 
       setTimeout(() => {
-        song = playlistTracks[0];
-        handlePlaySong(false);
-        playlistTracks.shift();
+        song = <Song>playlistTracks.get(0);
+        handlePlaySong();
+        playlistTracks.delete(0);
 
-        playlistTracks.forEach(track => {
+        for (let [index] of playlistTracks) {
           setTimeout(() => {
-            song = track;
-            handlePlaySong(false);
+            song = <Song>playlistTracks.get(index);
+            handlePlaySong();
           }, 5000);
-        });
+        }
       }, 60000);
     } else {
       yts(requestedSong, (err: SearchError, res: SearchResult) => {
@@ -135,7 +135,7 @@ async function run (bot: Bot, msg: Message, args: string[]) {
     console.error(err);
   }
 
-  function handlePlaySong(sendQueueNotifMsg: boolean) {
+  function handlePlaySong (sendQueueNotifMsg = false) {
     const queue: IQueue = bot.queues.get(msg.guild!.id);
     if (!queue) {
       setSong(bot, msg, song, msg.author.id);

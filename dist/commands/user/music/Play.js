@@ -55,13 +55,13 @@ async function run(bot, msg, args) {
                 .catch((err) => console.error(err));
         }
         if (spotifyPlaylistTracks.length > 0) {
-            const playlistTracks = [];
-            spotifyPlaylistTracks.forEach(track => {
+            const playlistTracks = new Map();
+            spotifyPlaylistTracks.map((track, index) => {
                 yt_search_1.default(track, (err, res) => {
                     if (err)
                         throw err;
                     if (res && res.videos.length > 0) {
-                        playlistTracks.push(res.videos[0]);
+                        playlistTracks.set(index, res.videos[0]);
                     }
                 });
             });
@@ -72,15 +72,15 @@ async function run(bot, msg, args) {
                 .setColor('#6E76E5');
             msg.channel.send({ embed });
             setTimeout(() => {
-                song = playlistTracks[0];
-                handlePlaySong(false);
-                playlistTracks.shift();
-                playlistTracks.forEach(track => {
+                song = playlistTracks.get(0);
+                handlePlaySong();
+                playlistTracks.delete(0);
+                for (let [index] of playlistTracks) {
                     setTimeout(() => {
-                        song = track;
-                        handlePlaySong(false);
+                        song = playlistTracks.get(index);
+                        handlePlaySong();
                     }, 5000);
-                });
+                }
             }, 60000);
         }
         else {
@@ -99,7 +99,7 @@ async function run(bot, msg, args) {
     catch (err) {
         console.error(err);
     }
-    function handlePlaySong(sendQueueNotifMsg) {
+    function handlePlaySong(sendQueueNotifMsg = false) {
         const queue = bot.queues.get(msg.guild.id);
         if (!queue) {
             setSong(bot, msg, song, msg.author.id);
