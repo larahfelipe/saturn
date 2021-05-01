@@ -1,17 +1,8 @@
-import { Message, ReactionCollector } from 'discord.js';
+import { Message } from 'discord.js';
 import { Bot } from '..';
 
-import { setSong, IQueue } from '../commands/user/music/Play';
-
-interface IReaction extends ReactionCollector {
-  emoji: {
-    name: string;
-  }
-}
-
-interface IUser {
-  id: string;
-}
+import { IReaction, IUser, IQueue } from '../types';
+import { setSong } from '../commands/user/music/Play';
 
 enum Control {
   PLAY = '▶️',

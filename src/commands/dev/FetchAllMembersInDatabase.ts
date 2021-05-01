@@ -1,7 +1,8 @@
 import { Message, MessageEmbed } from "discord.js"
 import { Bot } from "../.."
 
-import { IMemberSimplified, handleFetchAllMembers } from '../../services/FetchMemberService';
+import { IMemberSimplified } from '../../types';
+import { handleFetchAllMembers } from '../../services/FetchMemberService';
 
 async function run (bot: Bot, msg: Message, args: string[]) {
   try {

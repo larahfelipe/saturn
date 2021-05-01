@@ -1,11 +1,6 @@
-import mongoose, { Document } from 'mongoose';
+import mongoose from 'mongoose';
 
-interface IMember extends Document {
-  _id: string;
-  username: string;
-  roleLvl: number;
-  time: string;
-}
+import { IMember } from '../types';
 
 const MemberSchema = new mongoose.Schema({
   _id: mongoose.Schema.Types.ObjectId,
