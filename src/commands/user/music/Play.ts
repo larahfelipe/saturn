@@ -1,52 +1,15 @@
 import axios, { AxiosError, AxiosResponse } from 'axios';
 
-import yts, { SearchResult, VideoMetadataResult, VideoSearchResult } from 'yt-search';
+import yts, { SearchResult } from 'yt-search';
 import ytdl from 'ytdl-core';
 
-import { Message, MessageEmbed, VoiceConnection, StreamDispatcher } from 'discord.js';
+import { Message, MessageEmbed } from 'discord.js';
 import { Bot } from '../../..';
 
+import { Song, SearchError, IQueue, ISpotifyPlaylist } from '../../../types';
 import { formatSecondsToTime } from '../../../utils/FormatSecondsToTime';
 import { Reaction } from '../../../utils/ReactionsHandler';
 import { dropBotQueueConnection } from '../../../utils/DropBotQueueConnection';
-
-type Song = VideoMetadataResult | VideoSearchResult;
-type SearchError = Error | string | null | undefined;
-
-export interface IQueue {
-  connection: VoiceConnection;
-  songs: [{
-    title: string;
-    timestamp: string;
-    seconds: number;
-  }];
-  authors: string[];
-  volume: number;
-  dispatcher: StreamDispatcher | null;
-}
-
-interface ISpotifyPlaylist {
-  name: string;
-  owner: {
-    display_name: string;
-  }
-  images: [{
-    url: string;
-  }]
-  tracks: {
-    items: [{
-      track: {
-        name: string;
-        duration_ms: number;
-        album: {
-          artists: [{
-            name: string;
-          }]
-        }
-      }
-    }]
-  }
-}
 
 async function run (bot: Bot, msg: Message, args: string[]) {
   if (!args) return msg.reply('You need to give me a song to play it!');

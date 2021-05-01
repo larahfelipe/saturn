@@ -1,24 +1,8 @@
 import { Message, MessageEmbed } from 'discord.js';
 import { Bot } from '../..';
 
+import { ILocationData } from '../../types';
 import axios, { AxiosError, AxiosResponse } from 'axios';
-
-interface ILocationData {
-  name: string;
-  sys: {
-    country: string;
-  }
-  weather: [{
-    icon: string;
-    description: string;
-  }]
-  main: {
-    [prop: string]: number;
-  }
-  wind: {
-    speed: number;
-  }
-}
 
 async function run (bot: Bot, msg: Message, args: string[]) {
   if (!process.env.OPENWEATHER_TOKEN) return msg.reply('OpenWeather token not settled.');
