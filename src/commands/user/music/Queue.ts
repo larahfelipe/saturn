@@ -1,7 +1,7 @@
 import { Message, MessageEmbed } from 'discord.js';
 import { Bot } from '../../..';
 
-import { IQueue } from './Play';
+import { IQueue } from '../../../types';
 
 function run (bot: Bot, msg: Message, args: string[]) {
   const queueExists: IQueue = bot.queues.get(msg.guild!.id);

@@ -1,11 +1,7 @@
 import { GuildMember } from 'discord.js';
 
 import { Member } from '../models/Member';
-
-export interface IMemberSimplified {
-  username: string;
-  roleLvl: number;
-}
+import { IMemberSimplified } from '../types';
 
 async function handleMemberSearch (member: GuildMember): Promise<IMemberSimplified> {
   const memberExists = await Member.findOne({ userID: member.id });

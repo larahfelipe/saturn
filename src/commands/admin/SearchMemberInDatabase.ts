@@ -1,7 +1,8 @@
 import { Message } from 'discord.js';
 import { Bot } from '../..';
 
-import { IMemberSimplified, handleMemberSearch } from '../../services/FetchMemberService';
+import { IMemberSimplified } from '../../types';
+import { handleMemberSearch } from '../../services/FetchMemberService';
 
 async function run (bot: Bot, msg: Message, args: string[]) {
   const targetMember = msg.mentions.members?.first();
