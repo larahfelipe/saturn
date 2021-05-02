@@ -1,7 +1,7 @@
 import { Message } from 'discord.js';
 import { Bot } from '../..';
 
-import { IMemberSimplified } from '../../types';
+import { IMemberEssentials } from '../../types';
 import { handleMemberSearch } from '../../services/FetchMemberService';
 
 async function run (bot: Bot, msg: Message, args: string[]) {
@@ -9,7 +9,7 @@ async function run (bot: Bot, msg: Message, args: string[]) {
   if (!targetMember) return msg.reply('You need to tag someone!');
 
   try {
-    const member: IMemberSimplified = await handleMemberSearch(targetMember!);
+    const member: IMemberEssentials = await handleMemberSearch(targetMember!);
     msg.channel.send(`\`· Member: ${member.username} ─ Role Lvl: ${member.roleLvl}\``);
   } catch (err) {
     console.error(err);
