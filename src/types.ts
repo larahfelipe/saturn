@@ -6,12 +6,14 @@ import { VideoMetadataResult, VideoSearchResult } from 'yt-search';
 
 export interface IMember extends Document {
   _id: string;
+  userID: string;
   username: string;
   roleLvl: number;
   time: string;
 }
 
-export interface IMemberSimplified {
+export interface IMemberEssentials {
+  userID: string;
   username: string;
   roleLvl: number;
 }
