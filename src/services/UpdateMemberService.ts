@@ -1,13 +1,14 @@
 import { GuildMember } from 'discord.js';
 
+import { parseMember } from '../utils/ParseMembers';
 import { Member } from '../models/Member';
 
-async function handleMemberElevation (member: GuildMember) {
-  const memberExists = await Member.findOne({ userID: member.id });
+async function handleMemberElevation (member: GuildMember | string) {
+  const [memberExists, memberId] = await parseMember(member);
   if (!memberExists) throw new Error();
   
   await Member.findOneAndUpdate({
-    userID: member.id
+    userID: <string>memberId
   }, {
     $set: {
       roleLvl: 1
@@ -15,12 +16,12 @@ async function handleMemberElevation (member: GuildMember) {
   });
 }
 
-async function handleMemberDemotion (member: GuildMember) {
-  const memberExists = await Member.findOne({ userID: member.id });
+async function handleMemberDemotion (member: GuildMember | string) {
+  const [memberExists, memberId] = await parseMember(member);
   if (!memberExists) throw new Error();
 
   await Member.findOneAndUpdate({
-    userID: member.id
+    userID: <string>memberId
   }, {
     $set: {
       roleLvl: 0

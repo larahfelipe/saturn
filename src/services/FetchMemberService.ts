@@ -1,28 +1,35 @@
 import { GuildMember } from 'discord.js';
 
 import { Member } from '../models/Member';
-import { IMemberSimplified } from '../types';
+import { IMemberEssentials } from '../types';
 
-async function handleMemberSearch (member: GuildMember): Promise<IMemberSimplified> {
+async function handleMemberSearch (member: GuildMember): Promise<IMemberEssentials> {
   const memberExists = await Member.findOne({ userID: member.id });
   if (!memberExists) throw new Error();
 
-  return { username: memberExists.username, roleLvl: memberExists.roleLvl };
+  return {
+    username: memberExists.username,
+    userID: memberExists.userID,
+    roleLvl: memberExists.roleLvl
+  };
 }
 
-async function handleFetchAllMembers (): Promise<IMemberSimplified[]> {
-  const fetchedMembers = await Member.find({})
+async function handleFetchAllMembers(): Promise<IMemberEssentials[]> {
+  const fetchMembers = await Member.find({})
     .then((docs) => {
       const formatMembersData = docs.map(member => {
-        return { username: member.username, roleLvl: member.roleLvl };
+        return {
+          username: member.username,
+          userID: member.userID,
+          roleLvl: member.roleLvl
+        };
       });
       return formatMembersData;
     })
     .catch(err => {
       throw new Error(err);
     });
-
-  return fetchedMembers;
+  return fetchMembers;
 }
 
 export { handleMemberSearch, handleFetchAllMembers };

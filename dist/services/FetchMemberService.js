@@ -6,20 +6,28 @@ async function handleMemberSearch(member) {
     const memberExists = await Member_1.Member.findOne({ userID: member.id });
     if (!memberExists)
         throw new Error();
-    return { username: memberExists.username, roleLvl: memberExists.roleLvl };
+    return {
+        username: memberExists.username,
+        userID: memberExists.userID,
+        roleLvl: memberExists.roleLvl
+    };
 }
 exports.handleMemberSearch = handleMemberSearch;
 async function handleFetchAllMembers() {
-    const fetchedMembers = await Member_1.Member.find({})
+    const fetchMembers = await Member_1.Member.find({})
         .then((docs) => {
         const formatMembersData = docs.map(member => {
-            return { username: member.username, roleLvl: member.roleLvl };
+            return {
+                username: member.username,
+                userID: member.userID,
+                roleLvl: member.roleLvl
+            };
         });
         return formatMembersData;
     })
         .catch(err => {
         throw new Error(err);
     });
-    return fetchedMembers;
+    return fetchMembers;
 }
 exports.handleFetchAllMembers = handleFetchAllMembers;
