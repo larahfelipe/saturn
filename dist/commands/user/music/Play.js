@@ -118,7 +118,7 @@ async function run(bot, msg, args) {
                 const embed = new discord_js_1.MessageEmbed();
                 embed
                     .setTitle('📃  Queue')
-                    .setDescription(`Got it! [${song.title}](${song.url}) was added to the queue and his current position is \`${queue.songs.indexOf(song)}\`.\n\nYou can see the guild's queue anytime using \`.queue\``)
+                    .setDescription(`Got it! [${song.title}](${song.url}) was added to the queue and his current position is \`${queue.songs.indexOf(song)}\`.\n\nYou can see the guild's queue anytime using \`${process.env.BOT_PREFIX}queue\``)
                     .setFooter(`Added by ${msg.author.username}`, msg.author.displayAvatarURL())
                     .setTimestamp(new Date())
                     .setColor('#6E76E5');
