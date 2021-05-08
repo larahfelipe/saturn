@@ -9,7 +9,7 @@ function run (bot: Bot, msg: Message, args: string[]) {
     const embed = new MessageEmbed();
     embed
       .setAuthor('❌ No queue established on the server!')
-      .setDescription('If you want to play a song type \`.play\` and the name/link of the song in front of it to get the party started! 🥳')
+      .setDescription(`If you want to play a song type \`${process.env.BOT_PREFIX}play\` and the name/link of the song in front of it to get the party started! 🥳`)
       .setColor('#6E76E5');
     return msg.channel.send({ embed });
   }
