@@ -8,6 +8,7 @@ const axios_1 = __importDefault(require("axios"));
 const yt_search_1 = __importDefault(require("yt-search"));
 const ytdl_core_1 = __importDefault(require("ytdl-core"));
 const discord_js_1 = require("discord.js");
+const config_1 = __importDefault(require("../../../config"));
 const FormatSecondsToTime_1 = require("../../../utils/FormatSecondsToTime");
 const ReactionsHandler_1 = require("../../../utils/ReactionsHandler");
 const DropBotQueueConnection_1 = require("../../../utils/DropBotQueueConnection");
@@ -44,9 +45,14 @@ async function run(bot, msg, args) {
                         .setAuthor(`"${spotifyPlaylist.name}"\nSpotify playlist by ${spotifyPlaylist.owner.display_name}`)
                         .setDescription(`\n• Total playlist tracks: \`${spotifyPlaylist.tracks.items.length}\`\n• Playlist duration: \`${FormatSecondsToTime_1.formatSecondsToTime(spotifyPlaylistDuration / 1000)}\``)
                         .setThumbnail(spotifyPlaylist.images[0].url)
-                        .setTimestamp(Date.now())
                         .setFooter('Spotify | Music for everyone')
                         .setColor('#6E76E5');
+                    msg.channel.send({ embed });
+                    embed
+                        .setAuthor('Gotcha!, loading playlist songs ... ⏳')
+                        .setDescription('I\'ll join the party in a moment, please wait')
+                        .setThumbnail('')
+                        .setFooter('');
                     msg.channel.send({ embed });
                 }
                 else
@@ -55,33 +61,21 @@ async function run(bot, msg, args) {
                 .catch((err) => console.error(err));
         }
         if (spotifyPlaylistTracks.length > 0) {
-            const playlistTracks = new Map();
-            spotifyPlaylistTracks.map((track, index) => {
-                yt_search_1.default(track, (err, res) => {
-                    if (err)
-                        throw err;
-                    if (res && res.videos.length > 0) {
-                        playlistTracks.set(index, res.videos[0]);
-                    }
-                });
-            });
-            const embed = new discord_js_1.MessageEmbed();
-            embed
-                .setTitle('Gotcha!, loading playlist songs ... ⏳')
-                .setDescription('I\'ll join the party in 1 minute, please wait')
-                .setColor('#6E76E5');
-            msg.channel.send({ embed });
-            setTimeout(() => {
-                song = playlistTracks.get(0);
-                handlePlaySong();
-                playlistTracks.delete(0);
-                for (let [index] of playlistTracks) {
-                    setTimeout(() => {
-                        song = playlistTracks.get(index);
-                        handlePlaySong();
-                    }, 5000);
+            const playlistTracks = await Promise.all(spotifyPlaylistTracks.map(async (track) => {
+                let res = await yt_search_1.default(track);
+                if (res && res.videos.length > 0) {
+                    return res.videos[0];
                 }
-            }, 60000);
+            }));
+            song = playlistTracks[0];
+            handlePlaySong();
+            playlistTracks.shift();
+            setTimeout(() => {
+                playlistTracks.forEach(track => {
+                    song = track;
+                    handlePlaySong();
+                });
+            }, 5000);
         }
         else {
             yt_search_1.default(requestedSong, (err, res) => {
@@ -177,7 +171,7 @@ async function setSong(bot, msg, song, msgAuthor) {
 }
 exports.setSong = setSong;
 exports.default = {
-    name: `${process.env.BOT_PREFIX}play`,
+    name: `${config_1.default.botPrefix}play`,
     help: 'Plays song from YouTube or Spotify',
     permissionLvl: 0,
     run

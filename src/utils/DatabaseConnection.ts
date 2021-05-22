@@ -1,11 +1,13 @@
 import mongoose from 'mongoose';
 
+import config from '../config';
+
 export class Database {
   static isConnected: boolean;
 
   static setConnection () {
     mongoose
-      .connect(process.env.DB_ACCESS!, {
+      .connect(config.dbAccess!, {
         useNewUrlParser: true,
         useUnifiedTopology: true
       }, (err) => {

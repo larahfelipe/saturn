@@ -1,6 +1,7 @@
 import { Message } from 'discord.js';
-import { Bot } from '../..';
 
+import config from '../../config';
+import { Bot } from '../..';
 import { FetchMessages } from '../../utils/FetchMessages';
 
 async function run (bot: Bot, msg: Message, args: string[]) {
@@ -11,7 +12,7 @@ async function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: `${process.env.BOT_PREFIX}clear`,
+  name: `${config.botPrefix}clear`,
   help: 'Cleans the messages in the current text channel',
   permissionLvl: 1,
   run

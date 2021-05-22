@@ -1,6 +1,10 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const discord_js_1 = require("discord.js");
+const config_1 = __importDefault(require("../../config"));
 const FetchMemberService_1 = require("../../services/FetchMemberService");
 const UpdateMemberService_1 = require("../../services/UpdateMemberService");
 const DeleteMemberService_1 = require("../../services/DeleteMemberService");
@@ -50,7 +54,7 @@ async function run(bot, msg, args) {
     }
 }
 exports.default = {
-    name: `${process.env.BOT_PREFIX}findall`,
+    name: `${config_1.default.botPrefix}findall`,
     help: 'List all members in database',
     permissionLvl: 2,
     run

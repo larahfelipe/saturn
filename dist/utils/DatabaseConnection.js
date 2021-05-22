@@ -5,10 +5,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Database = void 0;
 const mongoose_1 = __importDefault(require("mongoose"));
+const config_1 = __importDefault(require("../config"));
 class Database {
     static setConnection() {
         mongoose_1.default
-            .connect(process.env.DB_ACCESS, {
+            .connect(config_1.default.dbAccess, {
             useNewUrlParser: true,
             useUnifiedTopology: true
         }, (err) => {

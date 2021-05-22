@@ -4,17 +4,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Bot = void 0;
-const dotenv_1 = __importDefault(require("dotenv"));
+const config_1 = __importDefault(require("./config"));
 const DatabaseConnection_1 = require("./utils/DatabaseConnection");
+const CommandsHandler_1 = require("./utils/CommandsHandler");
 const AuthenticateMemberService_1 = require("./services/AuthenticateMemberService");
 const discord_js_1 = __importDefault(require("discord.js"));
-const CommandsHandler_1 = require("./utils/CommandsHandler");
-dotenv_1.default.config();
-const prefix = process.env.BOT_PREFIX;
-if (!prefix || !process.env.BOT_TOKEN)
+if (!config_1.default.botPrefix || !config_1.default.botToken)
     throw new Error('Prefix and/or token not settled.');
 let hasDBConnection = false;
-if (process.env.DB_ACCESS) {
+if (config_1.default.dbAccess) {
     console.log('\n[Saturn] Requesting access to database ...\n');
     DatabaseConnection_1.Database.setConnection();
     hasDBConnection = DatabaseConnection_1.Database.isConnected;
@@ -32,11 +30,11 @@ bot.once('ready', () => {
 });
 bot.on('message', async (msg) => {
     var _a, _b;
-    (_a = bot.user) === null || _a === void 0 ? void 0 : _a.setActivity(`${prefix}help`);
-    if (!msg.content.startsWith(prefix) || msg.author.bot)
+    (_a = bot.user) === null || _a === void 0 ? void 0 : _a.setActivity(`${config_1.default.botPrefix}help`);
+    if (!msg.content.startsWith(config_1.default.botPrefix) || msg.author.bot)
         return;
-    const args = msg.content.slice(prefix.length).trim().split(/ +/);
-    const commandListener = prefix + ((_b = args.shift()) === null || _b === void 0 ? void 0 : _b.toLowerCase());
+    const args = msg.content.slice(config_1.default.botPrefix.length).trim().split(/ +/);
+    const commandListener = config_1.default.botPrefix + ((_b = args.shift()) === null || _b === void 0 ? void 0 : _b.toLowerCase());
     console.log(`[@${msg.author.tag}] >> ${commandListener} ${args.join(' ')}`);
     const getCommand = bot.commands.get(commandListener);
     try {
@@ -58,13 +56,13 @@ bot.on('message', async (msg) => {
         console.error(err);
         embed
             .setAuthor('❌ Whoops, a wild error appeared!')
-            .setDescription(`**Why I\'m seeing this?!** 🤔\n\nYou probably have a typo in your command\'s message or you currently don\'t have permission to execute this command.\n\nYou can get a full commands list by typing **\`${prefix}help\`**`)
+            .setDescription(`**Why I\'m seeing this?!** 🤔\n\nYou probably have a typo in your command\'s message or you currently don\'t have permission to execute this command.\n\nYou can get a full commands list by typing **\`${config_1.default.botPrefix}help\`**`)
             .setColor('#6E76E5');
         msg.channel.send({ embed });
     }
 });
 if (process.env.NODE_ENV !== 'development') {
-    bot.login(process.env.BOT_TOKEN);
+    bot.login(config_1.default.botToken);
 }
 else
-    bot.login(process.env.BOT_DEVTOKEN);
+    bot.login(config_1.default.botDevToken);

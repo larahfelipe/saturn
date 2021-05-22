@@ -1,6 +1,7 @@
 import { Message, MessageEmbed } from 'discord.js';
-import { Bot } from '../..';
 
+import config from '../../config';
+import { Bot } from '../..';
 import { handleMemberDemotion } from '../../services/UpdateMemberService';
 
 async function run (bot: Bot, msg: Message, args: string[]) {
@@ -25,7 +26,7 @@ async function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: `${process.env.BOT_PREFIX}unsetadmin`,
+  name: `${config.botPrefix}unsetadmin`,
   help: 'Unsets a member as server administrator',
   permissionLvl: 1,
   run

@@ -1,6 +1,7 @@
 import { Message } from 'discord.js';
-import { Bot } from '../..';
 
+import config from '../../config';
+import { Bot } from '../..';
 import { IMemberEssentials } from '../../types';
 import { handleMemberSearch } from '../../services/FetchMemberService';
 
@@ -18,7 +19,7 @@ async function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: `${process.env.BOT_PREFIX}find`,
+  name: `${config.botPrefix}find`,
   help: 'Searches a member in database',
   permissionLvl: 1,
   run

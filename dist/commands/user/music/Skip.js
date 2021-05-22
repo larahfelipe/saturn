@@ -1,6 +1,10 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const discord_js_1 = require("discord.js");
+const config_1 = __importDefault(require("../../../config"));
 const ReactionsHandler_1 = require("../../../utils/ReactionsHandler");
 const Play_1 = require("./Play");
 function run(bot, msg, args) {
@@ -21,7 +25,7 @@ function run(bot, msg, args) {
     }
 }
 exports.default = {
-    name: `${process.env.BOT_PREFIX}skip`,
+    name: `${config_1.default.botPrefix}skip`,
     help: 'Skips the current song',
     permissionLvl: 0,
     run

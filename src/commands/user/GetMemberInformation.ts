@@ -1,4 +1,6 @@
 import { Message, MessageEmbed } from 'discord.js';
+
+import config from '../../config';
 import { Bot } from '../..';
 
 function run (bot: Bot, msg: Message, args: string[]) {
@@ -17,7 +19,7 @@ function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: `${process.env.BOT_PREFIX}profile`,
+  name: `${config.botPrefix}profile`,
   help: 'Shows your profile information',
   permissionLvl: 0,
   run
