@@ -1,6 +1,7 @@
 import { Message } from 'discord.js';
-import { Bot } from '../../..';
 
+import config from '../../../config';
+import { Bot } from '../../..';
 import { IQueue } from '../../../types';
 
 async function run (bot: Bot, msg: Message, args: string[]) {
@@ -12,7 +13,7 @@ async function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: `${process.env.BOT_PREFIX}pause`,
+  name: `${config.botPrefix}pause`,
   help: 'Pauses the current song',
   permissionLvl: 0,
   run

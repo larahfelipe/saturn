@@ -1,6 +1,10 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const discord_js_1 = require("discord.js");
+const config_1 = __importDefault(require("../../config"));
 const CreateMemberService_1 = require("../../services/CreateMemberService");
 async function run(bot, msg, args) {
     var _a, _b;
@@ -24,7 +28,7 @@ async function run(bot, msg, args) {
     }
 }
 exports.default = {
-    name: `${process.env.BOT_PREFIX}add`,
+    name: `${config_1.default.botPrefix}add`,
     help: 'Adds a new member to the database',
     permissionLvl: 1,
     run

@@ -1,6 +1,10 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const discord_js_1 = require("discord.js");
+const config_1 = __importDefault(require("../../config"));
 const UpdateMemberService_1 = require("../../services/UpdateMemberService");
 async function run(bot, msg, args) {
     var _a, _b;
@@ -24,7 +28,7 @@ async function run(bot, msg, args) {
     }
 }
 exports.default = {
-    name: `${process.env.BOT_PREFIX}unsetadmin`,
+    name: `${config_1.default.botPrefix}unsetadmin`,
     help: 'Unsets a member as server administrator',
     permissionLvl: 1,
     run

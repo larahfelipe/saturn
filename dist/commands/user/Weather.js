@@ -3,14 +3,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const discord_js_1 = require("discord.js");
 const axios_1 = __importDefault(require("axios"));
+const discord_js_1 = require("discord.js");
+const config_1 = __importDefault(require("../../config"));
 async function run(bot, msg, args) {
-    if (!process.env.OPENWEATHER_TOKEN)
+    if (!config_1.default.openWeatherToken)
         return msg.reply('OpenWeather token not settled.');
     const location = args.join(' ');
     await axios_1.default
-        .get(`https://api.openweathermap.org/data/2.5/weather?q=${location}&units=metric&appid=${process.env.OPENWEATHER_TOKEN}`)
+        .get(`https://api.openweathermap.org/data/2.5/weather?q=${location}&units=metric&appid=${config_1.default.openWeatherToken}`)
         .then(({ data }) => {
         const weatherData = data;
         const formatLocation = `${weatherData.name}, ${weatherData.sys.country} — Weather`;
@@ -40,7 +41,7 @@ async function run(bot, msg, args) {
     });
 }
 exports.default = {
-    name: `${process.env.BOT_PREFIX}weather`,
+    name: `${config_1.default.botPrefix}weather`,
     help: 'Gets the weather of the location that you want',
     permissionLvl: 0,
     run

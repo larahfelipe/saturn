@@ -1,6 +1,7 @@
 import { Message, MessageEmbed } from 'discord.js';
-import { Bot } from '../../..';
 
+import config from '../../../config';
+import { Bot } from '../../..';
 import { IQueue } from '../../../types';
 import { Reaction } from '../../../utils/ReactionsHandler';
 
@@ -21,7 +22,7 @@ function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: `${process.env.BOT_PREFIX}stop`,
+  name: `${config.botPrefix}stop`,
   help: 'Stops the music function',
   permissionLvl: 0,
   run

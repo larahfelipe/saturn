@@ -1,6 +1,7 @@
 import { Message, MessageEmbed } from "discord.js"
-import { Bot } from "../.."
 
+import config from '../../config';
+import { Bot } from "../.."
 import { IMemberEssentials } from '../../types';
 import { handleFetchAllMembers } from '../../services/FetchMemberService';
 import { handleMemberElevation, handleMemberDemotion } from "../../services/UpdateMemberService";
@@ -55,7 +56,7 @@ async function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: `${process.env.BOT_PREFIX}findall`,
+  name: `${config.botPrefix}findall`,
   help: 'List all members in database',
   permissionLvl: 2,
   run

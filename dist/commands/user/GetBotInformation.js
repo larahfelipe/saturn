@@ -1,7 +1,11 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const discord_js_1 = require("discord.js");
 const os_1 = require("os");
+const config_1 = __importDefault(require("../../config"));
 const FormatSecondsToTime_1 = require("../../utils/FormatSecondsToTime");
 function run(bot, msg, args) {
     var _a;
@@ -21,7 +25,7 @@ function run(bot, msg, args) {
     msg.channel.send({ embed });
 }
 exports.default = {
-    name: `${process.env.BOT_PREFIX}bot`,
+    name: `${config_1.default.botPrefix}bot`,
     help: 'Displays bot properties',
     permissionLvl: 0,
     run

@@ -1,6 +1,7 @@
 import { Message, MessageEmbed } from 'discord.js';
-import { Bot } from '../../..';
 
+import config from '../../../config';
+import { Bot } from '../../..';
 import { IQueue } from '../../../types';
 
 function run (bot: Bot, msg: Message, args: string[]) {
@@ -35,7 +36,7 @@ function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: `${process.env.BOT_PREFIX}queue`,
+  name: `${config.botPrefix}queue`,
   help: 'Shows the server\'s music queue',
   permissionLvl: 0,
   run
