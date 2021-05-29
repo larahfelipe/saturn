@@ -1,6 +1,10 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const discord_js_1 = require("discord.js");
+const config_1 = __importDefault(require("../../config"));
 const CommandsHandler_1 = require("../../utils/CommandsHandler");
 function run(bot, msg, args) {
     const modulesLen = CommandsHandler_1.Commands.modulesLength;
@@ -27,7 +31,7 @@ function run(bot, msg, args) {
     msg.channel.send({ embed });
 }
 exports.default = {
-    name: `${process.env.BOT_PREFIX}help`,
+    name: `${config_1.default.botPrefix}help`,
     help: 'Commands help',
     permissionLvl: 0,
     run

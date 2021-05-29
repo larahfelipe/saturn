@@ -1,6 +1,7 @@
 import { Message, MessageEmbed } from 'discord.js';
-import { Bot } from '../..';
 
+import config from '../../config';
+import { Bot } from '../..';
 import { handleMemberElevation } from '../../services/UpdateMemberService';
 
 async function run (bot: Bot, msg: Message, args: string[]) {
@@ -25,7 +26,7 @@ async function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: `${process.env.BOT_PREFIX}setadmin`,
+  name: `${config.botPrefix}setadmin`,
   help: 'Sets a member as server administrator',
   permissionLvl: 1,
   run

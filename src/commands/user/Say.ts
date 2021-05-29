@@ -1,4 +1,6 @@
 import { Message } from 'discord.js';
+
+import config from '../../config';
 import { Bot } from '../..';
 
 function run (bot: Bot, msg: Message, args: string[]) {
@@ -9,7 +11,7 @@ function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: `${process.env.BOT_PREFIX}say`,
+  name: `${config.botPrefix}say`,
   help: 'Repeats what user says',
   permissionLvl: 0,
   run
