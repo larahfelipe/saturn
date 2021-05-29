@@ -1,6 +1,7 @@
 import { Message, MessageEmbed } from 'discord.js';
-import { Bot } from '../..';
 
+import config from '../../config';
+import { Bot } from '../..';
 import { dropBotQueueConnection } from '../../utils/DropBotQueueConnection';
 
 async function run (bot: Bot, msg: Message, args: number) {
@@ -26,7 +27,7 @@ async function run (bot: Bot, msg: Message, args: number) {
   bot.destroy();
 
   setTimeout(async () => {
-    await bot.login(process.env.BOT_TOKEN)
+    await bot.login(config.botToken)
       .then(() => {
         embed
           .setAuthor('SATURN Boot Manager', bot.user!.avatarURL()!)
@@ -40,7 +41,7 @@ async function run (bot: Bot, msg: Message, args: number) {
 }
 
 export default {
-  name: `${process.env.BOT_PREFIX}restart`,
+  name: `${config.botPrefix}restart`,
   help: 'Restarts the bot',
   permissionLvl: 2,
   run

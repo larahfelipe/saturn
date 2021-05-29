@@ -4,8 +4,9 @@ import yts, { SearchResult } from 'yt-search';
 import ytdl from 'ytdl-core';
 
 import { Message, MessageEmbed } from 'discord.js';
-import { Bot } from '../../..';
 
+import config from '../../../config';
+import { Bot } from '../../..';
 import { Song, SearchError, IQueue, ISpotifyPlaylist } from '../../../types';
 import { formatSecondsToTime } from '../../../utils/FormatSecondsToTime';
 import { Reaction } from '../../../utils/ReactionsHandler';
@@ -181,7 +182,7 @@ export async function setSong (bot: Bot, msg: Message, song: any, msgAuthor: str
 }
 
 export default {
-  name: `${process.env.BOT_PREFIX}play`,
+  name: `${config.botPrefix}play`,
   help: 'Plays song from YouTube or Spotify',
   permissionLvl: 0,
   run

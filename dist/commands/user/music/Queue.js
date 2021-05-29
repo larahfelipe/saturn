@@ -1,6 +1,10 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const discord_js_1 = require("discord.js");
+const config_1 = __importDefault(require("../../../config"));
 function run(bot, msg, args) {
     const queueExists = bot.queues.get(msg.guild.id);
     if (!queueExists) {
@@ -32,7 +36,7 @@ function run(bot, msg, args) {
     msg.channel.send({ embed });
 }
 exports.default = {
-    name: `${process.env.BOT_PREFIX}queue`,
+    name: `${config_1.default.botPrefix}queue`,
     help: 'Shows the server\'s music queue',
     permissionLvl: 0,
     run

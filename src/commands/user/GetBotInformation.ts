@@ -1,8 +1,9 @@
 import { Message, MessageEmbed, version as discordVersion } from 'discord.js';
-import { Bot } from '../..';
 
 import { type, arch, uptime } from 'os';
 
+import config from '../../config';
+import { Bot } from '../..';
 import { formatSecondsToTime } from '../../utils/FormatSecondsToTime';
 
 function run (bot: Bot, msg: Message, args: string[]) {
@@ -24,7 +25,7 @@ function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: `${process.env.BOT_PREFIX}bot`,
+  name: `${config.botPrefix}bot`,
   help: 'Displays bot properties',
   permissionLvl: 0,
   run

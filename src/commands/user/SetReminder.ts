@@ -1,6 +1,7 @@
 import { Message } from 'discord.js';
-import { Bot } from '../..';
 
+import config from '../../config';
+import { Bot } from '../..';
 import { formatSecondsToTime } from '../../utils/FormatSecondsToTime';
 
 function run (bot: Bot, msg: Message, args: string[]) {
@@ -35,7 +36,7 @@ function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: `${process.env.BOT_PREFIX}remind`,
+  name: `${config.botPrefix}remind`,
   help: 'Reminds you about whatever you want',
   permissionLvl: 0,
   run

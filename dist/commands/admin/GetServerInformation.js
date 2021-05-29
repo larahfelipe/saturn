@@ -1,6 +1,10 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const discord_js_1 = require("discord.js");
+const config_1 = __importDefault(require("../../config"));
 async function run(bot, msg, args) {
     const guildCreationDate = new Date(msg.guild.createdTimestamp).toLocaleDateString('en-us');
     const roles = msg.guild.roles.cache.filter(role => role.name !== '@everyone').sort().array();
@@ -16,7 +20,7 @@ async function run(bot, msg, args) {
     msg.channel.send({ embed });
 }
 exports.default = {
-    name: `${process.env.BOT_PREFIX}server`,
+    name: `${config_1.default.botPrefix}server`,
     help: 'Displays server information',
     permissionLvl: 1,
     run

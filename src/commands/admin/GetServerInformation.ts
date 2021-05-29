@@ -1,4 +1,6 @@
 import { Message, MessageEmbed } from 'discord.js';
+
+import config from '../../config';
 import { Bot } from '../..';
 
 async function run (bot: Bot, msg: Message, args: string[]) {
@@ -18,7 +20,7 @@ async function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: `${process.env.BOT_PREFIX}server`,
+  name: `${config.botPrefix}server`,
   help: 'Displays server information',
   permissionLvl: 1,
   run

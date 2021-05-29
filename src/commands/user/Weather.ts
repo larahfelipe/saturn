@@ -1,15 +1,17 @@
-import { Message, MessageEmbed } from 'discord.js';
-import { Bot } from '../..';
-
-import { ILocationData } from '../../types';
 import axios, { AxiosError, AxiosResponse } from 'axios';
 
+import { Message, MessageEmbed } from 'discord.js';
+
+import config from '../../config';
+import { Bot } from '../..';
+import { ILocationData } from '../../types';
+
 async function run (bot: Bot, msg: Message, args: string[]) {
-  if (!process.env.OPENWEATHER_TOKEN) return msg.reply('OpenWeather token not settled.');
+  if (!config.openWeatherToken) return msg.reply('OpenWeather token not settled.');
   
   const location = args.join(' ');
   await axios
-    .get(`https://api.openweathermap.org/data/2.5/weather?q=${location}&units=metric&appid=${process.env.OPENWEATHER_TOKEN}`)
+    .get(`https://api.openweathermap.org/data/2.5/weather?q=${location}&units=metric&appid=${config.openWeatherToken}`)
     .then(({ data }: AxiosResponse<ILocationData>) => {
       const weatherData = data;
       const formatLocation = `${weatherData.name}, ${weatherData.sys.country} — Weather`;
@@ -41,7 +43,7 @@ async function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: `${process.env.BOT_PREFIX}weather`,
+  name: `${config.botPrefix}weather`,
   help: 'Gets the weather of the location that you want',
   permissionLvl: 0,
   run

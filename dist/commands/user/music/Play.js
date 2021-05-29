@@ -8,6 +8,7 @@ const axios_1 = __importDefault(require("axios"));
 const yt_search_1 = __importDefault(require("yt-search"));
 const ytdl_core_1 = __importDefault(require("ytdl-core"));
 const discord_js_1 = require("discord.js");
+const config_1 = __importDefault(require("../../../config"));
 const FormatSecondsToTime_1 = require("../../../utils/FormatSecondsToTime");
 const ReactionsHandler_1 = require("../../../utils/ReactionsHandler");
 const DropBotQueueConnection_1 = require("../../../utils/DropBotQueueConnection");
@@ -170,7 +171,7 @@ async function setSong(bot, msg, song, msgAuthor) {
 }
 exports.setSong = setSong;
 exports.default = {
-    name: `${process.env.BOT_PREFIX}play`,
+    name: `${config_1.default.botPrefix}play`,
     help: 'Plays song from YouTube or Spotify',
     permissionLvl: 0,
     run

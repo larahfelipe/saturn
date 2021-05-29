@@ -1,5 +1,9 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
+const config_1 = __importDefault(require("../../config"));
 const FormatSecondsToTime_1 = require("../../utils/FormatSecondsToTime");
 function run(bot, msg, args) {
     const reminderMessage = args.slice(0, args.length - 1).join(' ');
@@ -30,7 +34,7 @@ function run(bot, msg, args) {
     }, numberTimestamp);
 }
 exports.default = {
-    name: `${process.env.BOT_PREFIX}remind`,
+    name: `${config_1.default.botPrefix}remind`,
     help: 'Reminds you about whatever you want',
     permissionLvl: 0,
     run

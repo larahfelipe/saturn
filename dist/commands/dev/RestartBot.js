@@ -1,6 +1,10 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const discord_js_1 = require("discord.js");
+const config_1 = __importDefault(require("../../config"));
 const DropBotQueueConnection_1 = require("../../utils/DropBotQueueConnection");
 async function run(bot, msg, args) {
     const embed = new discord_js_1.MessageEmbed();
@@ -23,7 +27,7 @@ async function run(bot, msg, args) {
     DropBotQueueConnection_1.dropBotQueueConnection(bot, msg);
     bot.destroy();
     setTimeout(async () => {
-        await bot.login(process.env.BOT_TOKEN)
+        await bot.login(config_1.default.botToken)
             .then(() => {
             embed
                 .setAuthor('SATURN Boot Manager', bot.user.avatarURL())
@@ -36,7 +40,7 @@ async function run(bot, msg, args) {
     }, args * 1000 || 0);
 }
 exports.default = {
-    name: `${process.env.BOT_PREFIX}restart`,
+    name: `${config_1.default.botPrefix}restart`,
     help: 'Restarts the bot',
     permissionLvl: 2,
     run

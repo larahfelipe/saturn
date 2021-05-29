@@ -1,6 +1,7 @@
 import { Message, MessageEmbed } from 'discord.js';
-import { Bot } from '../..';
 
+import config from '../../config';
+import { Bot } from '../..';
 import { Commands } from '../../utils/CommandsHandler';
 
 function run (bot: Bot, msg: Message, args: string[]) {
@@ -29,7 +30,7 @@ function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: `${process.env.BOT_PREFIX}help`,
+  name: `${config.botPrefix}help`,
   help: 'Commands help',
   permissionLvl: 0,
   run

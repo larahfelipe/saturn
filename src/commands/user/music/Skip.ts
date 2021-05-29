@@ -1,6 +1,7 @@
 import { Message, MessageEmbed } from 'discord.js';
-import { Bot } from '../../..';
 
+import config from '../../../config';
+import { Bot } from '../../..';
 import { IQueue } from '../../../types';
 import { Reaction } from '../../../utils/ReactionsHandler';
 import { setSong } from './Play';
@@ -26,7 +27,7 @@ function run (bot: Bot, msg: Message, args: string[]) {
 }
 
 export default {
-  name: `${process.env.BOT_PREFIX}skip`,
+  name: `${config.botPrefix}skip`,
   help: 'Skips the current song',
   permissionLvl: 0,
   run

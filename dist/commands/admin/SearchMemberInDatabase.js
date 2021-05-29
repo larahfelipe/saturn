@@ -1,5 +1,9 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
+const config_1 = __importDefault(require("../../config"));
 const FetchMemberService_1 = require("../../services/FetchMemberService");
 async function run(bot, msg, args) {
     var _a;
@@ -16,7 +20,7 @@ async function run(bot, msg, args) {
     }
 }
 exports.default = {
-    name: `${process.env.BOT_PREFIX}find`,
+    name: `${config_1.default.botPrefix}find`,
     help: 'Searches a member in database',
     permissionLvl: 1,
     run
