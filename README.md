@@ -1,33 +1,40 @@
 <p align="center">
-    <a href="https://github.com/felpshn/saturn-bot">
-       <img src="https://github.com/felpshn/saturn-bot/blob/master/.github/project-banner.png">
-    </a>
+  <a href="https://github.com/felpshn/saturn-bot">
+    <img src="https://github.com/felpshn/saturn-bot/blob/master/.github/project-banner.png">
+  </a>
 </p>
 
 <p align="center">
-    <a href="https://github.com/felpshn/saturn-bot/releases">
-        <img src="https://img.shields.io/badge/version-2.x-lightgrey">
-    </a>
-    <a href="https://www.typescriptlang.org/">
-        <img src="https://img.shields.io/badge/built%20with-TypeScript-blue">
-    </a>
-    <a href="https://nodejs.org/en/">
-        <img src="https://img.shields.io/badge/built%20with-Node.js-brightgreen">
-    </a>
-    <a href="https://github.com/discordjs/discord.js/">
-        <img src="https://img.shields.io/badge/built%20with-Discord.js-9cf">
-    </a>
-    <a href="https://github.com/felpshn/saturn-bot/blob/master/LICENSE">
-        <img src="https://img.shields.io/badge/license-GPL--3.0-orange">
-    </a>
-    <a href="https://makeapullrequest.com/">
-        <img src="https://img.shields.io/badge/PRs-welcome-blueviolet">
-    </a>
+  <a href="https://github.com/felpshn/saturn-bot/releases">
+    <img src="https://img.shields.io/badge/version-2.x-lightgrey">
+  </a>
+  <a href="https://www.typescriptlang.org/">
+    <img src="https://img.shields.io/badge/built%20with-TypeScript-blue">
+  </a>
+  <a href="https://nodejs.org/en/">
+    <img src="https://img.shields.io/badge/built%20with-Node.js-brightgreen">
+  </a>
+  <a href="https://github.com/discordjs/discord.js/">
+    <img src="https://img.shields.io/badge/built%20with-Discord.js-9cf">
+  </a>
+  <a href="https://github.com/felpshn/saturn-bot/blob/master/LICENSE">
+    <img src="https://img.shields.io/badge/license-GPL--3.0-orange">
+  </a>
+  <a href="https://makeapullrequest.com/">
+    <img src="https://img.shields.io/badge/PRs-welcome-blueviolet">
+  </a>
 </p>
 
 ## About
 
 Saturn is a modular multipurpose, user-friendly discord bot, which has a lot of features such as server moderation, music function, weather report and many more, all of that together on the most amazing planet in our solar system!
+
+### Bot features
+- Server moderation (linked with your MongoDB database)
+- Server & Members info
+- Music playback (YouTube and Spotify)
+- Weather report
+- Reminders
 
 ### Technologies used
 - [TypeScript](https://www.typescriptlang.org/)
@@ -49,7 +56,7 @@ In this step-by-step I will only cover about how you can set Saturn in your own 
 
 First things first, make sure that you have `git`, `node` and `npm` installed. Then open your terminal or cmd and type the commands below.
 
-#### Cloning this repository & cd'ing into project's folder
+#### Cloning this repository & Cd'ing into project's folder
 
 ```elm
 git clone https://github.com/felpshn/saturn-bot.git
@@ -57,24 +64,24 @@ git clone https://github.com/felpshn/saturn-bot.git
 cd saturn-bot
 ```
 
-#### Creating and setting the environment file & installing dependencies
+#### Setting up everything
 
 ```elm
-touch .env
-
 npm install
 ```
 
-After setting up all dependencies, find the `.env` file that we just created and open it with some text editor of your choice.
+When the installation finishes, find the `.env.example` inside of the project's folder and open it with some text editor of your choice.
 
-Now, make sure that you have your own bot token in hands — in case you don't know how to get it, just go at the [Discord developers portal](https://discord.com/developers/) and create a new app. Copy and paste the `.env` template below and replace `HELLO_WORLD` with your token and a prefix of your choice (e.g: !, +, .).
+Now, make sure that you have your own bot token in hands — in case you don't know how to get it, go at the [Discord developers portal](https://discord.com/developers/) and create a new app.
+
+After that, replace the `HELLO_WORLD` with your bot token and some prefix of your choice (e.g: !, +, .). When you're done, rename the `.env.example` to `.env`.
 
 ```bash
 BOT_TOKEN=HELLO_WORLD
 BOT_PREFIX=HELLO_WORLD
 ```
 
-As mentioned before, this bot has a weather report function and also supports a MongoDB database linked to it. In case you wanna use these features, you will also need to set in `.env` an OpenWeather API token and your database's connection link.
+Now, as I mentioned before, this bot has a weather report function and also supports a MongoDB database linked to it. In case you wanna use these features, you will also need to set in the `.env` an [OpenWeather API token](https://openweathermap.org/api) and your [MongoDB database link](https://www.mongodb.com/).
 
 To get these features working properly, your `.env` file should have this template below with your credentials settled in the `HELLO_WORLD`'s place.
 
