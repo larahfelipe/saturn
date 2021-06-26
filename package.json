@@ -25,9 +25,9 @@
     "dotenv": "^10.0.0",
     "ffmpeg": "0.0.4",
     "fluent-ffmpeg": "^2.1.2",
-    "mongoose": "^5.12.14",
+    "mongoose": "^5.12.15",
     "yt-search": "^2.9.0",
-    "ytdl-core": "^4.8.2"
+    "ytdl-core": "^4.8.3"
   },
   "devDependencies": {
     "typescript": "^4.3.4",
