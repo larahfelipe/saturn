@@ -4,16 +4,21 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const config_1 = __importDefault(require("../../../config"));
-async function run(bot, msg, args) {
-    const queueExists = bot.queues.get(msg.guild.id);
-    if (!queueExists || !queueExists.connection)
-        return msg.reply('There\'s no song playing in your current channel.');
-    await msg.react('👍');
-    queueExists.connection.dispatcher.pause();
+const Command_1 = __importDefault(require("../../../structs/Command"));
+class Pause extends Command_1.default {
+    constructor(bot) {
+        super(bot, {
+            name: `${config_1.default.botPrefix}pause`,
+            help: 'Pause the current song',
+            permissionLvl: 0
+        });
+    }
+    async run(msg, args) {
+        const queueExists = this.bot.queues.get(msg.guild.id);
+        if (!queueExists || !queueExists.connection)
+            return msg.reply('There\'s no song playing in your current channel.');
+        await msg.react('👍');
+        queueExists.connection.dispatcher.pause();
+    }
 }
-exports.default = {
-    name: `${config_1.default.botPrefix}pause`,
-    help: 'Pauses the current song',
-    permissionLvl: 0,
-    run
-};
+exports.default = Pause;

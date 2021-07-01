@@ -1,16 +1,19 @@
 import { User, GuildMember } from 'discord.js';
 
-import { parseMember } from '../utils/ParseMembers';
-import { Member } from '../models/Member';
+import { parseMember } from '../utils/ParseMember';
+import Member from '../models/Member';
 
-async function handleMemberDeletion (memberAuthor: User, member: GuildMember | string) {
-  const requestMemberAuthor = await Member.findOne({ userID: memberAuthor.id });
+async function handleMemberDeletion(memberAuthor: User, member: GuildMember | string) {
+  const requestAuthor = await Member.findOne({ userID: memberAuthor.id });
 
-  const [memberExists]: any = await parseMember(member);
-  if (!memberExists) throw new Error();
-  if (requestMemberAuthor!.roleLvl < memberExists.roleLvl) return;
+  try {
+    const [memberExists] = await parseMember(member);
+    if (requestAuthor!.roleLvl < memberExists.roleLvl) return;
 
-  memberExists.delete();
+    memberExists.delete();
+  } catch (err) {
+    console.error(err);
+  }
 }
 
 export { handleMemberDeletion };

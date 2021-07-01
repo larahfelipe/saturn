@@ -1,4 +1,4 @@
-export function formatSecondsToTime (seconds: number) {
+export function formatSecondsToTime(seconds: number) {
   const convertToDays = Math.floor(seconds / (3600 * 24));
   const convertToHours = Math.floor(seconds % (3600 * 24) / 3600);
   const convertToMinutes = Math.floor(seconds % 3600 / 60);

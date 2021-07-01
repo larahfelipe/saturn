@@ -1,7 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.FetchMessages = void 0;
-class FetchMessages {
+class MessageHandler {
     static async firstHundredSent(msg) {
         const firstHundredMsgs = await msg.channel.messages.fetch({ limit: 100 });
         return firstHundredMsgs;
@@ -35,4 +34,4 @@ class FetchMessages {
         return lastSentBotMsg;
     }
 }
-exports.FetchMessages = FetchMessages;
+exports.default = MessageHandler;

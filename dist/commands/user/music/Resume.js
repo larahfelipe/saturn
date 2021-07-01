@@ -4,16 +4,21 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const config_1 = __importDefault(require("../../../config"));
-async function run(bot, msg, args) {
-    const queueExists = bot.queues.get(msg.guild.id);
-    if (!queueExists || !queueExists.connection)
-        return msg.reply('There\'s no song playing in your current channel.');
-    await msg.react('👌');
-    queueExists.connection.dispatcher.resume();
+const Command_1 = __importDefault(require("../../../structs/Command"));
+class Resume extends Command_1.default {
+    constructor(bot) {
+        super(bot, {
+            name: `${config_1.default.botPrefix}resume`,
+            help: 'Resume the current song',
+            permissionLvl: 0
+        });
+    }
+    async run(msg, args) {
+        const queueExists = this.bot.queues.get(msg.guild.id);
+        if (!queueExists || !queueExists.connection)
+            return msg.reply('There\'s no song playing in your current channel.');
+        await msg.react('👌');
+        queueExists.connection.dispatcher.resume();
+    }
 }
-exports.default = {
-    name: `${config_1.default.botPrefix}resume`,
-    help: 'Resumes the current song',
-    permissionLvl: 0,
-    run
-};
+exports.default = Resume;

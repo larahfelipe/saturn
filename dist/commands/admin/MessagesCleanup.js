@@ -4,16 +4,21 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const config_1 = __importDefault(require("../../config"));
-const FetchMessages_1 = require("../../utils/FetchMessages");
-async function run(bot, msg, args) {
-    if (msg.channel.type === 'dm')
-        return;
-    let fetchMsgs = await FetchMessages_1.FetchMessages.firstHundredSent(msg);
-    msg.channel.bulkDelete(fetchMsgs);
+const Command_1 = __importDefault(require("../../structs/Command"));
+const MessageHandler_1 = __importDefault(require("../../handlers/MessageHandler"));
+class MessagesCleanup extends Command_1.default {
+    constructor(bot) {
+        super(bot, {
+            name: `${config_1.default.botPrefix}clear`,
+            help: 'Cleans the messages in the invoked channel',
+            permissionLvl: 1
+        });
+    }
+    async run(msg, args) {
+        if (msg.channel.type === 'dm')
+            return;
+        let fetchMsgs = await MessageHandler_1.default.firstHundredSent(msg);
+        msg.channel.bulkDelete(fetchMsgs);
+    }
 }
-exports.default = {
-    name: `${config_1.default.botPrefix}clear`,
-    help: 'Cleans the messages in the current text channel',
-    permissionLvl: 1,
-    run
-};
+exports.default = MessagesCleanup;

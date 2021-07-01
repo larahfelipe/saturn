@@ -1,21 +1,22 @@
-import { Document } from 'mongoose';
-
 import { ReactionCollector, VoiceConnection, StreamDispatcher } from 'discord.js';
-
+import { Document } from 'mongoose';
 import { VideoMetadataResult, VideoSearchResult } from 'yt-search';
 
-export interface IMember extends Document {
-  _id: string;
-  userID: string;
-  username: string;
-  roleLvl: number;
-  time: string;
+export interface ICommandDescription {
+  name: string;
+  help: string;
+  permissionLvl: number;
 }
 
 export interface IMemberEssentials {
   userID: string;
   username: string;
   roleLvl: number;
+}
+
+export interface IMember extends IMemberEssentials, Document {
+  _id: string;
+  time: string;
 }
 
 export interface IReaction extends ReactionCollector {
@@ -67,7 +68,7 @@ export interface ISpotifyPlaylist {
   }
 }
 
-export interface ILocationData {
+export interface ILocation {
   name: string;
   sys: {
     country: string;
