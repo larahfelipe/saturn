@@ -5,24 +5,29 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const discord_js_1 = require("discord.js");
 const config_1 = __importDefault(require("../../../config"));
-const ReactionsHandler_1 = require("../../../utils/ReactionsHandler");
-function run(bot, msg, args) {
-    const queueExists = bot.queues.get(msg.guild.id);
-    if (!queueExists)
-        return msg.reply('There\'s no song playing in your current channel.');
-    const embed = new discord_js_1.MessageEmbed();
-    embed
-        .setTitle('⏹  Stop Music')
-        .setDescription('Understood! Stopping the music function.')
-        .setColor('#6E76E5');
-    msg.channel.send({ embed });
-    queueExists.connection.disconnect();
-    bot.queues.delete(msg.guild.id);
-    ReactionsHandler_1.Reaction.handleDeletion(true);
+const Command_1 = __importDefault(require("../../../structs/Command"));
+const ReactionHandler_1 = __importDefault(require("../../../handlers/ReactionHandler"));
+class Stop extends Command_1.default {
+    constructor(bot) {
+        super(bot, {
+            name: `${config_1.default.botPrefix}stop`,
+            help: 'Stop the music function',
+            permissionLvl: 0
+        });
+    }
+    async run(msg, args) {
+        const queueExists = this.bot.queues.get(msg.guild.id);
+        if (!queueExists)
+            return msg.reply('There\'s no song playing in your current channel.');
+        const embed = new discord_js_1.MessageEmbed();
+        embed
+            .setTitle('⏹  Stop Music')
+            .setDescription('Understood! Stopping the music function.')
+            .setColor('#6E76E5');
+        msg.channel.send({ embed });
+        queueExists.connection.disconnect();
+        this.bot.queues.delete(msg.guild.id);
+        ReactionHandler_1.default.performDeletion(true);
+    }
 }
-exports.default = {
-    name: `${config_1.default.botPrefix}stop`,
-    help: 'Stops the music function',
-    permissionLvl: 0,
-    run
-};
+exports.default = Stop;

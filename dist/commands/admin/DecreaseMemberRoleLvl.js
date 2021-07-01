@@ -5,31 +5,33 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const discord_js_1 = require("discord.js");
 const config_1 = __importDefault(require("../../config"));
+const Command_1 = __importDefault(require("../../structs/Command"));
 const UpdateMemberService_1 = require("../../services/UpdateMemberService");
-async function run(bot, msg, args) {
-    var _a, _b;
-    const targetMember = (_a = msg.mentions.members) === null || _a === void 0 ? void 0 : _a.first();
-    if (!targetMember)
-        return msg.reply('You need to tag someone!');
-    const embed = new discord_js_1.MessageEmbed();
-    embed
-        .setAuthor(`SATURN Database Manager`, (_b = bot.user) === null || _b === void 0 ? void 0 : _b.avatarURL())
-        .setDescription(`**» ${targetMember} REGISTRY HAS BEEN UPDATED.**\n*Database was updated at ${msg.createdAt}.*`)
-        .setTimestamp(Date.now())
-        .setFooter('MongoDB', 'https://pbs.twimg.com/profile_images/1234528105819189248/b6F1hk_6_400x400.jpg')
-        .setColor('#6E76E5');
-    try {
-        await UpdateMemberService_1.handleMemberDemotion(targetMember)
-            .then(() => msg.channel.send({ embed }));
+class DecreaseMemberRoleLvl extends Command_1.default {
+    constructor(bot) {
+        super(bot, {
+            name: `${config_1.default.botPrefix}unsetadmin`,
+            help: 'Unset a member as server administrator',
+            permissionLvl: 1
+        });
     }
-    catch (err) {
-        console.error(err);
-        msg.reply('Member is not registered in database!');
+    async run(msg, args) {
+        const targetMember = msg.mentions.members?.first();
+        if (!targetMember)
+            return msg.reply('You need to tag someone!');
+        const embed = new discord_js_1.MessageEmbed();
+        embed
+            .setAuthor(`SATURN Database Manager`, this.bot.user?.avatarURL())
+            .setDescription(`**» ${targetMember} REGISTRY HAS BEEN UPDATED.**\n*Database was updated at ${msg.createdAt}.*`)
+            .setTimestamp(Date.now())
+            .setFooter('MongoDB', 'https://pbs.twimg.com/profile_images/1234528105819189248/b6F1hk_6_400x400.jpg')
+            .setColor('#6E76E5');
+        await UpdateMemberService_1.handleMemberDemotion(targetMember)
+            .then(() => msg.channel.send({ embed }))
+            .catch(err => {
+            console.error(err);
+            msg.reply('Member was not found in database.');
+        });
     }
 }
-exports.default = {
-    name: `${config_1.default.botPrefix}unsetadmin`,
-    help: 'Unsets a member as server administrator',
-    permissionLvl: 1,
-    run
-};
+exports.default = DecreaseMemberRoleLvl;

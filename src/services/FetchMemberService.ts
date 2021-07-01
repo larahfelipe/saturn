@@ -1,11 +1,11 @@
 import { GuildMember } from 'discord.js';
 
-import { Member } from '../models/Member';
+import Member from '../models/Member';
 import { IMemberEssentials } from '../types';
 
-async function handleMemberSearch (member: GuildMember): Promise<IMemberEssentials> {
+async function handleMemberSearch(member: GuildMember): Promise<IMemberEssentials | void> {
   const memberExists = await Member.findOne({ userID: member.id });
-  if (!memberExists) throw new Error();
+  if (!memberExists) throw new Error('Member was not found in database.');
 
   return {
     username: memberExists.username,
@@ -14,9 +14,9 @@ async function handleMemberSearch (member: GuildMember): Promise<IMemberEssentia
   };
 }
 
-async function handleFetchAllMembers(): Promise<IMemberEssentials[]> {
-  const fetchMembers = await Member.find({})
-    .then((docs) => {
+async function handleFetchAllMembers(): Promise<IMemberEssentials[] | void> {
+  return await Member.find({})
+    .then(docs => {
       const formatMembersData = docs.map(member => {
         return {
           username: member.username,
@@ -27,9 +27,8 @@ async function handleFetchAllMembers(): Promise<IMemberEssentials[]> {
       return formatMembersData;
     })
     .catch(err => {
-      throw new Error(err);
+      console.error(err);
     });
-  return fetchMembers;
 }
 
 export { handleMemberSearch, handleFetchAllMembers };
