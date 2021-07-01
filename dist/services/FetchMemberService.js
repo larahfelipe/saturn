@@ -1,11 +1,14 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleFetchAllMembers = exports.handleMemberSearch = void 0;
-const Member_1 = require("../models/Member");
+const Member_1 = __importDefault(require("../models/Member"));
 async function handleMemberSearch(member) {
-    const memberExists = await Member_1.Member.findOne({ userID: member.id });
+    const memberExists = await Member_1.default.findOne({ userID: member.id });
     if (!memberExists)
-        throw new Error();
+        throw new Error('Member was not found in database.');
     return {
         username: memberExists.username,
         userID: memberExists.userID,
@@ -14,8 +17,8 @@ async function handleMemberSearch(member) {
 }
 exports.handleMemberSearch = handleMemberSearch;
 async function handleFetchAllMembers() {
-    const fetchMembers = await Member_1.Member.find({})
-        .then((docs) => {
+    return await Member_1.default.find({})
+        .then(docs => {
         const formatMembersData = docs.map(member => {
             return {
                 username: member.username,
@@ -26,8 +29,7 @@ async function handleFetchAllMembers() {
         return formatMembersData;
     })
         .catch(err => {
-        throw new Error(err);
+        console.error(err);
     });
-    return fetchMembers;
 }
 exports.handleFetchAllMembers = handleFetchAllMembers;

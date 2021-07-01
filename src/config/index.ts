@@ -8,4 +8,4 @@ export default {
   botDevToken: process.env.BOT_DEVTOKEN,
   dbAccess: process.env.DB_ACCESS,
   openWeatherToken: process.env.OPENWEATHER_TOKEN
-}
+} as const;

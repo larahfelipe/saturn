@@ -1,6 +1,6 @@
 import { Message } from 'discord.js';
 
-export class FetchMessages {
+class MessageHandler {
   static async firstHundredSent(msg: Message) {
     const firstHundredMsgs = await msg.channel.messages.fetch({ limit: 100 });
     return firstHundredMsgs;
@@ -37,3 +37,5 @@ export class FetchMessages {
     return lastSentBotMsg;
   }
 }
+
+export default MessageHandler;

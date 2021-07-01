@@ -1,20 +1,20 @@
 import { GuildMember } from 'discord.js';
+import { Types } from 'mongoose';
 
-import { Member } from '../models/Member';
-import mongoose from 'mongoose';
+import Member from '../models/Member';
 
-async function handleMemberCreation (member: GuildMember) {
+async function handleMemberCreation(member: GuildMember) {
   const memberExists = await Member.findOne({ userID: member.id });
-  if (memberExists) throw new Error();
+  if (memberExists) throw new Error('Member already registered in database.');
 
-  const createMember = new Member({
-    _id: new mongoose.Types.ObjectId(),
+  const newMember = new Member({
+    _id: new Types.ObjectId(),
     username: member.user.tag,
     userID: member.id,
     roleLvl: 0,
     time: Date.now()
   });
-  createMember.save();
+  newMember.save();
 }
 
 export { handleMemberCreation };
