@@ -11,7 +11,7 @@ class Bot extends Client {
   queues!: Map<string, any>;
 
   private static validateCredentials() {
-    if (typeof config.botToken !== 'string' || typeof config.botDevToken !== 'string') throw new TypeError('Tokens must be of type string.');
+    if (typeof config.botToken !== 'string') throw new TypeError('Tokens must be of type string.');
     if (!config.botPrefix) throw new Error('Prefix not settled.');
   }
 
@@ -35,7 +35,7 @@ class Bot extends Client {
     }
   }
 
-  private static onSetupState() {
+  private static onInitState() {
     const bot = new Bot();
     bot.commands = new Collection();
     bot.queues = new Map();
@@ -87,7 +87,7 @@ class Bot extends Client {
   static start() {
     this.validateCredentials();
     this.handleDatabaseConnection();
-    this.onSetupState();
+    this.onInitState();
   }
 }
 

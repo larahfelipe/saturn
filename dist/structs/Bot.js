@@ -10,7 +10,7 @@ const CommandHandler_1 = __importDefault(require("../handlers/CommandHandler"));
 const AuthenticateMemberService_1 = require("../services/AuthenticateMemberService");
 class Bot extends discord_js_1.Client {
     static validateCredentials() {
-        if (typeof config_1.default.botToken !== 'string' || typeof config_1.default.botDevToken !== 'string')
+        if (typeof config_1.default.botToken !== 'string')
             throw new TypeError('Tokens must be of type string.');
         if (!config_1.default.botPrefix)
             throw new Error('Prefix not settled.');
@@ -35,7 +35,7 @@ class Bot extends discord_js_1.Client {
             console.error(err);
         }
     }
-    static onSetupState() {
+    static onInitState() {
         const bot = new Bot();
         bot.commands = new discord_js_1.Collection();
         bot.queues = new Map();
@@ -84,7 +84,7 @@ class Bot extends discord_js_1.Client {
     static start() {
         this.validateCredentials();
         this.handleDatabaseConnection();
-        this.onSetupState();
+        this.onInitState();
     }
 }
 exports.default = Bot;

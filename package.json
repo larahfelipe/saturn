@@ -5,7 +5,7 @@
   "main": "index.ts",
   "scripts": {
     "start": "node dist/index.js",
-    "dev": "set NODE_ENV=development&&tsnd --respawn src/index.ts",
+    "dev": "set NODE_ENV=development&&tsnd --respawn --transpile-only src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
