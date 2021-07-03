@@ -1,31 +1,26 @@
 import { Message, MessageEmbed } from 'discord.js';
 import ytdl from 'ytdl-core';
 
-import Song from '../structs/Song';
 import Bot from "../structs/Bot";
-import { IQueue } from '../types';
 import ReactionHandler from './ReactionHandler';
 import { dropBotQueueConnection } from '../utils/DropBotQueueConnection';
+import { IQueue } from '../types';
 
-class SongHandler extends Song {
-  constructor(bot: Bot, msg: Message) {
-    super(bot, msg);
-  }
-
-  async setSong(song: any, requestAuthor: string) {
-    let queue: IQueue = this.bot.queues.get(this.msg.guild!.id);
+class SongHandler {
+  static async setSong(bot: Bot, msg: Message, song: any, requestAuthor: string) {
+    let queue: IQueue = bot.queues.get(msg.guild!.id);
 
     if (!song) {
       if (queue) {
         queue.connection.disconnect();
-        return this.bot.queues.delete(this.msg.guild!.id);
+        return bot.queues.delete(msg.guild!.id);
       }
     }
 
-    if (!this.msg.member?.voice.channel) return this.msg.reply('You need to be in a voice channel to play a song.');
+    if (!msg.member?.voice.channel) return msg.reply('You need to be in a voice channel to play a song.');
 
     if (!queue) {
-      const botConnection = await this.msg.member.voice.channel.join();
+      const botConnection = await msg.member.voice.channel.join();
 
       queue = {
         connection: botConnection,
@@ -52,9 +47,9 @@ class SongHandler extends Song {
         .setFooter(`Song duration: ${song.timestamp}`)
         .setColor('#6E76E5');
 
-      this.msg.channel.send({ embed })
+      msg.channel.send({ embed })
         .then((sentMsg) => {
-          ReactionHandler.resolveMusicControls(this.bot, this.msg, sentMsg);
+          ReactionHandler.resolveMusicControls(bot, msg, sentMsg);
         });
 
       queue.dispatcher.on('finish', () => {
@@ -62,12 +57,12 @@ class SongHandler extends Song {
         queue.authors.shift();
         ReactionHandler.performDeletion(true);
 
-        new SongHandler(this.bot, this.msg).setSong(queue.songs[0], queue.authors[0]);
+        SongHandler.setSong(bot, msg, queue.songs[0], queue.authors[0]);
       });
 
-      this.bot.queues.set(this.msg.guild!.id, queue);
+      bot.queues.set(msg.guild!.id, queue);
     } catch (err) {
-      dropBotQueueConnection(this.bot, this.msg);
+      dropBotQueueConnection(bot, msg);
       console.error(err);
     }
   }

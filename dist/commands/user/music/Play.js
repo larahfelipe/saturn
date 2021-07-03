@@ -22,7 +22,7 @@ class Play extends Command_1.default {
     async handlePlaySong(song, msg, sendQueueNotifMsg = false) {
         const queue = this.bot.queues.get(msg.guild.id);
         if (!queue) {
-            new SongHandler_1.default(this.bot, msg).setSong(song, msg.author.id);
+            SongHandler_1.default.setSong(this.bot, msg, song, msg.author.id);
             const embed = new discord_js_1.MessageEmbed();
             embed
                 .setTitle('🎵  Music Playback')
