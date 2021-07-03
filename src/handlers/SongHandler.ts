@@ -3,9 +3,9 @@ import ytdl from 'ytdl-core';
 
 import Song from '../structs/Song';
 import Bot from "../structs/Bot";
-import { IQueue } from '../types';
 import ReactionHandler from './ReactionHandler';
 import { dropBotQueueConnection } from '../utils/DropBotQueueConnection';
+import { IQueue } from '../types';
 
 class SongHandler extends Song {
   constructor(bot: Bot, msg: Message) {
