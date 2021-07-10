@@ -22,7 +22,7 @@ export default class Play extends Command {
   async handlePlaySong(song: Song, msg: Message, sendQueueNotifMsg = false) {
     const queue: IQueue = this.bot.queues.get(msg.guild!.id);
     if (!queue) {
-      new SongHandler(this.bot, msg).setSong(song, msg.author.id);
+      SongHandler.setSong(this.bot, msg, song, msg.author.id);
 
       const embed = new MessageEmbed();
       embed
