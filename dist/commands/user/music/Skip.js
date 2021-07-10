@@ -30,7 +30,7 @@ class Skip extends Command_1.default {
                 .setDescription('Okay! Setting up the next song for you.')
                 .setColor('#6E76E5');
             msg.channel.send({ embed });
-            new SongHandler_1.default(this.bot, msg).setSong(queueExists.songs[0], queueExists.authors[0]);
+            SongHandler_1.default.setSong(this.bot, msg, queueExists.songs[0], queueExists.authors[0]);
         }
     }
 }

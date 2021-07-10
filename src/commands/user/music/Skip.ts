@@ -32,7 +32,7 @@ export default class Skip extends Command {
         .setColor('#6E76E5');
       msg.channel.send({ embed });
 
-      new SongHandler(this.bot, msg).setSong(queueExists.songs[0], queueExists.authors[0]);
+      SongHandler.setSong(this.bot, msg, queueExists.songs[0], queueExists.authors[0]);
     }
   }
 }

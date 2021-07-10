@@ -72,7 +72,7 @@ class ReactionHandler {
                         queue.songs.shift();
                         queue.authors.shift();
                         this.performDeletion(true);
-                        new SongHandler_1.default(bot, msg).setSong(queue.songs[0], queue.authors[0]);
+                        SongHandler_1.default.setSong(bot, msg, queue.songs[0], queue.authors[0]);
                     }
                     else
                         return;
