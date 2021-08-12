@@ -10,8 +10,8 @@ class Queue extends Command_1.default {
     constructor(bot) {
         super(bot, {
             name: `${config_1.default.botPrefix}queue`,
-            help: 'Show the server\'s music queue',
-            permissionLvl: 0
+            help: "Show the server's music queue",
+            permissionLvl: 0,
         });
     }
     async run(msg, args) {
@@ -26,10 +26,11 @@ class Queue extends Command_1.default {
         }
         let concatQueueStr = '';
         if (queueExists.songs.length === 1) {
-            concatQueueStr = 'Hmm.. Seems like the queue is empty 🤔\nTry add a song!';
+            concatQueueStr =
+                'Hmm.. Seems like the queue is empty 🤔\nTry add a song!';
         }
         else {
-            queueExists.songs.forEach(song => {
+            queueExists.songs.forEach((song) => {
                 if (queueExists.songs.indexOf(song) === 0)
                     return;
                 concatQueueStr += `**${queueExists.songs.indexOf(song)}** — ${song.title} \`[${song.timestamp}]\`\n`;

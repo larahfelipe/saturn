@@ -51,7 +51,10 @@ class Bot extends discord_js_1.Client {
             bot.user?.setActivity(`${config_1.default.botPrefix}help`);
             if (!msg.content.startsWith(config_1.default.botPrefix) || msg.author.bot)
                 return;
-            const args = msg.content.slice(config_1.default.botPrefix.length).trim().split(/ +/);
+            const args = msg.content
+                .slice(config_1.default.botPrefix.length)
+                .trim()
+                .split(/ +/);
             const commandListener = config_1.default.botPrefix + args.shift()?.toLowerCase();
             console.log(`[@${msg.author.tag}] >> ${commandListener} ${args.join(' ')}`);
             const embed = new discord_js_1.MessageEmbed();
@@ -60,12 +63,12 @@ class Bot extends discord_js_1.Client {
                 if (this.hasDatabaseConnection) {
                     const getMember = await AuthenticateMemberService_1.handleMemberAuth(msg.member);
                     if (!getMember)
-                        return msg.reply('Cannot execute your command because you\'re not registered in database!');
+                        return msg.reply("Cannot execute your command because you're not registered in database!");
                     if (getMember.roleLvl >= getCommand.permissionLvl) {
                         getCommand.run(msg, args);
                     }
                     else {
-                        msg.reply('You don\'t have permission to use this command!');
+                        msg.reply("You don't have permission to use this command!");
                     }
                 }
                 else

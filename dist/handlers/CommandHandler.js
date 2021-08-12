@@ -9,7 +9,8 @@ class CommandHandler {
     resolveAndSet(foo) {
         let TargetCommand;
         if (foo.length === 3) {
-            TargetCommand = require(`../commands/${foo[0]}/${foo[1]}/${foo[2]}`).default;
+            TargetCommand =
+                require(`../commands/${foo[0]}/${foo[1]}/${foo[2]}`).default;
         }
         else {
             TargetCommand = require(`../commands/${foo[0]}/${foo[1]}`).default;
@@ -23,7 +24,7 @@ class CommandHandler {
             for (const categorySection of commandsDir) {
                 const currCategoryChildren = fs_1.readdirSync(path_1.join(__dirname, '../commands', categorySection));
                 CommandHandler.modulesLength.push(categorySection.length);
-                currCategoryChildren.forEach(child => {
+                currCategoryChildren.forEach((child) => {
                     if (child.endsWith('.js') || child.endsWith('.ts')) {
                         this.resolveAndSet([categorySection, child]);
                     }

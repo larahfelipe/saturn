@@ -10,7 +10,7 @@ export default class DecreaseMemberRoleLvl extends Command {
     super(bot, {
       name: `${config.botPrefix}unsetadmin`,
       help: 'Unset a member as server administrator',
-      permissionLvl: 1
+      permissionLvl: 1,
     });
   }
 
@@ -21,14 +21,19 @@ export default class DecreaseMemberRoleLvl extends Command {
     const embed = new MessageEmbed();
     embed
       .setAuthor(`SATURN Database Manager`, this.bot.user?.avatarURL()!)
-      .setDescription(`**» ${targetMember} REGISTRY HAS BEEN UPDATED.**\n*Database was updated at ${msg.createdAt}.*`)
+      .setDescription(
+        `**» ${targetMember} REGISTRY HAS BEEN UPDATED.**\n*Database was updated at ${msg.createdAt}.*`,
+      )
       .setTimestamp(Date.now())
-      .setFooter('MongoDB', 'https://pbs.twimg.com/profile_images/1234528105819189248/b6F1hk_6_400x400.jpg')
+      .setFooter(
+        'MongoDB',
+        'https://pbs.twimg.com/profile_images/1234528105819189248/b6F1hk_6_400x400.jpg',
+      )
       .setColor('#6E76E5');
 
     await handleMemberDemotion(targetMember)
       .then(() => msg.channel.send({ embed }))
-      .catch(err => {
+      .catch((err) => {
         console.error(err);
         msg.reply('Member was not found in database.');
       });

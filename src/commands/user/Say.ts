@@ -9,13 +9,14 @@ export default class Say extends Command {
     super(bot, {
       name: `${config.botPrefix}say`,
       help: 'Repeat what user says',
-      permissionLvl: 0
+      permissionLvl: 0,
     });
   }
 
   async run(msg: Message, args: string[]) {
     const concatArgs = args.join(' ');
-    const messageCapitalized = concatArgs[0].toUpperCase() + concatArgs.slice(1);
+    const messageCapitalized =
+      concatArgs[0].toUpperCase() + concatArgs.slice(1);
 
     msg.channel.send(messageCapitalized);
   }

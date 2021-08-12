@@ -10,10 +10,9 @@ class Database {
         return this.hasConnection;
     }
     static setConnection() {
-        mongoose_1.default
-            .connect(config_1.default.dbAccess, {
+        mongoose_1.default.connect(config_1.default.dbAccess, {
             useNewUrlParser: true,
-            useUnifiedTopology: true
+            useUnifiedTopology: true,
         }, (err) => {
             if (err) {
                 return console.log('[Saturn] There was a problem while trying to connect to database!\nThis is probably related to the given access link settled in .env\nBy now, moving forward without establishing relation with the database.\n');

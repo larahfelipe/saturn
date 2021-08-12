@@ -12,7 +12,7 @@ class DeleteMember extends Command_1.default {
         super(bot, {
             name: `${config_1.default.botPrefix}del`,
             help: 'Delete a member from database',
-            permissionLvl: 1
+            permissionLvl: 1,
         });
     }
     async run(msg, args) {
@@ -28,7 +28,7 @@ class DeleteMember extends Command_1.default {
             .setColor('#6E76E5');
         await DeleteMemberService_1.handleMemberDeletion(msg.author, targetMember)
             .then(() => msg.channel.send({ embed }))
-            .catch(err => {
+            .catch((err) => {
             console.error(err);
             msg.reply('Member was not found in database.');
         });

@@ -12,23 +12,23 @@ async function handleMemberSearch(member) {
     return {
         username: memberExists.username,
         userID: memberExists.userID,
-        roleLvl: memberExists.roleLvl
+        roleLvl: memberExists.roleLvl,
     };
 }
 exports.handleMemberSearch = handleMemberSearch;
 async function handleFetchAllMembers() {
     return await Member_1.default.find({})
-        .then(docs => {
-        const formatMembersData = docs.map(member => {
+        .then((docs) => {
+        const formatMembersData = docs.map((member) => {
             return {
                 username: member.username,
                 userID: member.userID,
-                roleLvl: member.roleLvl
+                roleLvl: member.roleLvl,
             };
         });
         return formatMembersData;
     })
-        .catch(err => {
+        .catch((err) => {
         console.error(err);
     });
 }

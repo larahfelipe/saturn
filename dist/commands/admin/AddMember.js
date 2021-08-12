@@ -12,7 +12,7 @@ class AddMember extends Command_1.default {
         super(bot, {
             name: `${config_1.default.botPrefix}add`,
             help: 'Add a new member to database',
-            permissionLvl: 1
+            permissionLvl: 1,
         });
     }
     async run(msg, args) {
@@ -28,7 +28,7 @@ class AddMember extends Command_1.default {
             .setColor('#6E76E5');
         await CreateMemberService_1.handleMemberCreation(targetMember)
             .then(() => msg.channel.send({ embed }))
-            .catch(err => {
+            .catch((err) => {
             console.error(err);
             msg.reply('Member already registered in database.');
         });

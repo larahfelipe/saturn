@@ -11,7 +11,8 @@ class Bot extends Client {
   queues!: Map<string, any>;
 
   private static validateCredentials() {
-    if (typeof config.botToken !== 'string') throw new TypeError('Tokens must be of type string.');
+    if (typeof config.botToken !== 'string')
+      throw new TypeError('Tokens must be of type string.');
     if (!config.botPrefix) throw new Error('Prefix not settled.');
   }
 
@@ -55,9 +56,14 @@ class Bot extends Client {
 
       if (!msg.content.startsWith(config.botPrefix!) || msg.author.bot) return;
 
-      const args = msg.content.slice(config.botPrefix!.length).trim().split(/ +/);
+      const args = msg.content
+        .slice(config.botPrefix!.length)
+        .trim()
+        .split(/ +/);
       const commandListener = config.botPrefix! + args.shift()?.toLowerCase();
-      console.log(`[@${msg.author.tag}] >> ${commandListener} ${args.join(' ')}`);
+      console.log(
+        `[@${msg.author.tag}] >> ${commandListener} ${args.join(' ')}`,
+      );
 
       const embed = new MessageEmbed();
       const getCommand = bot.commands.get(commandListener);
@@ -65,19 +71,24 @@ class Bot extends Client {
       try {
         if (this.hasDatabaseConnection) {
           const getMember = await handleMemberAuth(msg.member!);
-          if (!getMember) return msg.reply('Cannot execute your command because you\'re not registered in database!');
+          if (!getMember)
+            return msg.reply(
+              "Cannot execute your command because you're not registered in database!",
+            );
 
           if (getMember.roleLvl >= getCommand.permissionLvl) {
             getCommand.run(msg, args);
           } else {
-            msg.reply('You don\'t have permission to use this command!');
+            msg.reply("You don't have permission to use this command!");
           }
         } else getCommand.run(msg, args);
       } catch (err) {
         console.error(err);
         embed
           .setAuthor('❌ Whoops, a wild error appeared!')
-          .setDescription(`**Why I\'m seeing this?!** 🤔\n\nYou probably have a typo in your command\'s message or you currently don\'t have permission to execute this command.\n\nYou can get a full commands list by typing **\`${config.botPrefix!}help\`**`)
+          .setDescription(
+            `**Why I\'m seeing this?!** 🤔\n\nYou probably have a typo in your command\'s message or you currently don\'t have permission to execute this command.\n\nYou can get a full commands list by typing **\`${config.botPrefix!}help\`**`,
+          )
           .setColor('#6E76E5');
         msg.channel.send({ embed });
       }

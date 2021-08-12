@@ -9,7 +9,7 @@ const MemberSchema = new mongoose_1.default.Schema({
     username: String,
     userID: String,
     roleLvl: Number,
-    time: String
+    time: String,
 });
 const Member = mongoose_1.default.model('Member', MemberSchema);
 exports.default = Member;
