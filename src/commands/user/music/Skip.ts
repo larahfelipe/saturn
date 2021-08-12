@@ -12,13 +12,13 @@ export default class Skip extends Command {
     super(bot, {
       name: `${config.botPrefix}skip`,
       help: 'Skip the current song',
-      permissionLvl: 0
+      permissionLvl: 0,
     });
   }
 
   async run(msg: Message, args: string[]) {
     const queueExists: IQueue = this.bot.queues.get(msg.guild!.id);
-    if (!queueExists) return msg.reply('There\'s no song currently playing.');
+    if (!queueExists) return msg.reply("There's no song currently playing.");
 
     if (queueExists.songs.length > 1) {
       queueExists.songs.shift();
@@ -32,7 +32,12 @@ export default class Skip extends Command {
         .setColor('#6E76E5');
       msg.channel.send({ embed });
 
-      SongHandler.setSong(this.bot, msg, queueExists.songs[0], queueExists.authors[0]);
+      SongHandler.setSong(
+        this.bot,
+        msg,
+        queueExists.songs[0],
+        queueExists.authors[0],
+      );
     }
   }
 }

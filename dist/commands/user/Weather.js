@@ -12,7 +12,7 @@ class Weather extends Command_1.default {
         super(bot, {
             name: `${config_1.default.botPrefix}weather`,
             help: 'Get the weather of the location that you want',
-            permissionLvl: 0
+            permissionLvl: 0,
         });
     }
     async run(msg, args) {

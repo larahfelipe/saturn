@@ -11,7 +11,7 @@ class MessagesCleanup extends Command_1.default {
         super(bot, {
             name: `${config_1.default.botPrefix}clear`,
             help: 'Cleans the messages in the invoked channel',
-            permissionLvl: 1
+            permissionLvl: 1,
         });
     }
     async run(msg, args) {

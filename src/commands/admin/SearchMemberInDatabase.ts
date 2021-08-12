@@ -10,7 +10,7 @@ export default class SearchMemberInDatabase extends Command {
     super(bot, {
       name: `${config.botPrefix}find`,
       help: 'Search a member in database',
-      permissionLvl: 1
+      permissionLvl: 1,
     });
   }
 
@@ -21,7 +21,9 @@ export default class SearchMemberInDatabase extends Command {
     try {
       const member = await handleMemberSearch(targetMember!);
       if (member) {
-        msg.channel.send(`\`· Member: ${member.username} ─ Role Lvl: ${member.roleLvl}\``);
+        msg.channel.send(
+          `\`· Member: ${member.username} ─ Role Lvl: ${member.roleLvl}\``,
+        );
       }
     } catch (err) {
       console.error(err);

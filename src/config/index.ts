@@ -7,5 +7,5 @@ export default {
   botToken: process.env.BOT_TOKEN,
   botDevToken: process.env.BOT_DEVTOKEN,
   dbAccess: process.env.DB_ACCESS,
-  openWeatherToken: process.env.OPENWEATHER_TOKEN
+  openWeatherToken: process.env.OPENWEATHER_TOKEN,
 } as const;

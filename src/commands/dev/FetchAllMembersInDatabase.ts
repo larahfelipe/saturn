@@ -1,11 +1,14 @@
-import { Message, MessageEmbed } from "discord.js"
+import { Message, MessageEmbed } from 'discord.js';
 
 import config from '../../config';
-import Command from "../../structs/Command";
-import Bot from "../../structs/Bot";
+import Command from '../../structs/Command';
+import Bot from '../../structs/Bot';
 import { handleFetchAllMembers } from '../../services/FetchMemberService';
-import { handleMemberElevation, handleMemberDemotion } from "../../services/UpdateMemberService";
-import { handleMemberDeletion } from "../../services/DeleteMemberService";
+import {
+  handleMemberElevation,
+  handleMemberDemotion,
+} from '../../services/UpdateMemberService';
+import { handleMemberDeletion } from '../../services/DeleteMemberService';
 import { IMemberEssentials } from '../../types';
 
 export default class FetchAllMembersInDatabase extends Command {
@@ -13,7 +16,7 @@ export default class FetchAllMembersInDatabase extends Command {
     super(bot, {
       name: `${config.botPrefix}findall`,
       help: 'List all members in database',
-      permissionLvl: 2
+      permissionLvl: 2,
     });
   }
 
@@ -55,15 +58,20 @@ export default class FetchAllMembersInDatabase extends Command {
 
       const embed = new MessageEmbed();
       embed
-        .setAuthor('SATURN Database Manager\nReg Index ─ Member Role Lvl • Member Username')
+        .setAuthor(
+          'SATURN Database Manager\nReg Index ─ Member Role Lvl • Member Username',
+        )
         .setDescription(concatMembersData)
         .setTimestamp(Date.now())
-        .setFooter('MongoDB', 'https://pbs.twimg.com/profile_images/1234528105819189248/b6F1hk_6_400x400.jpg')
+        .setFooter(
+          'MongoDB',
+          'https://pbs.twimg.com/profile_images/1234528105819189248/b6F1hk_6_400x400.jpg',
+        )
         .setColor('#6E76E5');
       msg.channel.send({ embed });
     } catch (err) {
       console.error(err);
-      msg.reply('Couldn\'t retrieve members in database.');
+      msg.reply("Couldn't retrieve members in database.");
     }
   }
 }

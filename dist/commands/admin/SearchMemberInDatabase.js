@@ -11,7 +11,7 @@ class SearchMemberInDatabase extends Command_1.default {
         super(bot, {
             name: `${config_1.default.botPrefix}find`,
             help: 'Search a member in database',
-            permissionLvl: 1
+            permissionLvl: 1,
         });
     }
     async run(msg, args) {

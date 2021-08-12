@@ -10,7 +10,7 @@ export default class MessagesCleanup extends Command {
     super(bot, {
       name: `${config.botPrefix}clear`,
       help: 'Cleans the messages in the invoked channel',
-      permissionLvl: 1
+      permissionLvl: 1,
     });
   }
 

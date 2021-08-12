@@ -3,7 +3,9 @@ import { GuildMember } from 'discord.js';
 import Member from '../models/Member';
 import { IMember } from '../types';
 
-export async function parseMember(elmt: GuildMember | string): Promise<[IMember, string]> {
+export async function parseMember(
+  elmt: GuildMember | string,
+): Promise<[IMember, string]> {
   let memberId: string;
   if (typeof elmt === 'string') {
     memberId = elmt;

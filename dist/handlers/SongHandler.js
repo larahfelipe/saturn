@@ -25,23 +25,22 @@ class SongHandler {
                 songs: [song],
                 authors: [requestAuthor],
                 volume: 10,
-                dispatcher: null
+                dispatcher: null,
             };
         }
         try {
             queue.dispatcher = queue.connection.play(ytdl_core_1.default(song.url, {
                 filter: 'audioonly',
-                quality: 'highestaudio'
+                quality: 'highestaudio',
             }));
             const embed = new discord_js_1.MessageEmbed();
             embed
-                .setAuthor('We hear you 💜', 'https://raw.githubusercontent.com/felpshn/saturn-bot/master/assets/cd.gif')
+                .setAuthor('We hear you 💜', 'https://raw.githubusercontent.com/felpshn/saturn-bot/master/src/assets/cd.gif')
                 .setThumbnail(song.thumbnail)
                 .setDescription(`Now playing **[${song.title}](${song.url})** requested by <@${queue.authors[0]}>`)
                 .setFooter(`Song duration: ${song.timestamp}`)
                 .setColor('#6E76E5');
-            msg.channel.send({ embed })
-                .then((sentMsg) => {
+            msg.channel.send({ embed }).then((sentMsg) => {
                 ReactionHandler_1.default.resolveMusicControls(bot, msg, sentMsg);
             });
             queue.dispatcher.on('finish', () => {

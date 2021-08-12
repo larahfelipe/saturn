@@ -7,7 +7,7 @@ const MemberSchema = new mongoose.Schema({
   username: String,
   userID: String,
   roleLvl: Number,
-  time: String
+  time: String,
 });
 
 const Member = mongoose.model<IMember>('Member', MemberSchema);

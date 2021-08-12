@@ -10,7 +10,7 @@ export default class Help extends Command {
     super(bot, {
       name: `${config.botPrefix}help`,
       help: 'Commands help',
-      permissionLvl: 0
+      permissionLvl: 0,
     });
   }
 

@@ -12,9 +12,10 @@ class MessageHandler {
   }
 
   static async firstHundredBotSent(msg: Message) {
-    const firstHundredBotMsgs = await msg.channel.messages.fetch({ limit: 100 })
-      .then(msgs => {
-        const botMsgs = msgs.map(currMsg => {
+    const firstHundredBotMsgs = await msg.channel.messages
+      .fetch({ limit: 100 })
+      .then((msgs) => {
+        const botMsgs = msgs.map((currMsg) => {
           if (currMsg.author.bot) {
             return currMsg;
           }
@@ -25,9 +26,10 @@ class MessageHandler {
   }
 
   static async lastBotSent(msg: Message) {
-    const lastSentBotMsg = await msg.channel.messages.fetch({ limit: 100 })
-      .then(msgs => {
-        const botMsg = msgs.map(currMsg => {
+    const lastSentBotMsg = await msg.channel.messages
+      .fetch({ limit: 100 })
+      .then((msgs) => {
+        const botMsg = msgs.map((currMsg) => {
           if (currMsg.author.bot) {
             return currMsg;
           }

@@ -10,13 +10,14 @@ export default class SetReminder extends Command {
     super(bot, {
       name: `${config.botPrefix}remind`,
       help: 'Remind you about whatever you want',
-      permissionLvl: 0
+      permissionLvl: 0,
     });
   }
 
   async run(msg: Message, args: string[]) {
     const reminderMessage = args.slice(0, args.length - 1).join(' ');
-    if (!reminderMessage) return msg.reply('You need to inform what I need to remind you about!');
+    if (!reminderMessage)
+      return msg.reply('You need to inform what I need to remind you about!');
 
     const reminderTime = args.slice(-1)[0];
     let numberTimestamp = <any>reminderTime.slice(0, reminderTime.length - 1);
@@ -36,9 +37,15 @@ export default class SetReminder extends Command {
         numberTimestamp *= 1000;
         break;
       default:
-        return msg.reply('You need to inform the time in days [d], hours [h], minutes [m] or seconds [s]!');
+        return msg.reply(
+          'You need to inform the time in days [d], hours [h], minutes [m] or seconds [s]!',
+        );
     }
-    msg.reply(`Understood! I'll remind you about "${reminderMessage}" in ${formatSecondsToTime(numberTimestamp / 1000)}`);
+    msg.reply(
+      `Understood! I'll remind you about "${reminderMessage}" in ${formatSecondsToTime(
+        numberTimestamp / 1000,
+      )}`,
+    );
 
     setTimeout(() => {
       msg.reply(`[REMINDER] ${reminderMessage}`);

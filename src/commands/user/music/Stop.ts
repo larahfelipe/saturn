@@ -11,13 +11,14 @@ export default class Stop extends Command {
     super(bot, {
       name: `${config.botPrefix}stop`,
       help: 'Stop the music function',
-      permissionLvl: 0
+      permissionLvl: 0,
     });
   }
 
   async run(msg: Message, args: string[]) {
     const queueExists: IQueue = this.bot.queues.get(msg.guild!.id);
-    if (!queueExists) return msg.reply('There\'s no song playing in your current channel.');
+    if (!queueExists)
+      return msg.reply("There's no song playing in your current channel.");
 
     const embed = new MessageEmbed();
     embed

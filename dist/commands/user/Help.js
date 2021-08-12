@@ -12,7 +12,7 @@ class Help extends Command_1.default {
         super(bot, {
             name: `${config_1.default.botPrefix}help`,
             help: 'Commands help',
-            permissionLvl: 0
+            permissionLvl: 0,
         });
     }
     async run(msg, args) {

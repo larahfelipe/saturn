@@ -10,7 +10,7 @@ export default class DeleteMember extends Command {
     super(bot, {
       name: `${config.botPrefix}del`,
       help: 'Delete a member from database',
-      permissionLvl: 1
+      permissionLvl: 1,
     });
   }
 
@@ -21,14 +21,19 @@ export default class DeleteMember extends Command {
     const embed = new MessageEmbed();
     embed
       .setAuthor(`SATURN Database Manager`, this.bot.user?.avatarURL()!)
-      .setDescription(`**» ${targetMember} REGISTRY HAS BEEN DELETED.**\n*Database was updated at ${msg.createdAt}.*`)
+      .setDescription(
+        `**» ${targetMember} REGISTRY HAS BEEN DELETED.**\n*Database was updated at ${msg.createdAt}.*`,
+      )
       .setTimestamp(Date.now())
-      .setFooter('MongoDB', 'https://pbs.twimg.com/profile_images/1234528105819189248/b6F1hk_6_400x400.jpg')
+      .setFooter(
+        'MongoDB',
+        'https://pbs.twimg.com/profile_images/1234528105819189248/b6F1hk_6_400x400.jpg',
+      )
       .setColor('#6E76E5');
 
     await handleMemberDeletion(msg.author, targetMember)
       .then(() => msg.channel.send({ embed }))
-      .catch(err => {
+      .catch((err) => {
         console.error(err);
         msg.reply('Member was not found in database.');
       });

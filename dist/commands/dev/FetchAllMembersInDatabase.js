@@ -14,7 +14,7 @@ class FetchAllMembersInDatabase extends Command_1.default {
         super(bot, {
             name: `${config_1.default.botPrefix}findall`,
             help: 'List all members in database',
-            permissionLvl: 2
+            permissionLvl: 2,
         });
     }
     async run(msg, args) {
@@ -61,7 +61,7 @@ class FetchAllMembersInDatabase extends Command_1.default {
         }
         catch (err) {
             console.error(err);
-            msg.reply('Couldn\'t retrieve members in database.');
+            msg.reply("Couldn't retrieve members in database.");
         }
     }
 }

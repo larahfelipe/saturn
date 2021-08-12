@@ -22,13 +22,19 @@ class ReactionHandler {
             else {
                 switch (targetReaction) {
                     case Control.PLAY:
-                        this.playerMsg.reactions.resolve(Control.PLAY).users.remove(userID);
+                        this.playerMsg.reactions
+                            .resolve(Control.PLAY)
+                            .users.remove(userID);
                         break;
                     case Control.PAUSE:
-                        this.playerMsg.reactions.resolve(Control.PAUSE).users.remove(userID);
+                        this.playerMsg.reactions
+                            .resolve(Control.PAUSE)
+                            .users.remove(userID);
                         break;
                     case Control.SKIP:
-                        this.playerMsg.reactions.resolve(Control.SKIP).users.remove(userID);
+                        this.playerMsg.reactions
+                            .resolve(Control.SKIP)
+                            .users.remove(userID);
                         break;
                     default:
                         throw new RangeError('Unexpected case.');
@@ -47,7 +53,8 @@ class ReactionHandler {
             });
             const queue = bot.queues.get(msg.guild.id);
             const filter = (reaction, user) => {
-                return this.musicControls.includes(reaction.emoji.name) && user.id !== bot.user.id;
+                return (this.musicControls.includes(reaction.emoji.name) &&
+                    user.id !== bot.user.id);
             };
             const reactionsListener = this.playerMsg.createReactionCollector(filter);
             reactionsListener.on('collect', (reaction, user) => {
@@ -84,5 +91,10 @@ class ReactionHandler {
         }
     }
 }
-ReactionHandler.musicControls = [Control.PAUSE, Control.PLAY, Control.SKIP, Control.STOP];
+ReactionHandler.musicControls = [
+    Control.PAUSE,
+    Control.PLAY,
+    Control.SKIP,
+    Control.STOP,
+];
 exports.default = ReactionHandler;

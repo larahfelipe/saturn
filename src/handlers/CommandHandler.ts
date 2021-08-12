@@ -15,7 +15,8 @@ class CommandHandler {
   private resolveAndSet(foo: string[]) {
     let TargetCommand: any;
     if (foo.length === 3) {
-      TargetCommand = require(`../commands/${foo[0]}/${foo[1]}/${foo[2]}`).default;
+      TargetCommand =
+        require(`../commands/${foo[0]}/${foo[1]}/${foo[2]}`).default;
     } else {
       TargetCommand = require(`../commands/${foo[0]}/${foo[1]}`).default;
     }
@@ -28,14 +29,18 @@ class CommandHandler {
     try {
       const commandsDir = readdirSync(join(__dirname, '../commands'));
       for (const categorySection of commandsDir) {
-        const currCategoryChildren = readdirSync(join(__dirname, '../commands', categorySection));
+        const currCategoryChildren = readdirSync(
+          join(__dirname, '../commands', categorySection),
+        );
         CommandHandler.modulesLength.push(categorySection.length);
 
-        currCategoryChildren.forEach(child => {
+        currCategoryChildren.forEach((child) => {
           if (child.endsWith('.js') || child.endsWith('.ts')) {
             this.resolveAndSet([categorySection, child]);
           } else {
-            const secondChildSection = readdirSync(join(__dirname, `../commands/${categorySection}`, child));
+            const secondChildSection = readdirSync(
+              join(__dirname, `../commands/${categorySection}`, child),
+            );
             for (const elmt of secondChildSection) {
               this.resolveAndSet([categorySection, child, elmt]);
             }

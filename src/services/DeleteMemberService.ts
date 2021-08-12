@@ -3,7 +3,10 @@ import { User, GuildMember } from 'discord.js';
 import { parseMember } from '../utils/ParseMember';
 import Member from '../models/Member';
 
-async function handleMemberDeletion(memberAuthor: User, member: GuildMember | string) {
+async function handleMemberDeletion(
+  memberAuthor: User,
+  member: GuildMember | string,
+) {
   const requestAuthor = await Member.findOne({ userID: memberAuthor.id });
 
   try {

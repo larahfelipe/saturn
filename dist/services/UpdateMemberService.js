@@ -9,22 +9,22 @@ const Member_1 = __importDefault(require("../models/Member"));
 async function handleMemberElevation(member) {
     const [memberExists, memberId] = await ParseMember_1.parseMember(member);
     await Member_1.default.findOneAndUpdate({
-        userID: memberId
+        userID: memberId,
     }, {
         $set: {
-            roleLvl: 1
-        }
+            roleLvl: 1,
+        },
     });
 }
 exports.handleMemberElevation = handleMemberElevation;
 async function handleMemberDemotion(member) {
     const [memberExists, memberId] = await ParseMember_1.parseMember(member);
     await Member_1.default.findOneAndUpdate({
-        userID: memberId
+        userID: memberId,
     }, {
         $set: {
-            roleLvl: 0
-        }
+            roleLvl: 0,
+        },
     });
 }
 exports.handleMemberDemotion = handleMemberDemotion;

@@ -8,29 +8,44 @@ enum Control {
   PLAY = '▶️',
   PAUSE = '⏸',
   STOP = '⏹️',
-  SKIP = '⏭️'
+  SKIP = '⏭️',
 }
 
 class ReactionHandler {
-  private static musicControls: string[] = [Control.PAUSE, Control.PLAY, Control.SKIP, Control.STOP];
+  private static musicControls: string[] = [
+    Control.PAUSE,
+    Control.PLAY,
+    Control.SKIP,
+    Control.STOP,
+  ];
   private static playerMsg: Message;
 
-  static async performDeletion(bulkDelete: boolean, targetReaction?: Control | string, userID?: IUser | any) {
+  static async performDeletion(
+    bulkDelete: boolean,
+    targetReaction?: Control | string,
+    userID?: IUser | any,
+  ) {
     try {
       if (bulkDelete) {
-        this.musicControls.forEach(async control => {
+        this.musicControls.forEach(async (control) => {
           await this.playerMsg.reactions.resolve(control)!.users.remove();
         });
       } else {
         switch (targetReaction) {
           case Control.PLAY:
-            this.playerMsg.reactions.resolve(Control.PLAY)!.users.remove(userID);
+            this.playerMsg.reactions
+              .resolve(Control.PLAY)!
+              .users.remove(userID);
             break;
           case Control.PAUSE:
-            this.playerMsg.reactions.resolve(Control.PAUSE)!.users.remove(userID);
+            this.playerMsg.reactions
+              .resolve(Control.PAUSE)!
+              .users.remove(userID);
             break;
           case Control.SKIP:
-            this.playerMsg.reactions.resolve(Control.SKIP)!.users.remove(userID);
+            this.playerMsg.reactions
+              .resolve(Control.SKIP)!
+              .users.remove(userID);
             break;
           default:
             throw new RangeError('Unexpected case.');
@@ -44,14 +59,17 @@ class ReactionHandler {
   static async resolveMusicControls(bot: Bot, msg: Message, sentMsg: Message) {
     try {
       this.playerMsg = sentMsg;
-      this.musicControls.forEach(async control => {
+      this.musicControls.forEach(async (control) => {
         await this.playerMsg.react(control);
       });
 
       const queue: IQueue = bot.queues.get(msg.guild!.id);
 
       const filter = (reaction: IReaction, user: IUser) => {
-        return this.musicControls.includes(reaction.emoji.name) && user.id !== bot.user!.id;
+        return (
+          this.musicControls.includes(reaction.emoji.name) &&
+          user.id !== bot.user!.id
+        );
       };
       const reactionsListener = this.playerMsg.createReactionCollector(filter);
 

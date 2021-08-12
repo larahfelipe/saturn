@@ -12,7 +12,7 @@ async function handleMemberCreation(member: GuildMember) {
     username: member.user.tag,
     userID: member.id,
     roleLvl: 0,
-    time: Date.now()
+    time: Date.now(),
   });
   newMember.save();
 }

@@ -11,7 +11,7 @@ class GetMemberInformation extends Command_1.default {
         super(bot, {
             name: `${config_1.default.botPrefix}profile`,
             help: 'Show your discord profile info',
-            permissionLvl: 0
+            permissionLvl: 0,
         });
     }
     async run(msg, args) {

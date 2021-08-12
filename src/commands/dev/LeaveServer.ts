@@ -9,7 +9,7 @@ export default class LeaveServer extends Command {
     super(bot, {
       name: `${config.botPrefix}leave`,
       help: 'Leave the server',
-      permissionLvl: 2
+      permissionLvl: 2,
     });
   }
 

@@ -16,7 +16,7 @@ class Play extends Command_1.default {
         super(bot, {
             name: `${config_1.default.botPrefix}play`,
             help: 'Plays song from YouTube or Spotify',
-            permissionLvl: 0
+            permissionLvl: 0,
         });
     }
     async handlePlaySong(song, msg, sendQueueNotifMsg = false) {
@@ -68,9 +68,10 @@ class Play extends Command_1.default {
                         requestedSong = contextSelector;
                     }
                     else if (requestedSong.charAt(25) === 'p') {
-                        contextSelector = data.substring(data.indexOf('Spotify.Entity') + 17, data.indexOf('"available_markets"') - 1) + '}';
+                        contextSelector =
+                            data.substring(data.indexOf('Spotify.Entity') + 17, data.indexOf('"available_markets"') - 1) + '}';
                         const spotifyPlaylist = JSON.parse(contextSelector);
-                        spotifyPlaylistTracks = spotifyPlaylist.tracks.items.map(song => {
+                        spotifyPlaylistTracks = spotifyPlaylist.tracks.items.map((song) => {
                             spotifyPlaylistDuration += song.track.duration_ms;
                             return `${song.track.name} - ${song.track.album.artists[0].name}`;
                         });
@@ -84,7 +85,7 @@ class Play extends Command_1.default {
                         msg.channel.send({ embed });
                         embed
                             .setAuthor('Gotcha!, loading playlist songs ... ⏳')
-                            .setDescription('I\'ll join the party in a moment, please wait')
+                            .setDescription("I'll join the party in a moment, please wait")
                             .setThumbnail('')
                             .setFooter('');
                         msg.channel.send({ embed });
@@ -105,7 +106,7 @@ class Play extends Command_1.default {
                 this.handlePlaySong(song, msg);
                 playlistTracks.shift();
                 setTimeout(() => {
-                    playlistTracks.forEach(track => {
+                    playlistTracks.forEach((track) => {
                         song = track;
                         this.handlePlaySong(song, msg);
                     });
@@ -120,7 +121,7 @@ class Play extends Command_1.default {
                         this.handlePlaySong(song, msg, true);
                     }
                     else
-                        return msg.reply('Sorry!, I couldn\'t find any song related to your search.');
+                        return msg.reply("Sorry!, I couldn't find any song related to your search.");
                 });
             }
         }
