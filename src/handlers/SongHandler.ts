@@ -49,7 +49,7 @@ class SongHandler {
       embed
         .setAuthor(
           'We hear you 💜',
-          'https://raw.githubusercontent.com/felpshn/saturn-bot/master/assets/cd.gif',
+          'https://raw.githubusercontent.com/felpshn/saturn-bot/master/src/assets/cd.gif',
         )
         .setThumbnail(song.thumbnail)
         .setDescription(

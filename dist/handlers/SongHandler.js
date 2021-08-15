@@ -35,7 +35,7 @@ class SongHandler {
             }));
             const embed = new discord_js_1.MessageEmbed();
             embed
-                .setAuthor('We hear you 💜', 'https://raw.githubusercontent.com/felpshn/saturn-bot/master/assets/cd.gif')
+                .setAuthor('We hear you 💜', 'https://raw.githubusercontent.com/felpshn/saturn-bot/master/src/assets/cd.gif')
                 .setThumbnail(song.thumbnail)
                 .setDescription(`Now playing **[${song.title}](${song.url})** requested by <@${queue.authors[0]}>`)
                 .setFooter(`Song duration: ${song.timestamp}`)
