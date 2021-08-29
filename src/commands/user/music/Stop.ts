@@ -1,22 +1,21 @@
 import { Message, MessageEmbed } from 'discord.js';
 
-import config from '../../../config';
-import Command from '../../../structs/Command';
-import Bot from '../../../structs/Bot';
-import ReactionHandler from '../../../handlers/ReactionHandler';
-import { IQueue } from '../../../types';
+import config from '@/config';
+import Command from '@/structs/Command';
+import Bot from '@/structs/Bot';
+import ReactionHandler from '@/handlers/ReactionHandler';
 
 export default class Stop extends Command {
   constructor(bot: Bot) {
     super(bot, {
       name: `${config.botPrefix}stop`,
       help: 'Stop the music function',
-      permissionLvl: 0,
+      requiredRoleLvl: 0
     });
   }
 
-  async run(msg: Message, args: string[]) {
-    const queueExists: IQueue = this.bot.queues.get(msg.guild!.id);
+  async run(msg: Message) {
+    const queueExists = this.bot.queues.get(msg.guild!.id);
     if (!queueExists)
       return msg.reply("There's no song playing in your current channel.");
 
@@ -24,7 +23,7 @@ export default class Stop extends Command {
     embed
       .setTitle('⏹  Stop Music')
       .setDescription('Understood! Stopping the music function.')
-      .setColor('#6E76E5');
+      .setColor(config.mainColor);
     msg.channel.send({ embed });
 
     queueExists.connection.disconnect();

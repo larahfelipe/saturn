@@ -1,41 +1,42 @@
 import { Message, MessageEmbed } from 'discord.js';
 
-import config from '../../config';
-import Command from '../../structs/Command';
-import Bot from '../../structs/Bot';
-import { dropBotQueueConnection } from '../../utils/DropBotQueueConnection';
+import config from '@/config';
+import Command from '@/structs/Command';
+import Bot from '@/structs/Bot';
 
 export default class RestartBot extends Command {
   constructor(bot: Bot) {
     super(bot, {
       name: `${config.botPrefix}restart`,
       help: 'Restart the bot',
-      permissionLvl: 2,
+      requiredRoleLvl: 2
     });
   }
 
   async run(msg: Message, args: string[]) {
     const embed = new MessageEmbed();
 
-    if (!args) {
+    if (args.length === 0) {
       embed
-        .setAuthor('SATURN Boot Manager', this.bot.user!.avatarURL()!)
-        .setDescription('`EXEC SHUTDOWN --RESTART NOW`\n\nSee you soon.. 👋')
+        .setAuthor('Saturn Boot Manager', this.bot.user!.avatarURL()!)
+        .setDescription('`exec shutdown --restart now`\n\nSee you soon.. 👋')
+        .setTimestamp(Date.now())
         .setFooter('All services was stopped.')
-        .setColor('#6E76E5');
+        .setColor(config.warningColor);
       await msg.channel.send({ embed });
     } else {
       embed
-        .setAuthor('SATURN Boot Manager', this.bot.user!.avatarURL()!)
+        .setAuthor('Saturn Boot Manager', this.bot.user!.avatarURL()!)
         .setDescription(
-          `\`EXEC SHUTDOWN --RESTART --TIME ${args}s\`\n\nSee you soon.. 👋`,
+          `\`exec shutdown --restart --time ${args}s\`\n\nSee you soon.. 👋`
         )
+        .setTimestamp(Date.now())
         .setFooter('All services was stopped.')
-        .setColor('#6E76E5');
+        .setColor(config.warningColor);
       await msg.channel.send({ embed });
     }
 
-    dropBotQueueConnection(this.bot, msg);
+    this.bot.queues.clear();
     this.bot.destroy();
 
     setTimeout(async () => {
@@ -43,10 +44,11 @@ export default class RestartBot extends Command {
         .login(config.botToken)
         .then(() => {
           embed
-            .setAuthor('SATURN Boot Manager', this.bot.user!.avatarURL()!)
-            .setDescription('`EXEC SYSTEM INIT`\n\nBip Boop... Hello world! 🤗')
+            .setAuthor('Saturn Boot Manager', this.bot.user!.avatarURL()!)
+            .setDescription('`exec sys --init`\n\nBip Boop... Hello world! 🤗')
+            .setTimestamp(Date.now())
             .setFooter('All services are now running.')
-            .setColor('#6E76E5');
+            .setColor(config.mainColor);
           msg.channel.send({ embed });
         })
         .catch((err) => console.error(err));

@@ -1,14 +1,14 @@
 import { Message } from 'discord.js';
 
-import Bot from '../structs/Bot';
+import Bot from '@/structs/Bot';
 import SongHandler from './SongHandler';
-import { IReaction, IUser, IQueue } from '../types';
+import { IReaction, IUser } from '@/types';
 
 enum Control {
   PLAY = '▶️',
   PAUSE = '⏸',
   STOP = '⏹️',
-  SKIP = '⏭️',
+  SKIP = '⏭️'
 }
 
 class ReactionHandler {
@@ -16,14 +16,14 @@ class ReactionHandler {
     Control.PAUSE,
     Control.PLAY,
     Control.SKIP,
-    Control.STOP,
+    Control.STOP
   ];
   private static playerMsg: Message;
 
   static async performDeletion(
     bulkDelete: boolean,
     targetReaction?: Control | string,
-    userID?: IUser | any,
+    userId?: IUser | any
   ) {
     try {
       if (bulkDelete) {
@@ -35,17 +35,17 @@ class ReactionHandler {
           case Control.PLAY:
             this.playerMsg.reactions
               .resolve(Control.PLAY)!
-              .users.remove(userID);
+              .users.remove(userId);
             break;
           case Control.PAUSE:
             this.playerMsg.reactions
               .resolve(Control.PAUSE)!
-              .users.remove(userID);
+              .users.remove(userId);
             break;
           case Control.SKIP:
             this.playerMsg.reactions
               .resolve(Control.SKIP)!
-              .users.remove(userID);
+              .users.remove(userId);
             break;
           default:
             throw new RangeError('Unexpected case.');
@@ -63,7 +63,8 @@ class ReactionHandler {
         await this.playerMsg.react(control);
       });
 
-      const queue: IQueue = bot.queues.get(msg.guild!.id);
+      const queue = bot.queues.get(msg.guild!.id);
+      if (!queue) return;
 
       const filter = (reaction: IReaction, user: IUser) => {
         return (
@@ -76,26 +77,33 @@ class ReactionHandler {
       reactionsListener.on('collect', (reaction: IReaction, user: IUser) => {
         const getReaction = reaction.emoji.name;
 
-        if (getReaction === Control.PLAY) {
-          queue.connection.dispatcher.resume();
-          this.performDeletion(false, Control.PLAY, user.id);
-        } else if (getReaction === Control.PAUSE) {
-          queue.connection.dispatcher.pause();
-          this.performDeletion(false, Control.PAUSE, user.id);
-        } else if (getReaction === Control.STOP) {
-          queue.connection.disconnect();
-          bot.queues.delete(msg.guild!.id);
-          setTimeout(() => {
-            this.performDeletion(true);
-          }, 5000);
-        } else if (getReaction === Control.SKIP) {
-          if (queue.songs.length > 1) {
-            queue.songs.shift();
-            queue.authors.shift();
-            this.performDeletion(true);
+        switch (getReaction) {
+          case Control.PLAY:
+            queue.connection.dispatcher.resume();
+            this.performDeletion(false, Control.PLAY, user.id);
+            break;
+          case Control.PAUSE:
+            queue.connection.dispatcher.pause();
+            this.performDeletion(false, Control.PAUSE, user.id);
+            break;
+          case Control.STOP:
+            queue.connection.disconnect();
+            bot.queues.delete(msg.guild!.id);
+            setTimeout(() => {
+              this.performDeletion(true);
+            }, 3000);
+            break;
+          case Control.SKIP:
+            if (queue.songs && queue.songs.length > 1) {
+              queue.songs.shift();
+              queue.authors.shift();
+              this.performDeletion(true);
 
-            SongHandler.setSong(bot, msg, queue.songs[0], queue.authors[0]);
-          } else return;
+              SongHandler.setSong(bot, msg, queue.songs[0], queue.authors[0]);
+              break;
+            } else return;
+          default:
+            throw new RangeError('Unexpected case.');
         }
       });
     } catch (err) {

@@ -1,7 +1,7 @@
 import {
   ReactionCollector,
   VoiceConnection,
-  StreamDispatcher,
+  StreamDispatcher
 } from 'discord.js';
 import { Document } from 'mongoose';
 import { VideoMetadataResult, VideoSearchResult } from 'yt-search';
@@ -9,18 +9,20 @@ import { VideoMetadataResult, VideoSearchResult } from 'yt-search';
 export interface ICommandDescription {
   name: string;
   help: string;
-  permissionLvl: number;
+  requiredRoleLvl: number;
 }
 
 export interface IMemberEssentials {
-  userID: string;
+  userId: string;
   username: string;
-  roleLvl: number;
+  userRoleLvl: number;
+  wasAddedBy: string;
+  wasUpdatedBy: string;
 }
 
 export interface IMember extends IMemberEssentials, Document {
   _id: string;
-  time: string;
+  wasAddedAtTime: string;
 }
 
 export interface IReaction extends ReactionCollector {
@@ -44,7 +46,7 @@ export interface IQueue {
       title: string;
       timestamp: string;
       seconds: number;
-    },
+    }
   ];
   authors: string[];
   volume: number;
@@ -59,7 +61,7 @@ export interface ISpotifyPlaylist {
   images: [
     {
       url: string;
-    },
+    }
   ];
   tracks: {
     items: [
@@ -71,11 +73,11 @@ export interface ISpotifyPlaylist {
             artists: [
               {
                 name: string;
-              },
+              }
             ];
           };
         };
-      },
+      }
     ];
   };
 }
@@ -89,7 +91,7 @@ export interface ILocation {
     {
       icon: string;
       description: string;
-    },
+    }
   ];
   main: {
     [prop: string]: number;

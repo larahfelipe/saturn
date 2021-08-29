@@ -1,21 +1,21 @@
 import { Message, MessageEmbed } from 'discord.js';
 
-import config from '../../config';
-import Command from '../../structs/Command';
-import Bot from '../../structs/Bot';
+import config from '@/config';
+import Command from '@/structs/Command';
+import Bot from '@/structs/Bot';
 
 export default class GetServerInformation extends Command {
   constructor(bot: Bot) {
     super(bot, {
       name: `${config.botPrefix}server`,
-      help: 'Display server information',
-      permissionLvl: 1,
+      help: 'Display the server information',
+      requiredRoleLvl: 1
     });
   }
 
-  async run(msg: Message, args: string[]) {
+  async run(msg: Message) {
     const guildCreationDate = new Date(
-      msg.guild!.createdTimestamp,
+      msg.guild!.createdTimestamp
     ).toLocaleDateString('en-us');
     const roles = msg
       .guild!.roles.cache.filter((role) => role.name !== '@everyone')
@@ -23,7 +23,7 @@ export default class GetServerInformation extends Command {
       .array();
     const textChannels = msg
       .guild!.channels.cache.filter(
-        (channel) => channel.type === 'text' || channel.type === 'news',
+        (channel) => channel.type === 'text' || channel.type === 'news'
       )
       .array();
     const voiceChannels = msg
@@ -39,7 +39,7 @@ export default class GetServerInformation extends Command {
           msg.guild!.owner
         }\n• Creation Date: ${guildCreationDate}\n• Guild ID: ${
           msg.guild!.id
-        }\n• Guild Region: ${msg.guild!.region.toUpperCase()}\n• Verification Lvl Required: ${msg.guild!.verificationLevel.toLowerCase()}\n• Explicit Content Filter: ${msg.guild!.explicitContentFilter.toLowerCase()}`,
+        }\n• Guild Region: ${msg.guild!.region.toUpperCase()}\n• Verification Lvl Required: ${msg.guild!.verificationLevel.toLowerCase()}\n• Explicit Content Filter: ${msg.guild!.explicitContentFilter.toLowerCase()}`
       )
       .addField(
         'Server Stats',
@@ -47,7 +47,7 @@ export default class GetServerInformation extends Command {
           roles.length
         }\n• Text Channels: ${textChannels.length}\n• Voice Channels: ${
           voiceChannels.length
-        }`,
+        }`
       )
       .addField(
         'Server Boost',
@@ -55,9 +55,9 @@ export default class GetServerInformation extends Command {
           msg.guild!.premiumTier
         }\n• Total Nitro Subscriptions: ${
           msg.guild!.premiumSubscriptionCount
-        }\n`,
+        }\n`
       )
-      .setColor('#6E76E5');
+      .setColor(config.mainColor);
     msg.channel.send({ embed });
   }
 }
