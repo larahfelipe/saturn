@@ -23,7 +23,7 @@ class ReactionHandler {
   static async performDeletion(
     bulkDelete: boolean,
     targetReaction?: Control | string,
-    userID?: IUser | any,
+    userId?: IUser | any
   ) {
     try {
       if (bulkDelete) {
@@ -35,17 +35,17 @@ class ReactionHandler {
           case Control.PLAY:
             this.playerMsg.reactions
               .resolve(Control.PLAY)!
-              .users.remove(userID);
+              .users.remove(userId);
             break;
           case Control.PAUSE:
             this.playerMsg.reactions
               .resolve(Control.PAUSE)!
-              .users.remove(userID);
+              .users.remove(userId);
             break;
           case Control.SKIP:
             this.playerMsg.reactions
               .resolve(Control.SKIP)!
-              .users.remove(userID);
+              .users.remove(userId);
             break;
           default:
             throw new RangeError('Unexpected case.');

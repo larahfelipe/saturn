@@ -16,7 +16,7 @@ class Play extends Command_1.default {
         super(bot, {
             name: `${config_1.default.botPrefix}play`,
             help: 'Plays song from YouTube or Spotify',
-            permissionLvl: 0,
+            requiredRoleLvl: 0,
         });
     }
     async handlePlaySong(song, msg, sendQueueNotifMsg = false) {

@@ -7,22 +7,28 @@ const discord_js_1 = require("discord.js");
 const config_1 = __importDefault(require("../config"));
 const Database_1 = __importDefault(require("../utils/Database"));
 const CommandHandler_1 = __importDefault(require("../handlers/CommandHandler"));
-const AuthenticateMemberService_1 = require("../services/AuthenticateMemberService");
+const AuthenticateGuildMemberService_1 = require("../services/AuthenticateGuildMemberService");
 class Bot extends discord_js_1.Client {
-    static validateCredentials() {
+    static validateRequiredCredentials() {
         if (typeof config_1.default.botToken !== 'string')
             throw new TypeError('Tokens must be of type string.');
         if (!config_1.default.botPrefix)
             throw new Error('Prefix not settled.');
     }
-    static handleDatabaseConnection() {
+    static async handleDatabaseConnection() {
         if (config_1.default.dbAccess) {
-            console.log('\n[Saturn] Requesting access to database ...\n');
-            Database_1.default.setConnection();
-            this.hasDatabaseConnection = Database_1.default.isConnected;
+            try {
+                Database_1.default.setConnection();
+            }
+            catch (err) {
+                throw new Error(err);
+            }
+            finally {
+                this.hasDatabaseConnection = Database_1.default.isConnected;
+            }
         }
     }
-    static async handleLogin(bot) {
+    static async handleClientLogin(bot) {
         try {
             if (process.env.NODE_ENV !== 'development') {
                 await bot.login(config_1.default.botToken);
@@ -35,44 +41,35 @@ class Bot extends discord_js_1.Client {
             console.error(err);
         }
     }
-    static onInitState() {
-        const bot = new Bot();
-        bot.commands = new discord_js_1.Collection();
-        bot.queues = new Map();
-        new CommandHandler_1.default(bot).loadCommands();
-        bot.once('ready', () => {
-            console.log('[Saturn] Discord API ready.\n');
-        });
-        this.onReadyState(bot);
-        this.handleLogin(bot);
-    }
-    static onReadyState(bot) {
+    static onInteractionReady(bot) {
         bot.on('message', async (msg) => {
             bot.user?.setActivity(`${config_1.default.botPrefix}help`);
             if (!msg.content.startsWith(config_1.default.botPrefix) || msg.author.bot)
                 return;
+            const embed = new discord_js_1.MessageEmbed();
             const args = msg.content
                 .slice(config_1.default.botPrefix.length)
                 .trim()
                 .split(/ +/);
             const commandListener = config_1.default.botPrefix + args.shift()?.toLowerCase();
-            console.log(`[@${msg.author.tag}] >> ${commandListener} ${args.join(' ')}`);
-            const embed = new discord_js_1.MessageEmbed();
             const getCommand = bot.commands.get(commandListener);
+            console.log(`[@${msg.author.tag}] > ${commandListener} ${args.join(' ')}`);
             try {
                 if (this.hasDatabaseConnection) {
-                    const getMember = await AuthenticateMemberService_1.handleMemberAuth(msg.member);
-                    if (!getMember)
-                        return msg.reply("Cannot execute your command because you're not registered in database!");
-                    if (getMember.roleLvl >= getCommand.permissionLvl) {
+                    const getMember = await AuthenticateGuildMemberService_1.handleGuildMemberAuth(msg.member);
+                    if (!getMember) {
+                        msg.reply("Cannot execute your command because you're not registered in database.");
+                    }
+                    else if (getMember.userRoleLvl >= getCommand.description.requiredRoleLvl) {
                         getCommand.run(msg, args);
                     }
                     else {
-                        msg.reply("You don't have permission to use this command!");
+                        msg.reply("You don't have permission to use this command.");
                     }
                 }
-                else
+                else {
                     getCommand.run(msg, args);
+                }
             }
             catch (err) {
                 console.error(err);
@@ -84,10 +81,26 @@ class Bot extends discord_js_1.Client {
             }
         });
     }
+    static onInteractionInit() {
+        const bot = new Bot();
+        bot.commands = new discord_js_1.Collection();
+        bot.queues = new Map();
+        new CommandHandler_1.default(bot).loadCommands();
+        bot.once('ready', () => {
+            console.log('[Saturn] Discord API ready.\n');
+        });
+        this.onInteractionReady(bot);
+        this.handleClientLogin(bot);
+    }
     static start() {
-        this.validateCredentials();
-        this.handleDatabaseConnection();
-        this.onInitState();
+        try {
+            this.validateRequiredCredentials();
+            this.handleDatabaseConnection();
+            this.onInteractionInit();
+        }
+        catch (err) {
+            console.error(err);
+        }
     }
 }
 exports.default = Bot;

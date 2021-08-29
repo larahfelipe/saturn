@@ -11,10 +11,10 @@ class GetServerInformation extends Command_1.default {
         super(bot, {
             name: `${config_1.default.botPrefix}server`,
             help: 'Display server information',
-            permissionLvl: 1,
+            requiredRoleLvl: 1,
         });
     }
-    async run(msg, args) {
+    async run(msg, _) {
         const guildCreationDate = new Date(msg.guild.createdTimestamp).toLocaleDateString('en-us');
         const roles = msg
             .guild.roles.cache.filter((role) => role.name !== '@everyone')

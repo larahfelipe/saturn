@@ -11,7 +11,7 @@ export default class Weather extends Command {
     super(bot, {
       name: `${config.botPrefix}weather`,
       help: 'Get the weather of the location that you want',
-      permissionLvl: 0,
+      requiredRoleLvl: 0,
     });
   }
 
@@ -22,7 +22,7 @@ export default class Weather extends Command {
     const location = args.join(' ');
     await axios
       .get(
-        `https://api.openweathermap.org/data/2.5/weather?q=${location}&units=metric&appid=${config.openWeatherToken}`,
+        `https://api.openweathermap.org/data/2.5/weather?q=${location}&units=metric&appid=${config.openWeatherToken}`
       )
       .then(({ data }: AxiosResponse<ILocation>) => {
         const weatherData = data;
@@ -43,17 +43,17 @@ export default class Weather extends Command {
           .setDescription(`*${weatherDescription}*`)
           .addField(
             'Current Temperature',
-            `• ${currentTemp} ºC, Feels like ${tempFeelsLike} ºC`,
+            `• ${currentTemp} ºC, Feels like ${tempFeelsLike} ºC`
           )
           .addField('Min & Max Temperatures', `• ${minTemp} ºC, ${maxTemp} ºC`)
           .addField(
             'Humidity & Wind Speed',
-            `• ${humidityPercentage}%, ${windSpeed} km/h`,
+            `• ${humidityPercentage}%, ${windSpeed} km/h`
           )
           .setTimestamp(Date.now())
           .setFooter(
             'OpenWeather',
-            'https://openweathermap.org/themes/openweathermap/assets/img/mobile_app/android_icon.png',
+            'https://openweathermap.org/themes/openweathermap/assets/img/mobile_app/android_icon.png'
           )
           .setColor('#6E76E5');
         msg.channel.send({ embed });

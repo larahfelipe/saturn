@@ -10,7 +10,7 @@ export default class RestartBot extends Command {
     super(bot, {
       name: `${config.botPrefix}restart`,
       help: 'Restart the bot',
-      permissionLvl: 2,
+      requiredRoleLvl: 2,
     });
   }
 
@@ -28,7 +28,7 @@ export default class RestartBot extends Command {
       embed
         .setAuthor('SATURN Boot Manager', this.bot.user!.avatarURL()!)
         .setDescription(
-          `\`EXEC SHUTDOWN --RESTART --TIME ${args}s\`\n\nSee you soon.. 👋`,
+          `\`EXEC SHUTDOWN --RESTART --TIME ${args}s\`\n\nSee you soon.. 👋`
         )
         .setFooter('All services was stopped.')
         .setColor('#6E76E5');

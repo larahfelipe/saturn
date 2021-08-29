@@ -10,11 +10,11 @@ export default class Pause extends Command {
     super(bot, {
       name: `${config.botPrefix}pause`,
       help: 'Pause the current song',
-      permissionLvl: 0,
+      requiredRoleLvl: 0,
     });
   }
 
-  async run(msg: Message, args: string[]) {
+  async run(msg: Message, _: string[]) {
     const queueExists: IQueue = this.bot.queues.get(msg.guild!.id);
     if (!queueExists || !queueExists.connection)
       return msg.reply("There's no song playing in your current channel.");

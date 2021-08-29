@@ -10,11 +10,11 @@ export default class Help extends Command {
     super(bot, {
       name: `${config.botPrefix}help`,
       help: 'Commands help',
-      permissionLvl: 0,
+      requiredRoleLvl: 0,
     });
   }
 
-  async run(msg: Message, args: string[]) {
+  async run(msg: Message, _: string[]) {
     const modulesLen = CommandHandler.modulesLength;
     console.log(modulesLen);
     let concatHelpStr = '';

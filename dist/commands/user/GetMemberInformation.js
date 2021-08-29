@@ -11,10 +11,10 @@ class GetMemberInformation extends Command_1.default {
         super(bot, {
             name: `${config_1.default.botPrefix}profile`,
             help: 'Show your discord profile info',
-            permissionLvl: 0,
+            requiredRoleLvl: 0,
         });
     }
-    async run(msg, args) {
+    async run(msg, _) {
         const userRegistrationDate = new Date(msg.member.user.createdTimestamp).toLocaleDateString('en-us');
         const userJoinedServerDate = new Date(msg.member.joinedTimestamp).toLocaleDateString('en-us');
         const embed = new discord_js_1.MessageEmbed();

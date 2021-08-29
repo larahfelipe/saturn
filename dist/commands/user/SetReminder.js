@@ -11,7 +11,7 @@ class SetReminder extends Command_1.default {
         super(bot, {
             name: `${config_1.default.botPrefix}remind`,
             help: 'Remind you about whatever you want',
-            permissionLvl: 0,
+            requiredRoleLvl: 0,
         });
     }
     async run(msg, args) {

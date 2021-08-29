@@ -6,25 +6,25 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const discord_js_1 = require("discord.js");
 const config_1 = __importDefault(require("../../config"));
 const Command_1 = __importDefault(require("../../structs/Command"));
-const FetchMemberService_1 = require("../../services/FetchMemberService");
-const UpdateMemberService_1 = require("../../services/UpdateMemberService");
-const DeleteMemberService_1 = require("../../services/DeleteMemberService");
+const FetchGuildMemberService_1 = require("../../services/FetchGuildMemberService");
+const UpdateGuildMemberService_1 = require("../../services/UpdateGuildMemberService");
+const DeleteGuildMemberService_1 = require("../../services/DeleteGuildMemberService");
 class FetchAllMembersInDatabase extends Command_1.default {
     constructor(bot) {
         super(bot, {
             name: `${config_1.default.botPrefix}findall`,
             help: 'List all members in database',
-            permissionLvl: 2,
+            requiredRoleLvl: 2,
         });
     }
     async run(msg, args) {
         try {
             let concatMembersData = '';
-            const members = await FetchMemberService_1.handleFetchAllMembers();
+            const members = await FetchGuildMemberService_1.handleFetchAllMembersInDatabase();
             if (!members)
                 return msg.reply('No member was found in database.');
             members.forEach((member, index) => {
-                concatMembersData += `**${index}** ─ ${member.roleLvl} • ${member.username}\n`;
+                concatMembersData += `**${index}** ─ ${member.userRoleLvl} • ${member.username}\n`;
             });
             if (args) {
                 const targetMemberIndex = parseInt(args[1]);
@@ -36,18 +36,18 @@ class FetchAllMembersInDatabase extends Command_1.default {
                     });
                     switch (targetOperation) {
                         case '&SETADMIN':
-                            UpdateMemberService_1.handleMemberElevation(targetMember.userID);
+                            UpdateGuildMemberService_1.handleGuildMemberElevation(targetMember.userId, msg);
                             break;
                         case '&UNSETADMIN':
-                            UpdateMemberService_1.handleMemberDemotion(targetMember.userID);
+                            UpdateGuildMemberService_1.handleGuildMemberDemotion(targetMember.userId, msg);
                             break;
                         case '&DELETE':
-                            DeleteMemberService_1.handleMemberDeletion(msg.author, targetMember.userID);
+                            DeleteGuildMemberService_1.handleGuildMemberDeletion(targetMember.userId, msg);
                             break;
                         default:
                             return msg.channel.send('Unknown command.');
                     }
-                    return msg.channel.send(`Database was updated • ${msg.createdAt}`);
+                    return msg.channel.send(`Database was updated • ${Date.now()}`);
                 }
             }
             const embed = new discord_js_1.MessageEmbed();

@@ -10,7 +10,7 @@ class Say extends Command_1.default {
         super(bot, {
             name: `${config_1.default.botPrefix}say`,
             help: 'Repeat what user says',
-            permissionLvl: 0,
+            requiredRoleLvl: 0,
         });
     }
     async run(msg, args) {

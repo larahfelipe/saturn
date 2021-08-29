@@ -10,18 +10,18 @@ export default class Queue extends Command {
     super(bot, {
       name: `${config.botPrefix}queue`,
       help: "Show the server's music queue",
-      permissionLvl: 0,
+      requiredRoleLvl: 0,
     });
   }
 
-  async run(msg: Message, args: string[]) {
+  async run(msg: Message, _: string[]) {
     const queueExists: IQueue = this.bot.queues.get(msg.guild!.id);
     if (!queueExists) {
       const embed = new MessageEmbed();
       embed
         .setAuthor('❌ No queue established on the server!')
         .setDescription(
-          `If you want to play a song type \`${process.env.BOT_PREFIX}play\` and the name/link of the song in front of it to get the party started! 🥳`,
+          `If you want to play a song type \`${process.env.BOT_PREFIX}play\` and the name/link of the song in front of it to get the party started! 🥳`
         )
         .setColor('#6E76E5');
       return msg.channel.send({ embed });

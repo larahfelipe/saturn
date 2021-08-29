@@ -11,10 +11,10 @@ class Queue extends Command_1.default {
         super(bot, {
             name: `${config_1.default.botPrefix}queue`,
             help: "Show the server's music queue",
-            permissionLvl: 0,
+            requiredRoleLvl: 0,
         });
     }
-    async run(msg, args) {
+    async run(msg, _) {
         const queueExists = this.bot.queues.get(msg.guild.id);
         if (!queueExists) {
             const embed = new discord_js_1.MessageEmbed();

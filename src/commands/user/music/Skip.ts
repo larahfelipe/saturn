@@ -12,11 +12,11 @@ export default class Skip extends Command {
     super(bot, {
       name: `${config.botPrefix}skip`,
       help: 'Skip the current song',
-      permissionLvl: 0,
+      requiredRoleLvl: 0,
     });
   }
 
-  async run(msg: Message, args: string[]) {
+  async run(msg: Message, _: string[]) {
     const queueExists: IQueue = this.bot.queues.get(msg.guild!.id);
     if (!queueExists) return msg.reply("There's no song currently playing.");
 
@@ -36,7 +36,7 @@ export default class Skip extends Command {
         this.bot,
         msg,
         queueExists.songs[0],
-        queueExists.authors[0],
+        queueExists.authors[0]
       );
     }
   }

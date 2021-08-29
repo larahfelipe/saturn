@@ -6,16 +6,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const discord_js_1 = require("discord.js");
 const config_1 = __importDefault(require("../../config"));
 const Command_1 = __importDefault(require("../../structs/Command"));
-const DeleteMemberService_1 = require("../../services/DeleteMemberService");
+const DeleteGuildMemberService_1 = require("../../services/DeleteGuildMemberService");
 class DeleteMember extends Command_1.default {
     constructor(bot) {
         super(bot, {
             name: `${config_1.default.botPrefix}del`,
             help: 'Delete a member from database',
-            permissionLvl: 1,
+            requiredRoleLvl: 1,
         });
     }
-    async run(msg, args) {
+    async run(msg, _) {
         const targetMember = msg.mentions.members?.first();
         if (!targetMember)
             return msg.reply('You need to tag someone!');
@@ -26,7 +26,7 @@ class DeleteMember extends Command_1.default {
             .setTimestamp(Date.now())
             .setFooter('MongoDB', 'https://pbs.twimg.com/profile_images/1234528105819189248/b6F1hk_6_400x400.jpg')
             .setColor('#6E76E5');
-        await DeleteMemberService_1.handleMemberDeletion(msg.author, targetMember)
+        await DeleteGuildMemberService_1.handleGuildMemberDeletion(targetMember, msg)
             .then(() => msg.channel.send({ embed }))
             .catch((err) => {
             console.error(err);

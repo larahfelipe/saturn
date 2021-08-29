@@ -4,7 +4,7 @@ import Member from '../models/Member';
 import { IMember } from '../types';
 
 export async function parseMember(
-  elmt: GuildMember | string,
+  elmt: GuildMember | string
 ): Promise<[IMember, string]> {
   let memberId: string;
   if (typeof elmt === 'string') {
@@ -13,7 +13,7 @@ export async function parseMember(
     memberId = elmt.id;
   }
 
-  const memberExists = await Member.findOne({ userID: memberId });
+  const memberExists = await Member.findOne({ userId: memberId });
   if (!memberExists) throw Error('Member was not found in database.');
 
   return [memberExists, memberId];

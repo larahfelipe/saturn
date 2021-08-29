@@ -18,7 +18,7 @@ class CommandHandler {
         const resolvedCommand = new TargetCommand(this.bot);
         this.bot.commands.set(resolvedCommand.name, resolvedCommand);
     }
-    loadCommands() {
+    async loadCommands() {
         try {
             const commandsDir = fs_1.readdirSync(path_1.join(__dirname, '../commands'));
             for (const categorySection of commandsDir) {

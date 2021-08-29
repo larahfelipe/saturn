@@ -12,10 +12,10 @@ class Help extends Command_1.default {
         super(bot, {
             name: `${config_1.default.botPrefix}help`,
             help: 'Commands help',
-            permissionLvl: 0,
+            requiredRoleLvl: 0,
         });
     }
-    async run(msg, args) {
+    async run(msg, _) {
         const modulesLen = CommandHandler_1.default.modulesLength;
         console.log(modulesLen);
         let concatHelpStr = '';

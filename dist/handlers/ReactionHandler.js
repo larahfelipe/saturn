@@ -12,7 +12,7 @@ var Control;
     Control["SKIP"] = "\u23ED\uFE0F";
 })(Control || (Control = {}));
 class ReactionHandler {
-    static async performDeletion(bulkDelete, targetReaction, userID) {
+    static async performDeletion(bulkDelete, targetReaction, userId) {
         try {
             if (bulkDelete) {
                 this.musicControls.forEach(async (control) => {
@@ -24,17 +24,17 @@ class ReactionHandler {
                     case Control.PLAY:
                         this.playerMsg.reactions
                             .resolve(Control.PLAY)
-                            .users.remove(userID);
+                            .users.remove(userId);
                         break;
                     case Control.PAUSE:
                         this.playerMsg.reactions
                             .resolve(Control.PAUSE)
-                            .users.remove(userID);
+                            .users.remove(userId);
                         break;
                     case Control.SKIP:
                         this.playerMsg.reactions
                             .resolve(Control.SKIP)
-                            .users.remove(userID);
+                            .users.remove(userId);
                         break;
                     default:
                         throw new RangeError('Unexpected case.');

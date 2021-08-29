@@ -9,11 +9,11 @@ export default class LeaveServer extends Command {
     super(bot, {
       name: `${config.botPrefix}leave`,
       help: 'Leave the server',
-      permissionLvl: 2,
+      requiredRoleLvl: 2,
     });
   }
 
-  async run(msg: Message, args: string[]) {
+  async run(msg: Message, _: string[]) {
     await msg.guild!.leave();
   }
 }

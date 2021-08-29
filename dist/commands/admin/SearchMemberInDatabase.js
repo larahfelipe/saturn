@@ -5,23 +5,23 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const config_1 = __importDefault(require("../../config"));
 const Command_1 = __importDefault(require("../../structs/Command"));
-const FetchMemberService_1 = require("../../services/FetchMemberService");
+const FetchGuildMemberService_1 = require("../../services/FetchGuildMemberService");
 class SearchMemberInDatabase extends Command_1.default {
     constructor(bot) {
         super(bot, {
             name: `${config_1.default.botPrefix}find`,
             help: 'Search a member in database',
-            permissionLvl: 1,
+            requiredRoleLvl: 1,
         });
     }
-    async run(msg, args) {
+    async run(msg, _) {
         const targetMember = msg.mentions.members?.first();
         if (!targetMember)
             return msg.reply('You need to tag someone!');
         try {
-            const member = await FetchMemberService_1.handleMemberSearch(targetMember);
+            const member = await FetchGuildMemberService_1.handleSearchGuildMember(targetMember);
             if (member) {
-                msg.channel.send(`\`· Member: ${member.username} ─ Role Lvl: ${member.roleLvl}\``);
+                msg.channel.send(`\`· Member: ${member.username} ─ Role Lvl: ${member.userRoleLvl}\``);
             }
         }
         catch (err) {

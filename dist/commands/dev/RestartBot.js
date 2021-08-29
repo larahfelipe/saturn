@@ -12,7 +12,7 @@ class RestartBot extends Command_1.default {
         super(bot, {
             name: `${config_1.default.botPrefix}restart`,
             help: 'Restart the bot',
-            permissionLvl: 2,
+            requiredRoleLvl: 2,
         });
     }
     async run(msg, args) {

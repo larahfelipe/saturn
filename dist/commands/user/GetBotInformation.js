@@ -13,10 +13,10 @@ class GetBotInformation extends Command_1.default {
         super(bot, {
             name: `${config_1.default.botPrefix}bot`,
             help: 'Display bot properties',
-            permissionLvl: 0,
+            requiredRoleLvl: 0,
         });
     }
-    async run(msg, args) {
+    async run(msg, _) {
         const hostInformation = `${os_1.type} (${os_1.arch})`;
         const memoryUsage = process.memoryUsage().heapUsed / 1024 / 1024;
         const embed = new discord_js_1.MessageEmbed();

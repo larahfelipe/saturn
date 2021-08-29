@@ -15,7 +15,7 @@ export default class Play extends Command {
     super(bot, {
       name: `${config.botPrefix}play`,
       help: 'Plays song from YouTube or Spotify',
-      permissionLvl: 0,
+      requiredRoleLvl: 0,
     });
   }
 
@@ -28,7 +28,7 @@ export default class Play extends Command {
       embed
         .setTitle('🎵  Music Playback')
         .setDescription(
-          `Joining channel \`${msg.member!.voice.channel!.name}\``,
+          `Joining channel \`${msg.member!.voice.channel!.name}\``
         )
         .setColor('#6E76E5');
       msg.channel.send({ embed });
@@ -45,14 +45,14 @@ export default class Play extends Command {
             `Got it! [${song.title}](${
               song.url
             }) was added to the queue and his current position is \`${queue.songs.indexOf(
-              song,
+              song
             )}\`.\n\nYou can see the guild's queue anytime using \`${
               process.env.BOT_PREFIX
-            }queue\``,
+            }queue\``
           )
           .setFooter(
             `Added by ${msg.author.username}`,
-            msg.author.displayAvatarURL(),
+            msg.author.displayAvatarURL()
           )
           .setTimestamp(new Date())
           .setColor('#6E76E5');
@@ -81,14 +81,14 @@ export default class Play extends Command {
             if (requestedSong.charAt(25) === 't') {
               contextSelector = data.substring(
                 data.indexOf('<ti') + 7,
-                data.indexOf('|') - 1,
+                data.indexOf('|') - 1
               );
               requestedSong = contextSelector;
             } else if (requestedSong.charAt(25) === 'p') {
               contextSelector =
                 data.substring(
                   data.indexOf('Spotify.Entity') + 17,
-                  data.indexOf('"available_markets"') - 1,
+                  data.indexOf('"available_markets"') - 1
                 ) + '}';
               const spotifyPlaylist: ISpotifyPlaylist =
                 JSON.parse(contextSelector);
@@ -96,20 +96,20 @@ export default class Play extends Command {
                 (song) => {
                   spotifyPlaylistDuration += song.track.duration_ms;
                   return `${song.track.name} - ${song.track.album.artists[0].name}`;
-                },
+                }
               );
 
               const embed = new MessageEmbed();
               embed
                 .setAuthor(
-                  `"${spotifyPlaylist.name}"\nSpotify playlist by ${spotifyPlaylist.owner.display_name}`,
+                  `"${spotifyPlaylist.name}"\nSpotify playlist by ${spotifyPlaylist.owner.display_name}`
                 )
                 .setDescription(
                   `\n• Total playlist tracks: \`${
                     spotifyPlaylist.tracks.items.length
                   }\`\n• Playlist duration: \`${formatSecondsToTime(
-                    spotifyPlaylistDuration / 1000,
-                  )}\``,
+                    spotifyPlaylistDuration / 1000
+                  )}\``
                 )
                 .setThumbnail(spotifyPlaylist.images[0].url)
                 .setFooter('Spotify | Music for everyone')
@@ -134,7 +134,7 @@ export default class Play extends Command {
             if (res && res.videos.length > 0) {
               return res.videos[0];
             }
-          }),
+          })
         );
         song = <Song>playlistTracks[0];
         this.handlePlaySong(song, msg);
@@ -154,7 +154,7 @@ export default class Play extends Command {
             this.handlePlaySong(song, msg, true);
           } else
             return msg.reply(
-              "Sorry!, I couldn't find any song related to your search.",
+              "Sorry!, I couldn't find any song related to your search."
             );
         });
       }

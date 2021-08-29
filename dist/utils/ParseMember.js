@@ -13,7 +13,7 @@ async function parseMember(elmt) {
     else {
         memberId = elmt.id;
     }
-    const memberExists = await Member_1.default.findOne({ userID: memberId });
+    const memberExists = await Member_1.default.findOne({ userId: memberId });
     if (!memberExists)
         throw Error('Member was not found in database.');
     return [memberExists, memberId];

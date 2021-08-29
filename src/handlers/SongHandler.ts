@@ -11,7 +11,7 @@ class SongHandler {
     bot: Bot,
     msg: Message,
     song: any,
-    requestAuthor: string,
+    requestAuthor: string
   ) {
     let queue: IQueue = bot.queues.get(msg.guild!.id);
 
@@ -42,18 +42,18 @@ class SongHandler {
         ytdl(song.url, {
           filter: 'audioonly',
           quality: 'highestaudio',
-        }),
+        })
       );
 
       const embed = new MessageEmbed();
       embed
         .setAuthor(
           'We hear you 💜',
-          'https://raw.githubusercontent.com/felpshn/saturn-bot/master/src/assets/cd.gif',
+          'https://raw.githubusercontent.com/felpshn/saturn-bot/master/src/assets/cd.gif'
         )
         .setThumbnail(song.thumbnail)
         .setDescription(
-          `Now playing **[${song.title}](${song.url})** requested by <@${queue.authors[0]}>`,
+          `Now playing **[${song.title}](${song.url})** requested by <@${queue.authors[0]}>`
         )
         .setFooter(`Song duration: ${song.timestamp}`)
         .setColor('#6E76E5');

@@ -10,11 +10,11 @@ export default class MessagesCleanup extends Command {
     super(bot, {
       name: `${config.botPrefix}clear`,
       help: 'Cleans the messages in the invoked channel',
-      permissionLvl: 1,
+      requiredRoleLvl: 1,
     });
   }
 
-  async run(msg: Message, args: string[]) {
+  async run(msg: Message, _: string[]) {
     if (msg.channel.type === 'dm') return;
 
     let fetchMsgs = await MessageHandler.firstHundredSent(msg);

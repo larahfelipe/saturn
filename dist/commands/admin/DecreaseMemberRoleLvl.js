@@ -6,16 +6,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const discord_js_1 = require("discord.js");
 const config_1 = __importDefault(require("../../config"));
 const Command_1 = __importDefault(require("../../structs/Command"));
-const UpdateMemberService_1 = require("../../services/UpdateMemberService");
+const UpdateGuildMemberService_1 = require("../../services/UpdateGuildMemberService");
 class DecreaseMemberRoleLvl extends Command_1.default {
     constructor(bot) {
         super(bot, {
             name: `${config_1.default.botPrefix}unsetadmin`,
             help: 'Unset a member as server administrator',
-            permissionLvl: 1,
+            requiredRoleLvl: 1,
         });
     }
-    async run(msg, args) {
+    async run(msg, _) {
         const targetMember = msg.mentions.members?.first();
         if (!targetMember)
             return msg.reply('You need to tag someone!');
@@ -26,7 +26,7 @@ class DecreaseMemberRoleLvl extends Command_1.default {
             .setTimestamp(Date.now())
             .setFooter('MongoDB', 'https://pbs.twimg.com/profile_images/1234528105819189248/b6F1hk_6_400x400.jpg')
             .setColor('#6E76E5');
-        await UpdateMemberService_1.handleMemberDemotion(targetMember)
+        await UpdateGuildMemberService_1.handleGuildMemberDemotion(targetMember, msg)
             .then(() => msg.channel.send({ embed }))
             .catch((err) => {
             console.error(err);

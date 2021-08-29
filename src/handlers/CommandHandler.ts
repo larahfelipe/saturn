@@ -25,12 +25,12 @@ class CommandHandler {
     this.bot.commands.set(resolvedCommand.name, resolvedCommand);
   }
 
-  loadCommands() {
+  async loadCommands() {
     try {
       const commandsDir = readdirSync(join(__dirname, '../commands'));
       for (const categorySection of commandsDir) {
         const currCategoryChildren = readdirSync(
-          join(__dirname, '../commands', categorySection),
+          join(__dirname, '../commands', categorySection)
         );
         CommandHandler.modulesLength.push(categorySection.length);
 
@@ -39,7 +39,7 @@ class CommandHandler {
             this.resolveAndSet([categorySection, child]);
           } else {
             const secondChildSection = readdirSync(
-              join(__dirname, `../commands/${categorySection}`, child),
+              join(__dirname, `../commands/${categorySection}`, child)
             );
             for (const elmt of secondChildSection) {
               this.resolveAndSet([categorySection, child, elmt]);

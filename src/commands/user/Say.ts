@@ -9,7 +9,7 @@ export default class Say extends Command {
     super(bot, {
       name: `${config.botPrefix}say`,
       help: 'Repeat what user says',
-      permissionLvl: 0,
+      requiredRoleLvl: 0,
     });
   }
 

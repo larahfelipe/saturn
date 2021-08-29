@@ -13,10 +13,10 @@ class Skip extends Command_1.default {
         super(bot, {
             name: `${config_1.default.botPrefix}skip`,
             help: 'Skip the current song',
-            permissionLvl: 0,
+            requiredRoleLvl: 0,
         });
     }
-    async run(msg, args) {
+    async run(msg, _) {
         const queueExists = this.bot.queues.get(msg.guild.id);
         if (!queueExists)
             return msg.reply("There's no song currently playing.");

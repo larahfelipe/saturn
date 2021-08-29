@@ -10,7 +10,7 @@ export default class SetReminder extends Command {
     super(bot, {
       name: `${config.botPrefix}remind`,
       help: 'Remind you about whatever you want',
-      permissionLvl: 0,
+      requiredRoleLvl: 0,
     });
   }
 
@@ -38,13 +38,13 @@ export default class SetReminder extends Command {
         break;
       default:
         return msg.reply(
-          'You need to inform the time in days [d], hours [h], minutes [m] or seconds [s]!',
+          'You need to inform the time in days [d], hours [h], minutes [m] or seconds [s]!'
         );
     }
     msg.reply(
       `Understood! I'll remind you about "${reminderMessage}" in ${formatSecondsToTime(
-        numberTimestamp / 1000,
-      )}`,
+        numberTimestamp / 1000
+      )}`
     );
 
     setTimeout(() => {
