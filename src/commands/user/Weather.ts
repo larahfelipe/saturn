@@ -1,17 +1,17 @@
 import { Message, MessageEmbed } from 'discord.js';
 import axios, { AxiosError, AxiosResponse } from 'axios';
 
-import config from '../../config';
-import Command from '../../structs/Command';
-import Bot from '../../structs/Bot';
-import { ILocation } from '../../types';
+import config from '@/config';
+import Command from '@/structs/Command';
+import Bot from '@/structs/Bot';
+import { ILocation } from '@/types';
 
 export default class Weather extends Command {
   constructor(bot: Bot) {
     super(bot, {
       name: `${config.botPrefix}weather`,
-      help: 'Get the weather of the location that you want',
-      requiredRoleLvl: 0,
+      help: "Get some location's weather",
+      requiredRoleLvl: 0
     });
   }
 
@@ -51,16 +51,13 @@ export default class Weather extends Command {
             `• ${humidityPercentage}%, ${windSpeed} km/h`
           )
           .setTimestamp(Date.now())
-          .setFooter(
-            'OpenWeather',
-            'https://openweathermap.org/themes/openweathermap/assets/img/mobile_app/android_icon.png'
-          )
-          .setColor('#6E76E5');
+          .setFooter('OpenWeather', config.openWeatherIconUrl)
+          .setColor(config.openWeatherColor);
         msg.channel.send({ embed });
       })
       .catch((err: AxiosError) => {
-        console.error(err);
-        msg.reply('Enter a valid city name!');
+        this.bot.logger.handleErrorEvent(err);
+        msg.reply('Enter a valid city name.');
       });
   }
 }

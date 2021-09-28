@@ -1,29 +1,28 @@
 import { Message, MessageEmbed } from 'discord.js';
 
-import config from '../../../config';
-import Command from '../../../structs/Command';
-import Bot from '../../../structs/Bot';
-import { IQueue } from '../../../types';
+import config from '@/config';
+import Command from '@/structs/Command';
+import Bot from '@/structs/Bot';
 
 export default class Queue extends Command {
   constructor(bot: Bot) {
     super(bot, {
       name: `${config.botPrefix}queue`,
       help: "Show the server's music queue",
-      requiredRoleLvl: 0,
+      requiredRoleLvl: 0
     });
   }
 
-  async run(msg: Message, _: string[]) {
-    const queueExists: IQueue = this.bot.queues.get(msg.guild!.id);
+  async run(msg: Message) {
+    const queueExists = this.bot.queues.get(msg.guild!.id);
     if (!queueExists) {
       const embed = new MessageEmbed();
       embed
         .setAuthor('❌ No queue established on the server!')
         .setDescription(
-          `If you want to play a song type \`${process.env.BOT_PREFIX}play\` and the name/link of the song in front of it to get the party started! 🥳`
+          `If you want to play a song type \`${config.botPrefix}play\` and the name/link of the song in front of it to get the party started! 🥳`
         )
-        .setColor('#6E76E5');
+        .setColor(config.errorColor);
       return msg.channel.send({ embed });
     }
 
@@ -46,7 +45,7 @@ export default class Queue extends Command {
       .addField('Currently Listening', `${queueExists.songs[0].title}`, true)
       .addField('Duration', `${queueExists.songs[0].timestamp}`, true)
       .addField('Coming Next', concatQueueStr)
-      .setColor('#6E76E5');
+      .setColor(config.mainColor);
     msg.channel.send({ embed });
   }
 }

@@ -1,7 +1,7 @@
 import {
   ReactionCollector,
   VoiceConnection,
-  StreamDispatcher,
+  StreamDispatcher
 } from 'discord.js';
 import { Document } from 'mongoose';
 import { VideoMetadataResult, VideoSearchResult } from 'yt-search';

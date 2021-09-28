@@ -1,19 +1,19 @@
 import { Message, MessageEmbed } from 'discord.js';
 
-import config from '../../config';
-import Command from '../../structs/Command';
-import Bot from '../../structs/Bot';
+import config from '@/config';
+import Command from '@/structs/Command';
+import Bot from '@/structs/Bot';
 
 export default class GetServerInformation extends Command {
   constructor(bot: Bot) {
     super(bot, {
       name: `${config.botPrefix}server`,
-      help: 'Display server information',
-      requiredRoleLvl: 1,
+      help: 'Display the server information',
+      requiredRoleLvl: 1
     });
   }
 
-  async run(msg: Message, _: string[]) {
+  async run(msg: Message) {
     const guildCreationDate = new Date(
       msg.guild!.createdTimestamp
     ).toLocaleDateString('en-us');
@@ -57,7 +57,7 @@ export default class GetServerInformation extends Command {
           msg.guild!.premiumSubscriptionCount
         }\n`
       )
-      .setColor('#6E76E5');
+      .setColor(config.mainColor);
     msg.channel.send({ embed });
   }
 }

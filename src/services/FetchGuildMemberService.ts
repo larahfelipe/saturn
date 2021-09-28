@@ -1,7 +1,7 @@
 import { GuildMember } from 'discord.js';
 
-import Member from '../models/Member';
-import { IMemberEssentials } from '../types';
+import Member from '@/models/Member';
+import { IMemberEssentials } from '@/types';
 
 async function handleSearchGuildMember(
   targetMember: GuildMember
@@ -14,7 +14,7 @@ async function handleSearchGuildMember(
     username: memberExists.username,
     userRoleLvl: memberExists.userRoleLvl,
     wasAddedBy: memberExists.wasAddedBy,
-    wasUpdatedBy: memberExists.wasUpdatedBy,
+    wasUpdatedBy: memberExists.wasUpdatedBy
   };
 }
 
@@ -23,16 +23,15 @@ async function handleFetchAllMembersInDatabase(): Promise<
 > {
   return await Member.find({})
     .then((docs) => {
-      const formatMembersData = docs.map((member) => {
+      return docs.map((member) => {
         return {
           userId: member.userId,
           username: member.username,
           userRoleLvl: member.userRoleLvl,
           wasAddedBy: member.wasAddedBy,
-          wasUpdatedBy: member.wasUpdatedBy,
+          wasUpdatedBy: member.wasUpdatedBy
         };
       });
-      return formatMembersData;
     })
     .catch((err) => {
       console.error(err);

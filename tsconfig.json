@@ -1,14 +1,20 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
+    "target": "esnext",
     "module": "commonjs",
     "rootDir": "./src",
     "outDir": "./dist",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": true,
-    "typeRoots": ["./node_modules/@types", "./src/types"],
+    "noUnusedLocals": true,
+    "allowUnreachableCode": false,
+    "typeRoots": ["./node_modules/@types", "./src/types"]
   }
 }

@@ -1,9 +1,9 @@
 import { Message } from 'discord.js';
 
 import Bot from './Bot';
-import { ICommandDescription } from '../types';
+import { ICommandDescription } from '@/types';
 
-abstract class Command {
+export default abstract class Command {
   bot: Bot;
   name: string;
   description: ICommandDescription;
@@ -14,7 +14,5 @@ abstract class Command {
     this.name = description.name;
   }
 
-  abstract run(msg: Message, args: string[]): Promise<any>;
+  abstract run(msg: Message, args?: string[]): Promise<any>;
 }
-
-export default Command;

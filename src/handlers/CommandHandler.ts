@@ -1,10 +1,10 @@
 import { readdirSync } from 'fs';
 import { join } from 'path';
 
-import Bot from '../structs/Bot';
-import Command from '../structs/Command';
+import Bot from '@/structs/Bot';
+import Command from '@/structs/Command';
 
-class CommandHandler {
+export default class CommandHandler {
   static modulesLength: number[] = [];
   bot: Bot;
 
@@ -52,5 +52,3 @@ class CommandHandler {
     }
   }
 }
-
-export default CommandHandler;

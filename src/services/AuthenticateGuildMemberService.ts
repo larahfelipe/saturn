@@ -1,7 +1,7 @@
 import { GuildMember } from 'discord.js';
 
-import Member from '../models/Member';
-import { IMember } from '../types';
+import Member from '@/models/Member';
+import { IMember } from '@/types';
 
 async function handleGuildMemberAuth(
   targetMember: GuildMember

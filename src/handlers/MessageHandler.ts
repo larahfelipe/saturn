@@ -1,14 +1,12 @@
 import { Message } from 'discord.js';
 
-class MessageHandler {
+export default class MessageHandler {
   static async firstHundredSent(msg: Message) {
-    const firstHundredMsgs = await msg.channel.messages.fetch({ limit: 100 });
-    return firstHundredMsgs;
+    return await msg.channel.messages.fetch({ limit: 100 });
   }
 
   static async lastSent(msg: Message) {
-    const lastSentMsg = await msg.channel.messages.fetch({ limit: 1 });
-    return lastSentMsg;
+    return await msg.channel.messages.fetch({ limit: 1 });
   }
 
   static async firstHundredBotSent(msg: Message) {
@@ -39,5 +37,3 @@ class MessageHandler {
     return lastSentBotMsg;
   }
 }
-
-export default MessageHandler;

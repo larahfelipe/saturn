@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-import { IMember } from '../types';
+import { IMember } from '@/types';
 
 const MemberSchema = new mongoose.Schema({
   _id: mongoose.Schema.Types.ObjectId,
@@ -9,7 +9,7 @@ const MemberSchema = new mongoose.Schema({
   userRoleLvl: Number,
   wasAddedBy: String,
   wasUpdatedBy: String,
-  wasAddedAtTime: String,
+  wasAddedAtTime: String
 });
 
 const Member = mongoose.model<IMember>('Member', MemberSchema);

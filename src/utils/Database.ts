@@ -1,9 +1,9 @@
 import mongoose from 'mongoose';
 
-import config from '../config';
+import config from '@/config';
 
-class Database {
-  private static hasConnection: boolean;
+export default class Database {
+  private static hasConnection = false;
 
   static get isConnected() {
     return this.hasConnection;
@@ -13,16 +13,13 @@ class Database {
     try {
       console.log('\n[Saturn] Requesting access to database ...\n');
       mongoose.connect(config.dbAccess!, (err) => {
-        if (err) {
-          throw new Error(err as any);
-        }
+        if (err) throw err;
+
+        this.hasConnection = true;
+        console.log('[Saturn] Database connection established.\n');
       });
-      this.hasConnection = true;
-      console.log('[Saturn] Database connection established.\n');
     } catch (err) {
       console.error(err);
     }
   }
 }
-
-export default Database;

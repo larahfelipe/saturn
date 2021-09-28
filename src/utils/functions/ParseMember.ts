@@ -1,17 +1,12 @@
 import { GuildMember } from 'discord.js';
 
-import Member from '../models/Member';
-import { IMember } from '../types';
+import Member from '@/models/Member';
+import { IMember } from '@/types';
 
 export async function parseMember(
-  elmt: GuildMember | string
+  member: GuildMember | string
 ): Promise<[IMember, string]> {
-  let memberId: string;
-  if (typeof elmt === 'string') {
-    memberId = elmt;
-  } else {
-    memberId = elmt.id;
-  }
+  const memberId = typeof member === 'string' ? member : member.id;
 
   const memberExists = await Member.findOne({ userId: memberId });
   if (!memberExists) throw Error('Member was not found in database.');

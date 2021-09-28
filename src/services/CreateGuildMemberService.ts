@@ -1,7 +1,7 @@
 import { GuildMember, Message } from 'discord.js';
 import { Types } from 'mongoose';
 
-import Member from '../models/Member';
+import Member from '@/models/Member';
 
 async function handleGuildMemberCreation(
   targetMember: GuildMember,
@@ -17,7 +17,7 @@ async function handleGuildMemberCreation(
     userRoleLvl: 0,
     wasAddedBy: msg.author.tag,
     wasUpdatedBy: msg.author.tag,
-    wasAddedAtTime: msg.createdAt,
+    wasAddedAtTime: msg.createdAt
   });
   newMember.save();
 }

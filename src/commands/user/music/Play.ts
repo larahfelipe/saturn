@@ -3,24 +3,24 @@ import axios, { AxiosError, AxiosResponse } from 'axios';
 import yts, { SearchResult } from 'yt-search';
 import { validateURL, getURLVideoID } from 'ytdl-core';
 
-import config from '../../../config';
-import Command from '../../../structs/Command';
-import Bot from '../../../structs/Bot';
-import SongHandler from '../../../handlers/SongHandler';
-import { formatSecondsToTime } from '../../../utils/FormatSecondsToTime';
-import { Song, SearchError, IQueue, ISpotifyPlaylist } from '../../../types';
+import config from '@/config';
+import Command from '@/structs/Command';
+import Bot from '@/structs/Bot';
+import SongHandler from '@/handlers/SongHandler';
+import { formatSecondsToTime } from '@/utils/functions/FormatSecondsToTime';
+import { Song, SearchError, ISpotifyPlaylist } from '@/types';
 
 export default class Play extends Command {
   constructor(bot: Bot) {
     super(bot, {
       name: `${config.botPrefix}play`,
       help: 'Plays song from YouTube or Spotify',
-      requiredRoleLvl: 0,
+      requiredRoleLvl: 0
     });
   }
 
   async handlePlaySong(song: Song, msg: Message, sendQueueNotifMsg = false) {
-    const queue: IQueue = this.bot.queues.get(msg.guild!.id);
+    const queue = this.bot.queues.get(msg.guild!.id);
     if (!queue) {
       SongHandler.setSong(this.bot, msg, song, msg.author.id);
 
@@ -30,7 +30,7 @@ export default class Play extends Command {
         .setDescription(
           `Joining channel \`${msg.member!.voice.channel!.name}\``
         )
-        .setColor('#6E76E5');
+        .setColor(config.mainColor);
       msg.channel.send({ embed });
     } else {
       queue.songs.push(song);
@@ -47,15 +47,15 @@ export default class Play extends Command {
             }) was added to the queue and his current position is \`${queue.songs.indexOf(
               song
             )}\`.\n\nYou can see the guild's queue anytime using \`${
-              process.env.BOT_PREFIX
+              config.botPrefix
             }queue\``
           )
           .setFooter(
             `Added by ${msg.author.username}`,
             msg.author.displayAvatarURL()
           )
-          .setTimestamp(new Date())
-          .setColor('#6E76E5');
+          .setTimestamp(Date.now())
+          .setColor(config.mainColor);
         msg.channel.send({ embed });
       }
     }
@@ -112,40 +112,46 @@ export default class Play extends Command {
                   )}\``
                 )
                 .setThumbnail(spotifyPlaylist.images[0].url)
-                .setFooter('Spotify | Music for everyone')
-                .setColor('#6E76E5');
+                .setFooter(
+                  'Spotify | Music for everyone',
+                  config.spotifyIconUrl
+                )
+                .setColor(config.spotifyColor);
               msg.channel.send({ embed });
 
               embed
                 .setAuthor('Gotcha!, loading playlist songs ... ⏳')
                 .setDescription("I'll join the party in a moment, please wait")
                 .setThumbnail('')
-                .setFooter('');
+                .setFooter('')
+                .setColor(config.warningColor);
               msg.channel.send({ embed });
-            } else throw new Error('Invalid URL');
+            } else throw new Error('An invalid URL was provided.');
           })
-          .catch((err: AxiosError) => console.error(err));
+          .catch((err: AxiosError) => {
+            this.bot.logger.handleErrorEvent(err);
+          });
       }
 
       if (spotifyPlaylistTracks.length > 0) {
         const playlistTracks = await Promise.all(
           spotifyPlaylistTracks.map(async (track) => {
-            let res: SearchResult = await yts(track);
+            const res: SearchResult = await yts(track);
             if (res && res.videos.length > 0) {
               return res.videos[0];
             }
           })
         );
-        song = <Song>playlistTracks[0];
+        song = playlistTracks[0] as Song;
         this.handlePlaySong(song, msg);
         playlistTracks.shift();
 
         setTimeout(() => {
           playlistTracks.forEach((track) => {
-            song = <Song>track;
+            song = track as Song;
             this.handlePlaySong(song, msg);
           });
-        }, 5000);
+        }, 2500);
       } else {
         yts(requestedSong, (err: SearchError, res: SearchResult) => {
           if (err) throw err;
@@ -159,7 +165,7 @@ export default class Play extends Command {
         });
       }
     } catch (err) {
-      console.error(err);
+      this.bot.logger.handleErrorEvent(err);
     }
   }
 }

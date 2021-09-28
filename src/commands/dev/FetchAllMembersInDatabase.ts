@@ -1,22 +1,21 @@
 import { Message, MessageEmbed } from 'discord.js';
 
-import config from '../../config';
-import Command from '../../structs/Command';
-import Bot from '../../structs/Bot';
-import { handleFetchAllMembersInDatabase } from '../../services/FetchGuildMemberService';
+import config from '@/config';
+import Command from '@/structs/Command';
+import Bot from '@/structs/Bot';
+import { handleFetchAllMembersInDatabase } from '@/services/FetchGuildMemberService';
 import {
   handleGuildMemberElevation,
-  handleGuildMemberDemotion,
-} from '../../services/UpdateGuildMemberService';
-import { handleGuildMemberDeletion } from '../../services/DeleteGuildMemberService';
-import { IMemberEssentials } from '../../types';
+  handleGuildMemberDemotion
+} from '@/services/UpdateGuildMemberService';
+import { handleGuildMemberDeletion } from '@/services/DeleteGuildMemberService';
 
 export default class FetchAllMembersInDatabase extends Command {
   constructor(bot: Bot) {
     super(bot, {
       name: `${config.botPrefix}findall`,
       help: 'List all members in database',
-      requiredRoleLvl: 2,
+      requiredRoleLvl: 2
     });
   }
 
@@ -26,7 +25,7 @@ export default class FetchAllMembersInDatabase extends Command {
       const members = await handleFetchAllMembersInDatabase();
       if (!members) return msg.reply('No member was found in database.');
 
-      members.forEach((member: IMemberEssentials, index: number) => {
+      members.forEach((member, index) => {
         concatMembersData += `**${index}** ─ ${member.userRoleLvl} • ${member.username}\n`;
       });
 
@@ -35,9 +34,9 @@ export default class FetchAllMembersInDatabase extends Command {
         const targetOperation = args[2];
 
         if (args[0] === '&SELECT') {
-          const targetMember = members.find((member, index) => {
-            if (index === targetMemberIndex) return member;
-          });
+          const targetMember = members.find(
+            (_, index) => index === targetMemberIndex
+          );
 
           switch (targetOperation) {
             case '&SETADMIN':
@@ -52,26 +51,27 @@ export default class FetchAllMembersInDatabase extends Command {
             default:
               return msg.channel.send('Unknown command.');
           }
-          return msg.channel.send(`Database was updated • ${Date.now()}`);
+          return msg.channel.send(
+            `${targetMember!.username}'s registry was updated by ${
+              msg.author.username
+            }.\nDatabase was updated at ${msg.createdAt}`
+          );
         }
       }
 
       const embed = new MessageEmbed();
       embed
         .setAuthor(
-          'SATURN Database Manager\nReg Index ─ Member Role Lvl • Member Username'
+          'Saturn Database Manager\nReg Index ─ Member Role Lvl • Member Username'
         )
         .setDescription(concatMembersData)
         .setTimestamp(Date.now())
-        .setFooter(
-          'MongoDB',
-          'https://pbs.twimg.com/profile_images/1234528105819189248/b6F1hk_6_400x400.jpg'
-        )
-        .setColor('#6E76E5');
+        .setFooter('MongoDB', config.mongoDbIconUrl)
+        .setColor(config.mongoDbColor);
       msg.channel.send({ embed });
     } catch (err) {
       console.error(err);
-      msg.reply("Couldn't retrieve members in database.");
+      msg.reply("Couldn't retrieve members from database.");
     }
   }
 }

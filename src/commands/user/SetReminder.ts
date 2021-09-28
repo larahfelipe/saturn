@@ -1,16 +1,16 @@
 import { Message } from 'discord.js';
 
-import config from '../../config';
-import Command from '../../structs/Command';
-import Bot from '../../structs/Bot';
-import { formatSecondsToTime } from '../../utils/FormatSecondsToTime';
+import config from '@/config';
+import Command from '@/structs/Command';
+import Bot from '@/structs/Bot';
+import { formatSecondsToTime } from '@/utils/functions/FormatSecondsToTime';
 
 export default class SetReminder extends Command {
   constructor(bot: Bot) {
     super(bot, {
       name: `${config.botPrefix}remind`,
       help: 'Remind you about whatever you want',
-      requiredRoleLvl: 0,
+      requiredRoleLvl: 0
     });
   }
 
@@ -20,7 +20,7 @@ export default class SetReminder extends Command {
       return msg.reply('You need to inform what I need to remind you about!');
 
     const reminderTime = args.slice(-1)[0];
-    let numberTimestamp = <any>reminderTime.slice(0, reminderTime.length - 1);
+    let numberTimestamp = reminderTime.slice(0, reminderTime.length - 1) as any;
     const charTimestamp = reminderTime.slice(-1)[0];
 
     switch (charTimestamp) {

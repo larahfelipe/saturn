@@ -1,33 +1,33 @@
 import { Message, MessageEmbed, version as discordVersion } from 'discord.js';
 import { type, arch, uptime } from 'os';
 
-import config from '../../config';
-import Command from '../../structs/Command';
-import Bot from '../../structs/Bot';
-import { formatSecondsToTime } from '../../utils/FormatSecondsToTime';
+import config from '@/config';
+import Command from '@/structs/Command';
+import Bot from '@/structs/Bot';
+import { formatSecondsToTime } from '@/utils/functions/FormatSecondsToTime';
 
 export default class GetBotInformation extends Command {
   constructor(bot: Bot) {
     super(bot, {
       name: `${config.botPrefix}bot`,
       help: 'Display bot properties',
-      requiredRoleLvl: 0,
+      requiredRoleLvl: 0
     });
   }
 
-  async run(msg: Message, _: string[]) {
+  async run(msg: Message) {
     const hostInformation = `${type} (${arch})`;
     const memoryUsage = process.memoryUsage().heapUsed / 1024 / 1024;
 
     const embed = new MessageEmbed();
     embed
-      .setAuthor(`SATURN Properties`, this.bot.user?.avatarURL()!)
+      .setAuthor(`Saturn Properties`, this.bot.user!.avatarURL()!)
       .setDescription(
         `• Saturn © Discord Bot — version 3.x\n• Created and maintained by [Felipe Lara](https://github.com/felpshn) — Licensed under a GNU GPL v3.0`
       )
       .addField(
         'Bot Status',
-        `• Currently **ONLINE** and listening commands on **"${
+        `• Currently  🟢 **ONLINE** and listening commands on **"${
           msg.guild!.name
         }"** server`
       )
@@ -47,9 +47,9 @@ export default class GetBotInformation extends Command {
       .setTimestamp(Date.now())
       .setFooter(
         `Discord Inc. — version ${discordVersion}`,
-        'https://discord.com/assets/2c21aeda16de354ba5334551a883b481.png'
+        config.discordIconUrl
       )
-      .setColor('#6E76E5');
+      .setColor(config.mainColor);
     msg.channel.send({ embed });
   }
 }
