@@ -23,7 +23,7 @@ export default class GetBotInformation extends Command {
     embed
       .setAuthor(`Saturn Properties`, this.bot.user!.avatarURL()!)
       .setDescription(
-        `• Saturn © Discord Bot — version 3.x\n• Created and maintained by [Felipe Lara](https://github.com/felpshn) — Licensed under a GNU GPL v3.0`
+        `• Saturn © Discord Bot — version 3.x\n• Created and maintained by [Felipe Lara](${config.projectAuthorUrl}) — Licensed under a GNU GPL v3.0`
       )
       .addField(
         'Bot Status',
@@ -42,7 +42,7 @@ export default class GetBotInformation extends Command {
       )
       .addField(
         'Source',
-        '• [GitHub | Where the world builds software](https://github.com/felpshn/saturn-bot)'
+        `• [GitHub | Where the world builds software](${config.projectAuthorUrl})`
       )
       .setTimestamp(Date.now())
       .setFooter(

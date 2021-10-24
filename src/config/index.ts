@@ -16,8 +16,9 @@ export default {
   spotifyColor: '#1ED760',
   mongoDbColor: '#3FA037',
   openWeatherColor: '#FB9300',
+  projectAuthorUrl: 'https://github.com/larafe1',
   cdGifUrl:
-    'https://raw.githubusercontent.com/felpshn/saturn-bot/master/src/assets/cd.gif',
+    'https://raw.githubusercontent.com/larafe1/saturn-bot/master/src/assets/cd.gif',
   mongoDbIconUrl:
     'https://pbs.twimg.com/profile_images/1234528105819189248/b6F1hk_6_400x400.jpg',
   spotifyIconUrl:

@@ -1,11 +1,11 @@
 <p align="center">
-  <a href="https://github.com/felpshn/saturn-bot">
-    <img src="https://github.com/felpshn/saturn-bot/blob/master/.github/project-banner.png">
+  <a href="https://github.com/larafe1/saturn-bot">
+    <img src="https://github.com/larafe1/saturn-bot/blob/master/.github/project-banner.png">
   </a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/felpshn/saturn-bot/releases">
+  <a href="https://github.com/larafe1/saturn-bot/releases">
     <img src="https://img.shields.io/static/v1?label=version&message=3.x&color=5965E0&labelColor=121214" alt="Version">
   </a>
   <a href="https://www.typescriptlang.org/">
@@ -17,7 +17,7 @@
   <a href="https://github.com/discordjs/discord.js/">
     <img src="https://img.shields.io/static/v1?label=built%20with&message=Discord.js&color=5965E0&labelColor=121214" alt="Discord.js">
   </a>
-  <a href="https://github.com/felpshn/saturn-bot/blob/master/LICENSE">
+  <a href="https://github.com/larafe1/saturn-bot/blob/master/LICENSE">
     <img src="https://img.shields.io/static/v1?label=license&message=GPL-v3.0&color=5965E0&labelColor=121214" alt="License">
   </a>
   <a href="https://makeapullrequest.com/">
@@ -30,6 +30,7 @@
 Saturn is a modular multipurpose, user-friendly and feature-rich discord bot. Just perfect for manage your server and provide the best experience for you and your community. All of that and many more, together on the most amazing planet of our solar system!
 
 ### Bot features
+
 - Server moderation (linked with your MongoDB database)
 - Server & Members info
 - Music playback (YouTube and Spotify)
@@ -37,6 +38,7 @@ Saturn is a modular multipurpose, user-friendly and feature-rich discord bot. Ju
 - Reminders
 
 ### Technologies used
+
 - [TypeScript](https://www.typescriptlang.org/)
 - [Node.js](https://nodejs.org/en/)
 - [Discord.js](https://github.com/discordjs/discord.js)
@@ -49,7 +51,7 @@ Saturn is a modular multipurpose, user-friendly and feature-rich discord bot. Ju
 
 ## How to use (MUST READ)
 
-Saturn is a *self-hosted* bot, this means you will need to host and maintain your own instance. For that, you can instantiate at your own machine or you can use a cloud platform to do so. A great cloud platform that I personally use and recommend is [Heroku](https://www.heroku.com/), it's a nice cloud service which offers a great compatibility for apps like this one, and also has a free plan option.
+Saturn is a _self-hosted_ bot, this means you will need to host and maintain your own instance. For that, you can instantiate at your own machine or you can use a cloud platform to do so. A great cloud platform that I personally use and recommend is [Heroku](https://www.heroku.com/), it's a nice cloud service which offers a great compatibility for apps like this one, and also has a free plan option.
 
 Please notice, you're **NOT** allowed to upload this bot to any service such as "discordbotlist" or "top.gg". You're only allowed to host this bot for your community.
 
@@ -62,7 +64,7 @@ First things first, make sure that you have `git`, `node` and `npm` installed. T
 #### Cloning this repository & Cd'ing into project's folder
 
 ```elm
-git clone https://github.com/felpshn/saturn-bot.git
+git clone https://github.com/larafe1/saturn-bot.git
 
 cd saturn-bot
 ```
@@ -98,6 +100,7 @@ BOT_PREFIX=HELLO_WORLD
 Notice these are **EXTRA** features! If you don't wanna use them, just follow the first `.env` template introduced in this step-by-step and your bot still will work normally.
 
 #### Running
+
 ```elm
 npm run dev
 ```
@@ -108,4 +111,4 @@ That's pretty much it, thanks for using Saturn and have fun!
 
 Also, PRs are more than welcome, in case you wanna contribuite to this project, feel free to open a pull request with a new feature.
 
-> **This project is licensed under a [GNU General Public License v3.0 License](https://github.com/felpshn/saturn-bot/blob/master/LICENSE)**
+> **This project is licensed under a [GNU General Public License v3.0 License](https://github.com/larafe1/saturn-bot/blob/master/LICENSE)**
