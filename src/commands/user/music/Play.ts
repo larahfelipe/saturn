@@ -76,7 +76,7 @@ export default class Play extends Command {
       } else if (requestedSong.startsWith('https://open.spotify.com/')) {
         await axios
           .get(requestedSong)
-          .then(({ data }: AxiosResponse<string>) => {
+          .then(({ data }: AxiosResponse<string | any>) => {
             let contextSelector: string;
             if (requestedSong.charAt(25) === 't') {
               contextSelector = data.substring(
