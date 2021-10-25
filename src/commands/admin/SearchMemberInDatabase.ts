@@ -1,9 +1,9 @@
 import { Message } from 'discord.js';
 
 import config from '@/config';
-import Command from '@/structs/Command';
-import Bot from '@/structs/Bot';
 import { handleSearchGuildMember } from '@/services/FetchGuildMemberService';
+import Bot from '@/structs/Bot';
+import Command from '@/structs/Command';
 
 export default class SearchMemberInDatabase extends Command {
   constructor(bot: Bot) {

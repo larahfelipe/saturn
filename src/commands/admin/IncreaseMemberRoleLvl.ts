@@ -1,9 +1,9 @@
 import { Message, MessageEmbed } from 'discord.js';
 
 import config from '@/config';
-import Command from '@/structs/Command';
-import Bot from '@/structs/Bot';
 import { handleGuildMemberElevation } from '@/services/UpdateGuildMemberService';
+import Bot from '@/structs/Bot';
+import Command from '@/structs/Command';
 
 export default class IncreaseMemberRoleLvl extends Command {
   constructor(bot: Bot) {

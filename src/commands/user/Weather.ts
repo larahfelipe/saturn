@@ -1,9 +1,9 @@
-import { Message, MessageEmbed } from 'discord.js';
 import axios, { AxiosError, AxiosResponse } from 'axios';
+import { Message, MessageEmbed } from 'discord.js';
 
 import config from '@/config';
-import Command from '@/structs/Command';
 import Bot from '@/structs/Bot';
+import Command from '@/structs/Command';
 import { ILocation } from '@/types';
 
 export default class Weather extends Command {

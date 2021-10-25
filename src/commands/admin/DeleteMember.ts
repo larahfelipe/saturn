@@ -1,9 +1,9 @@
 import { Message, MessageEmbed } from 'discord.js';
 
 import config from '@/config';
-import Command from '@/structs/Command';
-import Bot from '@/structs/Bot';
 import { handleGuildMemberDeletion } from '@/services/DeleteGuildMemberService';
+import Bot from '@/structs/Bot';
+import Command from '@/structs/Command';
 
 export default class DeleteMember extends Command {
   constructor(bot: Bot) {

@@ -2,12 +2,16 @@
   "name": "saturn-bot",
   "version": "0.0.0",
   "description": "",
-  "main": "src/index.ts",
+  "main": "index.ts",
   "scripts": {
-    "start": "node -r ts-node/register -r tsconfig-paths/register ./dist/index.js",
+    "start": "node -r ts-node/register -r tsconfig-paths/register dist/index.js",
     "dev": "set NODE_ENV=development&&tsnd --respawn --transpile-only -r tsconfig-paths/register src/index.ts",
-    "build": "tsc --project tsconfig.json&&tscpaths -p tsconfig.json -s ./src -o ./dist",
-    "format": "prettier --ignore-path \"dist/**/*.js\" --check \"src/**/*.ts\" --write",
+    "build": "tsc --project tsconfig.json&&tscpaths -p tsconfig.json -s src -o dist",
+    "lint": "eslint src --ext ts --max-warnings=0",
+    "lint:fix": "eslint src --ext ts --max-warnings=0 --fix",
+    "prettier": "prettier --ignore-path \"dist/**/*.js\" --check \"src/**/*.ts\"",
+    "prettier:fix": "prettier --ignore-path \"dist/**/*.js\" --check \"src/**/*.ts\" --write",
+    "typecheck": "tsc --project tsconfig.json --noEmit",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -22,11 +26,10 @@
   "homepage": "https://github.com/larafe1/saturn-bot#readme",
   "dependencies": {
     "@discordjs/opus": "^0.6.0",
-    "axios": "^0.23.0",
+    "axios": "^0.24.0",
     "discord.js": "^12.5.3",
     "dotenv": "^10.0.0",
     "ffmpeg": "0.0.4",
-    "fluent-ffmpeg": "^2.1.2",
     "mongoose": "^6.0.12",
     "ts-node": "^10.4.0",
     "tsconfig-paths": "^3.11.0",
@@ -37,10 +40,11 @@
   },
   "devDependencies": {
     "@types/yt-search": "^2.3.2",
-    "@typescript-eslint/eslint-plugin": "^5.1.0",
-    "@typescript-eslint/parser": "^5.1.0",
+    "@typescript-eslint/eslint-plugin": "^5.2.0",
+    "@typescript-eslint/parser": "^5.2.0",
     "eslint": "^8.1.0",
     "eslint-config-prettier": "^8.3.0",
+    "eslint-plugin-import-helpers": "^1.1.0",
     "eslint-plugin-prettier": "^4.0.0",
     "prettier": "2.4.1",
     "ts-node-dev": "^1.1.8"

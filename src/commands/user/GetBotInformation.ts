@@ -2,8 +2,8 @@ import { Message, MessageEmbed, version as discordVersion } from 'discord.js';
 import { type, arch, uptime } from 'os';
 
 import config from '@/config';
-import Command from '@/structs/Command';
 import Bot from '@/structs/Bot';
+import Command from '@/structs/Command';
 import { formatSecondsToTime } from '@/utils/functions/FormatSecondsToTime';
 
 export default class GetBotInformation extends Command {
@@ -35,14 +35,13 @@ export default class GetBotInformation extends Command {
         'Host Status',
         `• OS: ${hostInformation}\n• Uptime: ${formatSecondsToTime(
           uptime()
-        )}\n• Memory Usage: ${memoryUsage.toFixed(2)} MB (${(
-          (memoryUsage * 100) /
-          512
-        ).toFixed(2)}%)\n• Discord API Latency: ${this.bot.ws.ping} ms`
+        )}\n• Memory Usage: ${memoryUsage.toFixed(
+          2
+        )} MB\n• Discord API Latency: ${this.bot.ws.ping} ms`
       )
       .addField(
         'Source',
-        `• [GitHub | Where the world builds software](${config.projectAuthorUrl})`
+        `• [GitHub | Where the world builds software](${config.projectUrl})`
       )
       .setTimestamp(Date.now())
       .setFooter(

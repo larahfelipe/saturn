@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/larafe1/saturn-bot">
-    <img src="https://github.com/larafe1/saturn-bot/blob/master/.github/project-banner.png">
+    <img src="https://github.com/larafe1/saturn-bot/blob/master/.github/saturn-logo.png">
   </a>
 </p>
 
@@ -20,10 +20,14 @@
   <a href="https://github.com/larafe1/saturn-bot/blob/master/LICENSE">
     <img src="https://img.shields.io/static/v1?label=license&message=GPL-v3.0&color=5965E0&labelColor=121214" alt="License">
   </a>
-  <a href="https://makeapullrequest.com/">
-    <img src="https://img.shields.io/static/v1?label=PRs&message=welcome&color=5965E0&labelColor=121214" alt="PRs">
+  <a href="https://github.com/larafe1/saturn-bot/actions/workflows/ci.yml">
+    <img src="https://github.com/larafe1/saturn-bot/actions/workflows/ci.yml/badge.svg" alt="GitHub Actions">
   </a>
 </p>
+
+<a href="https://www.digitalocean.com/">
+  <img src="https://web-platforms.sfo2.cdn.digitaloceanspaces.com/WWW/Badge%201.svg" alt="DigitalOcean Referral Badge" />
+</a>
 
 ## Overview
 
@@ -46,12 +50,10 @@ Saturn is a modular multipurpose, user-friendly and feature-rich discord bot. Ju
 - [Mongoose](https://github.com/Automattic/mongoose)
 - [Ytdl](https://github.com/fent/node-ytdl-core)
 - [Yt-search](https://github.com/talmobi/yt-search)
-- [Ts-node-dev](https://github.com/wclr/ts-node-dev)
-- [Dotenv](https://github.com/motdotla/dotenv)
 
 ## How to use (MUST READ)
 
-Saturn is a _self-hosted_ bot, this means you will need to host and maintain your own instance. For that, you can instantiate at your own machine or you can use a cloud platform to do so. A great cloud platform that I personally use and recommend is [Heroku](https://www.heroku.com/), it's a nice cloud service which offers a great compatibility for apps like this one, and also has a free plan option.
+Saturn is a _self-hosted_ bot, this means you will need to host and maintain your own instance. For that, you can instantiate at your own machine or you can use a cloud platform to do that. A great cloud platform that I have used before and recommend is [Heroku](https://www.heroku.com/), it's a nice cloud service which offers a great compatibility for apps like this one, and also has a free plan option.
 
 Please notice, you're **NOT** allowed to upload this bot to any service such as "discordbotlist" or "top.gg". You're only allowed to host this bot for your community.
 

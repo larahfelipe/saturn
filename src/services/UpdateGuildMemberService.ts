@@ -1,7 +1,7 @@
 import { GuildMember, Message } from 'discord.js';
 
-import { parseMember } from '@/utils/functions/ParseMember';
 import Member from '@/models/Member';
+import { parseMember } from '@/utils/functions/ParseMember';
 
 async function handleGuildMemberElevation(
   targetMember: GuildMember | string,

@@ -1,8 +1,8 @@
 import { Message } from 'discord.js';
 
 import config from '@/config';
-import Command from '@/structs/Command';
 import Bot from '@/structs/Bot';
+import Command from '@/structs/Command';
 
 export default class Say extends Command {
   constructor(bot: Bot) {
