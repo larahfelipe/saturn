@@ -17,6 +17,7 @@ export default {
   mongoDbColor: '#3FA037',
   openWeatherColor: '#FB9300',
   projectAuthorUrl: 'https://github.com/larafe1',
+  projectUrl: 'https://github.com/larafe1/saturn-bot',
   cdGifUrl:
     'https://raw.githubusercontent.com/larafe1/saturn-bot/master/src/assets/cd.gif',
   mongoDbIconUrl:

@@ -35,14 +35,13 @@ export default class GetBotInformation extends Command {
         'Host Status',
         `• OS: ${hostInformation}\n• Uptime: ${formatSecondsToTime(
           uptime()
-        )}\n• Memory Usage: ${memoryUsage.toFixed(2)} MB (${(
-          (memoryUsage * 100) /
-          512
-        ).toFixed(2)}%)\n• Discord API Latency: ${this.bot.ws.ping} ms`
+        )}\n• Memory Usage: ${memoryUsage.toFixed(
+          2
+        )} MB\n• Discord API Latency: ${this.bot.ws.ping} ms`
       )
       .addField(
         'Source',
-        `• [GitHub | Where the world builds software](${config.projectAuthorUrl})`
+        `• [GitHub | Where the world builds software](${config.projectUrl})`
       )
       .setTimestamp(Date.now())
       .setFooter(
