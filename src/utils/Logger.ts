@@ -1,5 +1,5 @@
-import { DiscordAPIError, HTTPError } from 'discord.js';
 import { AxiosError } from 'axios';
+import { DiscordAPIError, HTTPError } from 'discord.js';
 
 import Bot from '@/structs/Bot';
 

@@ -1,7 +1,8 @@
 import { Message } from 'discord.js';
 
-import Bot from './Bot';
 import { ICommandDescription } from '@/types';
+
+import Bot from './Bot';
 
 export default abstract class Command {
   bot: Bot;

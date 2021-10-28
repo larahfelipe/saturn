@@ -1,14 +1,14 @@
 import { Message, MessageEmbed } from 'discord.js';
 
 import config from '@/config';
-import Command from '@/structs/Command';
-import Bot from '@/structs/Bot';
+import { handleGuildMemberDeletion } from '@/services/DeleteGuildMemberService';
 import { handleFetchAllMembersInDatabase } from '@/services/FetchGuildMemberService';
 import {
   handleGuildMemberElevation,
   handleGuildMemberDemotion
 } from '@/services/UpdateGuildMemberService';
-import { handleGuildMemberDeletion } from '@/services/DeleteGuildMemberService';
+import Bot from '@/structs/Bot';
+import Command from '@/structs/Command';
 
 export default class FetchAllMembersInDatabase extends Command {
   constructor(bot: Bot) {

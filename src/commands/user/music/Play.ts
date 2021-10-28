@@ -1,14 +1,14 @@
-import { Message, MessageEmbed } from 'discord.js';
 import axios, { AxiosError, AxiosResponse } from 'axios';
+import { Message, MessageEmbed } from 'discord.js';
 import yts, { SearchResult } from 'yt-search';
 import { validateURL, getURLVideoID } from 'ytdl-core';
 
 import config from '@/config';
-import Command from '@/structs/Command';
-import Bot from '@/structs/Bot';
 import SongHandler from '@/handlers/SongHandler';
-import { formatSecondsToTime } from '@/utils/functions/FormatSecondsToTime';
+import Bot from '@/structs/Bot';
+import Command from '@/structs/Command';
 import { Song, SearchError, ISpotifyPlaylist } from '@/types';
+import { formatSecondsToTime } from '@/utils/functions/FormatSecondsToTime';
 
 export default class Play extends Command {
   constructor(bot: Bot) {

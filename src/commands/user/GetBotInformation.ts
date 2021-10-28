@@ -2,8 +2,8 @@ import { Message, MessageEmbed, version as discordVersion } from 'discord.js';
 import { type, arch, uptime } from 'os';
 
 import config from '@/config';
-import Command from '@/structs/Command';
 import Bot from '@/structs/Bot';
+import Command from '@/structs/Command';
 import { formatSecondsToTime } from '@/utils/functions/FormatSecondsToTime';
 
 export default class GetBotInformation extends Command {

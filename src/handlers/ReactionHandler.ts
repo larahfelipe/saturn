@@ -1,8 +1,9 @@
 import { Message } from 'discord.js';
 
 import Bot from '@/structs/Bot';
-import SongHandler from './SongHandler';
 import { IReaction, IUser } from '@/types';
+
+import SongHandler from './SongHandler';
 
 enum Control {
   PLAY = '▶️',

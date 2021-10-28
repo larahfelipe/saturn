@@ -1,12 +1,13 @@
 import { Client, Collection, MessageEmbed, GuildMember } from 'discord.js';
 
 import config from '@/config';
-import Command from './Command';
-import Logger from '@/utils/Logger';
-import Database from '@/utils/Database';
 import CommandHandler from '@/handlers/CommandHandler';
 import { handleGuildMemberAuth } from '@/services/AuthenticateGuildMemberService';
 import { IQueue } from '@/types';
+import Database from '@/utils/Database';
+import Logger from '@/utils/Logger';
+
+import Command from './Command';
 
 export default class Bot extends Client {
   commands!: Collection<string, Command>;
