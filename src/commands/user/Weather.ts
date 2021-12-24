@@ -24,7 +24,7 @@ export default class Weather extends Command {
       .get(
         `https://api.openweathermap.org/data/2.5/weather?q=${location}&units=metric&appid=${config.openWeatherToken}`
       )
-      .then(({ data }: AxiosResponse<ILocation | any>) => {
+      .then(({ data }: AxiosResponse<ILocation>) => {
         const weatherData = data;
         const formatLocation = `${weatherData.name}, ${weatherData.sys.country} — Weather`;
         const formatWeatherIcon = `http://openweathermap.org/img/wn/${weatherData.weather[0].icon}.png`;

@@ -1,7 +1,7 @@
 import { Message } from 'discord.js';
 
 import Bot from '@/structs/Bot';
-import { IReaction, IUser } from '@/types';
+import { IReaction, IUser, Song } from '@/types';
 
 import SongHandler from './SongHandler';
 
@@ -24,7 +24,7 @@ class ReactionHandler {
   static async performDeletion(
     bulkDelete: boolean,
     targetReaction?: Control | string,
-    userId?: IUser | any
+    userId?: any
   ) {
     try {
       if (bulkDelete) {
@@ -100,7 +100,12 @@ class ReactionHandler {
               queue.authors.shift();
               this.performDeletion(true);
 
-              SongHandler.setSong(bot, msg, queue.songs[0], queue.authors[0]);
+              SongHandler.setSong(
+                bot,
+                msg,
+                queue.songs[0] as Song,
+                queue.authors[0]
+              );
               break;
             } else return;
           default:
