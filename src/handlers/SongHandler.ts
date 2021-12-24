@@ -3,6 +3,7 @@ import ytdl from 'ytdl-core';
 
 import config from '@/config';
 import Bot from '@/structs/Bot';
+import { Song } from '@/types';
 
 import ReactionHandler from './ReactionHandler';
 
@@ -10,7 +11,7 @@ class SongHandler {
   static async setSong(
     bot: Bot,
     msg: Message,
-    song: any,
+    song: Song,
     requestAuthor: string
   ) {
     let queue = bot.queues.get(msg.guild!.id);
@@ -64,7 +65,12 @@ class SongHandler {
         queue!.authors.shift();
         ReactionHandler.performDeletion(true);
 
-        SongHandler.setSong(bot, msg, queue!.songs[0], queue!.authors[0]);
+        SongHandler.setSong(
+          bot,
+          msg,
+          queue!.songs[0] as Song,
+          queue!.authors[0]
+        );
       });
 
       bot.queues.set(msg.guild!.id, queue);

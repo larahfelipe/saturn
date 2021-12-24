@@ -76,15 +76,15 @@ export default class Play extends Command {
       } else if (requestedSong.startsWith('https://open.spotify.com/')) {
         await axios
           .get(requestedSong)
-          .then(({ data }: AxiosResponse<string | any>) => {
+          .then(({ data }: AxiosResponse<string>) => {
             let contextSelector: string;
-            if (requestedSong.charAt(25) === 't') {
+            if (requestedSong.includes('track')) {
               contextSelector = data.substring(
                 data.indexOf('<ti') + 7,
                 data.indexOf('|') - 1
               );
               requestedSong = contextSelector;
-            } else if (requestedSong.charAt(25) === 'p') {
+            } else if (requestedSong.includes('playlist')) {
               contextSelector =
                 data.substring(
                   data.indexOf('Spotify.Entity') + 17,

@@ -5,6 +5,7 @@ import ReactionHandler from '@/handlers/ReactionHandler';
 import SongHandler from '@/handlers/SongHandler';
 import Bot from '@/structs/Bot';
 import Command from '@/structs/Command';
+import { Song } from '@/types';
 
 export default class Skip extends Command {
   constructor(bot: Bot) {
@@ -34,7 +35,7 @@ export default class Skip extends Command {
       SongHandler.setSong(
         this.bot,
         msg,
-        queueExists.songs[0],
+        queueExists.songs[0] as Song,
         queueExists.authors[0]
       );
     }

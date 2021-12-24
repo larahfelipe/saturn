@@ -22,9 +22,9 @@ export default class Help extends Command {
     this.bot.commands.forEach((command: Command) => {
       if (i === 0) {
         concatHelpStr += '***Admin     ─────────────***\n';
-      } else if (i === modulesLen[0]) {
+      } else if (i === modulesLen[0] + 1) {
         concatHelpStr += '***Dev     ───────────────***\n';
-      } else if (i === modulesLen[0] + modulesLen[1] + 1) {
+      } else if (i === modulesLen[0] + modulesLen[1] + 2) {
         concatHelpStr += '***User    ───────────────***\n';
       }
       concatHelpStr += `\`${command.name}\` → ${command.description.help}.\n`;
