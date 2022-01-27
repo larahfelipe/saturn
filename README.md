@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/larafe1/saturn-bot/releases">
-    <img src="https://img.shields.io/static/v1?label=version&message=3.x&color=5965E0&labelColor=121214" alt="Version">
+    <img src="https://img.shields.io/static/v1?label=version&message=5.x&color=5965E0&labelColor=121214" alt="Version">
   </a>
   <a href="https://www.typescriptlang.org/">
     <img src="https://img.shields.io/static/v1?label=built%20with&message=TypeScript&color=5965E0&labelColor=121214" alt="TypeScript">
@@ -31,25 +31,7 @@
 
 ## Overview
 
-Saturn is a modular multipurpose, user-friendly and feature-rich discord bot. Just perfect for manage your server and provide the best experience for you and your community. All of that and many more, together on the most amazing planet of our solar system!
-
-### Bot features
-
-- Server moderation (linked with your MongoDB database)
-- Server & Members info
-- Music playback (YouTube and Spotify)
-- Weather report
-- Reminders
-
-### Technologies used
-
-- [TypeScript](https://www.typescriptlang.org/)
-- [Node.js](https://nodejs.org/en/)
-- [Discord.js](https://github.com/discordjs/discord.js)
-- [Axios](https://github.com/axios/axios)
-- [Mongoose](https://github.com/Automattic/mongoose)
-- [Ytdl](https://github.com/fent/node-ytdl-core)
-- [Yt-search](https://github.com/talmobi/yt-search)
+Saturn is a modular multipurpose, user and developer friendly discord bot. Just perfect for manage your server and provide the best experience for you and your community. All of that and more, together on the most amazing planet of our solar system!
 
 ## How to use (MUST READ)
 
@@ -74,43 +56,38 @@ cd saturn-bot
 #### Setting up everything
 
 ```elm
+-- Using npm:
 npm install
+
+-- Using yarn:
+yarn
 ```
 
 When the installation finishes, find the `.env.example` inside of the project's folder and open it with some text editor of your choice.
 
-Now, make sure that you have your own bot token in hands — in case you don't know how to get it, go at the [Discord developers portal](https://discord.com/developers/) and create a new app.
+Now, make sure that you have your own bot token in hands — in case you don't know how to get it, go at the [Discord developers portal](https://discord.com/developers/) and create a new app, then, go to the "Bot" section and copy your generated token.
 
-After that, replace the `HELLO_WORLD` with your bot token and some prefix of your choice (e.g: !, +, -). When you're done, rename the `.env.example` to `.env`.
-
-```bash
-BOT_TOKEN=HELLO_WORLD
-BOT_PREFIX=HELLO_WORLD
-```
-
-Now, as I mentioned before, this bot has a weather report function and also supports a MongoDB database linked to it. In case you wanna use these features, you will also need to set in the `.env` an [OpenWeather API token](https://openweathermap.org/api) and your [MongoDB database link](https://www.mongodb.com/).
-
-To get these features working properly, your `.env` file should have this template below with your credentials settled in the `HELLO_WORLD`'s place.
+After that, set your bot token and some prefix of your choice (e.g: !, +, -). When you're done, rename the `.env.example` to `.env`.
 
 ```bash
-BOT_TOKEN=HELLO_WORLD
-DB_ACCESS=HELLO_WORLD
-OPENWEATHER_TOKEN=HELLO_WORLD
-BOT_PREFIX=HELLO_WORLD
+BOT_TOKEN=
+BOT_PREFIX=
 ```
-
-Notice these are **EXTRA** features! If you don't wanna use them, just follow the first `.env` template introduced in this step-by-step and your bot still will work normally.
 
 #### Running
 
 ```elm
+-- Using npm:
 npm run dev
+
+-- Using yarn:
+yarn dev
 ```
 
 ## Final considerations
 
 That's pretty much it, thanks for using Saturn and have fun!
 
-Also, PRs are more than welcome, in case you wanna contribuite to this project, feel free to open a pull request with a new feature.
+Also, PRs are more than welcome, in case you wanna contribute to this project, feel free to open a PR.
 
 > **This project is licensed under a [GNU General Public License v3.0 License](https://github.com/larafe1/saturn-bot/blob/master/LICENSE)**

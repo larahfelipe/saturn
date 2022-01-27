@@ -1,3 +1,3 @@
-import Bot from '@/structs/Bot';
+import { Bot } from '@/structures/Bot';
 
 new Bot();
