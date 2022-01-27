@@ -1,111 +1,81 @@
-import { Message } from 'discord.js';
+import { Message, UserResolvable } from 'discord.js';
 
-import Bot from '@/structs/Bot';
-import { IReaction, IUser, Song } from '@/types';
+import { Control } from '@/constants';
+import { PlaybackHandler } from '@/handlers';
+import { Bot } from '@/structs';
+import { IReaction, User, Song } from '@/types';
 
-import SongHandler from './SongHandler';
+export class ReactionHandler {
+  private static MessageWithReaction: Message;
 
-enum Control {
-  PLAY = '▶️',
-  PAUSE = '⏸',
-  STOP = '⏹️',
-  SKIP = '⏭️'
-}
-
-class ReactionHandler {
-  private static musicControls: string[] = [
-    Control.PAUSE,
-    Control.PLAY,
-    Control.SKIP,
-    Control.STOP
-  ];
-  private static playerMsg: Message;
-
-  static async performDeletion(
-    bulkDelete: boolean,
-    targetReaction?: Control | string,
-    userId?: any
+  static async deleteAsync(
+    targetReaction: string | string[],
+    targetUserId?: UserResolvable
   ) {
-    try {
-      if (bulkDelete) {
-        this.musicControls.forEach(async (control) => {
-          await this.playerMsg.reactions.resolve(control)!.users.remove();
-        });
-      } else {
-        switch (targetReaction) {
-          case Control.PLAY:
-            this.playerMsg.reactions
-              .resolve(Control.PLAY)!
-              .users.remove(userId);
-            break;
-          case Control.PAUSE:
-            this.playerMsg.reactions
-              .resolve(Control.PAUSE)!
-              .users.remove(userId);
-            break;
-          case Control.SKIP:
-            this.playerMsg.reactions
-              .resolve(Control.SKIP)!
-              .users.remove(userId);
-            break;
-          default:
-            throw new RangeError('Unexpected case.');
+    if (Array.isArray(targetReaction)) {
+      targetReaction.forEach(async (reaction: string) => {
+        try {
+          await this.MessageWithReaction.reactions
+            .resolve(reaction)
+            ?.users.remove();
+        } catch (err) {
+          console.error(err);
         }
-      }
-    } catch (err) {
-      console.error(err);
-    }
+      });
+    } else
+      await this.MessageWithReaction.reactions
+        .resolve(targetReaction)
+        ?.users.remove(targetUserId);
   }
 
-  static async resolveMusicControls(bot: Bot, msg: Message, sentMsg: Message) {
+  static async resolvePlaybackControls(
+    playerMsg: Message,
+    bot: Bot,
+    msg: Message
+  ) {
     try {
-      this.playerMsg = sentMsg;
-      this.musicControls.forEach(async (control) => {
-        await this.playerMsg.react(control);
-      });
+      this.MessageWithReaction = playerMsg;
+      PlaybackHandler.musicControls.forEach(
+        async (control) => await this.MessageWithReaction.react(control)
+      );
 
       const queue = bot.queues.get(msg.guild!.id);
       if (!queue) return;
 
-      const filter = (reaction: IReaction, user: IUser) => {
-        return (
-          this.musicControls.includes(reaction.emoji.name) &&
-          user.id !== bot.user!.id
-        );
-      };
-      const reactionsListener = this.playerMsg.createReactionCollector(filter);
+      const filter = (reaction: IReaction, user: User) =>
+        PlaybackHandler.musicControls.includes(reaction.emoji.name) &&
+        user.id !== bot.user!.id;
 
-      reactionsListener.on('collect', (reaction: IReaction, user: IUser) => {
-        const getReaction = reaction.emoji.name;
+      const reactionsListener =
+        this.MessageWithReaction.createReactionCollector(filter);
 
-        switch (getReaction) {
+      reactionsListener.on('collect', (reaction: IReaction, user: User) => {
+        const collectedReaction = reaction.emoji.name;
+
+        switch (collectedReaction) {
           case Control.PLAY:
             queue.connection.dispatcher.resume();
-            this.performDeletion(false, Control.PLAY, user.id);
+            this.deleteAsync(Control.PLAY, user.id);
             break;
           case Control.PAUSE:
             queue.connection.dispatcher.pause();
-            this.performDeletion(false, Control.PAUSE, user.id);
+            this.deleteAsync(Control.PAUSE, user.id);
             break;
           case Control.STOP:
             queue.connection.disconnect();
             bot.queues.delete(msg.guild!.id);
             setTimeout(() => {
-              this.performDeletion(true);
+              this.deleteAsync(PlaybackHandler.musicControls);
             }, 3000);
             break;
           case Control.SKIP:
             if (queue.songs && queue.songs.length > 1) {
               queue.songs.shift();
               queue.authors.shift();
-              this.performDeletion(true);
+              this.deleteAsync(PlaybackHandler.musicControls);
 
-              SongHandler.setSong(
-                bot,
-                msg,
-                queue.songs[0] as Song,
-                queue.authors[0]
-              );
+              const playbackHandler = PlaybackHandler.getInstance(bot, msg);
+              playbackHandler.setSong(queue.songs[0] as Song, queue.authors[0]);
               break;
             } else return;
           default:
@@ -113,9 +83,7 @@ class ReactionHandler {
         }
       });
     } catch (err) {
-      console.error(err);
+      bot.logger.emitErrorReport(err);
     }
   }
 }
-
-export default ReactionHandler;

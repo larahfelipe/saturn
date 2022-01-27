@@ -1,6 +1,6 @@
 import { Message } from 'discord.js';
 
-export default class MessageHandler {
+export class MessageHandler {
   static async firstHundredSent(msg: Message) {
     return await msg.channel.messages.fetch({ limit: 100 });
   }
@@ -13,12 +13,7 @@ export default class MessageHandler {
     const firstHundredBotMsgs = await msg.channel.messages
       .fetch({ limit: 100 })
       .then((msgs) => {
-        const botMsgs = msgs.map((currMsg) => {
-          if (currMsg.author.bot) {
-            return currMsg;
-          }
-        });
-        return botMsgs;
+        return msgs.filter((msg) => msg.author.bot);
       });
     return firstHundredBotMsgs;
   }
@@ -27,12 +22,7 @@ export default class MessageHandler {
     const lastSentBotMsg = await msg.channel.messages
       .fetch({ limit: 100 })
       .then((msgs) => {
-        const botMsg = msgs.map((currMsg) => {
-          if (currMsg.author.bot) {
-            return currMsg;
-          }
-        });
-        return botMsg[0];
+        return msgs.filter((msg) => msg.author.bot).first();
       });
     return lastSentBotMsg;
   }

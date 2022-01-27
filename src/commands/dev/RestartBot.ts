@@ -1,8 +1,8 @@
 import { Message, MessageEmbed } from 'discord.js';
 
 import config from '@/config';
-import Bot from '@/structs/Bot';
-import Command from '@/structs/Command';
+import { AppWarningColor, AppMainColor } from '@/constants';
+import { Command, Bot } from '@/structs';
 
 export default class RestartBot extends Command {
   constructor(bot: Bot) {
@@ -16,13 +16,13 @@ export default class RestartBot extends Command {
   async run(msg: Message, args: string[]) {
     const embed = new MessageEmbed();
 
-    if (args.length === 0) {
+    if (!args.length) {
       embed
         .setAuthor('Saturn Boot Manager', this.bot.user!.avatarURL()!)
         .setDescription('`exec shutdown --restart now`\n\nSee you soon.. 👋')
         .setTimestamp(Date.now())
         .setFooter('All services was stopped.')
-        .setColor(config.warningColor);
+        .setColor(AppWarningColor);
       await msg.channel.send({ embed });
     } else {
       embed
@@ -32,7 +32,7 @@ export default class RestartBot extends Command {
         )
         .setTimestamp(Date.now())
         .setFooter('All services was stopped.')
-        .setColor(config.warningColor);
+        .setColor(AppWarningColor);
       await msg.channel.send({ embed });
     }
 
@@ -48,10 +48,10 @@ export default class RestartBot extends Command {
             .setDescription('`exec sys --init`\n\nBip Boop... Hello world! 🤗')
             .setTimestamp(Date.now())
             .setFooter('All services are now running.')
-            .setColor(config.mainColor);
+            .setColor(AppMainColor);
           msg.channel.send({ embed });
         })
         .catch((err) => console.error(err));
-    }, +args * 1000 || 0);
+    }, +args * 1000 || 1);
   }
 }

@@ -1,9 +1,9 @@
 import { Message, MessageEmbed } from 'discord.js';
 
 import config from '@/config';
-import ReactionHandler from '@/handlers/ReactionHandler';
-import Bot from '@/structs/Bot';
-import Command from '@/structs/Command';
+import { AppMainColor } from '@/constants';
+import { ReactionHandler, PlaybackHandler } from '@/handlers';
+import { Command, Bot } from '@/structs';
 
 export default class Stop extends Command {
   constructor(bot: Bot) {
@@ -23,11 +23,11 @@ export default class Stop extends Command {
     embed
       .setTitle('⏹  Stop Music')
       .setDescription('Understood! Stopping the music function.')
-      .setColor(config.mainColor);
+      .setColor(AppMainColor);
     msg.channel.send({ embed });
 
     queueExists.connection.disconnect();
     this.bot.queues.delete(msg.guild!.id);
-    ReactionHandler.performDeletion(true);
+    ReactionHandler.deleteAsync(PlaybackHandler.musicControls);
   }
 }

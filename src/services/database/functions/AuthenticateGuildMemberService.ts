@@ -1,9 +1,9 @@
 import { GuildMember } from 'discord.js';
 
-import Member from '@/models/Member';
+import { Member } from '@/models';
 import { IMember } from '@/types';
 
-async function handleGuildMemberAuth(
+export async function handleGuildMemberAuthenticationService(
   targetMember: GuildMember
 ): Promise<IMember | void> {
   const memberExists = await Member.findOne({ userId: targetMember.id });
@@ -11,5 +11,3 @@ async function handleGuildMemberAuth(
 
   return memberExists;
 }
-
-export { handleGuildMemberAuth };

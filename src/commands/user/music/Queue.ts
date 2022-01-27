@@ -1,8 +1,8 @@
 import { Message, MessageEmbed } from 'discord.js';
 
 import config from '@/config';
-import Bot from '@/structs/Bot';
-import Command from '@/structs/Command';
+import { AppErrorColor, AppMainColor } from '@/constants';
+import { Command, Bot } from '@/structs';
 
 export default class Queue extends Command {
   constructor(bot: Bot) {
@@ -22,7 +22,7 @@ export default class Queue extends Command {
         .setDescription(
           `If you want to play a song type \`${config.botPrefix}play\` and the name/link of the song in front of it to get the party started! 🥳`
         )
-        .setColor(config.errorColor);
+        .setColor(AppErrorColor);
       return msg.channel.send({ embed });
     }
 
@@ -35,17 +35,17 @@ export default class Queue extends Command {
         if (queueExists.songs.indexOf(song) === 0) return;
         concatQueueStr += `**${queueExists.songs.indexOf(song)}** — ${
           song.title
-        } \`[${song.timestamp}]\`\n`;
+        } \`[${song.durationTimestamp}]\`\n`;
       });
     }
 
     const embed = new MessageEmbed();
     embed
       .setTitle('📃  Music Queue')
-      .addField('Currently Listening', `${queueExists.songs[0].title}`, true)
-      .addField('Duration', `${queueExists.songs[0].timestamp}`, true)
+      .addField('Currently Listening', queueExists.songs[0].title, true)
+      .addField('Duration', queueExists.songs[0].durationTimestamp, true)
       .addField('Coming Next', concatQueueStr)
-      .setColor(config.mainColor);
+      .setColor(AppMainColor);
     msg.channel.send({ embed });
   }
 }

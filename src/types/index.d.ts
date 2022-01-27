@@ -6,21 +6,23 @@ import {
 import { Document } from 'mongoose';
 import { VideoMetadataResult, VideoSearchResult } from 'yt-search';
 
-export interface ICommandDescription {
+export type UpdateGuildMemberActions = 'PROMOTE' | 'DEMOTE';
+
+export type CommandDescription = {
   name: string;
   help: string;
   requiredRoleLvl: number;
-}
+};
 
-export interface IMemberEssentials {
+export type MemberEssentials = {
   userId: string;
   username: string;
   userRoleLvl: number;
   wasAddedBy: string;
   wasUpdatedBy: string;
-}
+};
 
-export interface IMember extends IMemberEssentials, Document {
+export interface IMember extends MemberEssentials, Document {
   _id: string;
   wasAddedAtTime: string;
 }
@@ -31,58 +33,92 @@ export interface IReaction extends ReactionCollector {
   };
 }
 
-export interface IUser {
+export type User = {
   id: string;
-}
+};
 
-export type Song = VideoMetadataResult | VideoSearchResult;
+type RGBVector = [number, number, number];
 
-export type SearchError = Error | string | null | undefined;
+type Palette = {
+  Vibrant: string | RGBVector | null;
+  Muted: string | RGBVector | null;
+  DarkVibrant: string | RGBVector | null;
+  DarkMuted: string | RGBVector | null;
+  LightVibrant: string | RGBVector | null;
+  LightMuted: string | RGBVector | null;
+};
 
-export interface IQueue {
+export type Song = {
+  artistName: string;
+  albumTitle: string;
+  albumUrl: string;
+  streamUrl: string;
+  videoUrl: string;
+  videoId: string;
+  title: string;
+  durationTimestamp: string;
+  albumCoverUrl: string;
+  altThumbnailUrl: string;
+  coverColors?: Palette;
+};
+
+export type Queue = {
   connection: VoiceConnection;
-  songs: [
-    {
-      title: string;
-      timestamp: string;
-      seconds: number;
-    }
-  ];
+  songs: Song[];
   authors: string[];
   volume: number;
   dispatcher: StreamDispatcher | null;
-}
+};
 
-export interface ISpotifyPlaylist {
+type Artist = {
   name: string;
-  owner: {
-    display_name: string;
-  };
-  images: [
-    {
-      url: string;
-    }
-  ];
-  tracks: {
-    items: [
-      {
-        track: {
-          name: string;
-          duration_ms: number;
-          album: {
-            artists: [
-              {
-                name: string;
-              }
-            ];
-          };
-        };
-      }
-    ];
-  };
-}
+};
 
-export interface ILocation {
+type Track = {
+  track: {
+    name: string;
+    duration_ms: number;
+    artists: Artist[];
+  };
+};
+
+type Image = {
+  url: string;
+  height: number;
+  width: number;
+};
+
+type Item = {
+  [key: string]: {
+    name: string;
+    images: Image[];
+    owner: {
+      id: string;
+      display_name: string;
+    };
+    tracks: {
+      items: Track[];
+    };
+  };
+};
+
+export type SpotifyPlaylistRawResponse = {
+  entities: {
+    items: Item;
+  };
+};
+
+export type SpotifyRequestType = 'TRACK' | 'PLAYLIST';
+
+export type SpotifyPlaylist = {
+  name: string;
+  owner: string;
+  cover: string;
+  tracks: string[];
+  duration: number;
+};
+
+export type Location = {
   name: string;
   sys: {
     country: string;
@@ -99,4 +135,4 @@ export interface ILocation {
   wind: {
     speed: number;
   };
-}
+};

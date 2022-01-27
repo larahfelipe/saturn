@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 import config from '@/config';
 
-export default class Database {
+export class Database {
   private static hasConnection = false;
 
   static get isConnected() {

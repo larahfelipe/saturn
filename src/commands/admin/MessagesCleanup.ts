@@ -1,9 +1,8 @@
 import { Message } from 'discord.js';
 
 import config from '@/config';
-import MessageHandler from '@/handlers/MessageHandler';
-import Bot from '@/structs/Bot';
-import Command from '@/structs/Command';
+import { MessageHandler } from '@/handlers';
+import { Command, Bot } from '@/structs';
 
 export default class MessagesCleanup extends Command {
   constructor(bot: Bot) {

@@ -1,15 +1,15 @@
 import { Message } from 'discord.js';
 
-import { ICommandDescription } from '@/types';
+import { CommandDescription } from '@/types';
 
-import Bot from './Bot';
+import { Bot } from './Bot';
 
-export default abstract class Command {
+export abstract class Command {
   bot: Bot;
   name: string;
-  description: ICommandDescription;
+  description: CommandDescription;
 
-  constructor(bot: Bot, description: ICommandDescription) {
+  constructor(bot: Bot, description: CommandDescription) {
     this.bot = bot;
     this.description = description;
     this.name = description.name;

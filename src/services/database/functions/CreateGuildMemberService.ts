@@ -1,9 +1,9 @@
 import { GuildMember, Message } from 'discord.js';
 import { Types } from 'mongoose';
 
-import Member from '@/models/Member';
+import { Member } from '@/models';
 
-async function handleGuildMemberCreation(
+export async function handleGuildMemberCreationService(
   targetMember: GuildMember,
   msg: Message
 ) {
@@ -21,5 +21,3 @@ async function handleGuildMemberCreation(
   });
   newMember.save();
 }
-
-export { handleGuildMemberCreation };

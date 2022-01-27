@@ -1,10 +1,9 @@
 import { Message, MessageEmbed } from 'discord.js';
 
 import config from '@/config';
-import ReactionHandler from '@/handlers/ReactionHandler';
-import SongHandler from '@/handlers/SongHandler';
-import Bot from '@/structs/Bot';
-import Command from '@/structs/Command';
+import { AppMainColor } from '@/constants';
+import { ReactionHandler, PlaybackHandler } from '@/handlers';
+import { Command, Bot } from '@/structs';
 import { Song } from '@/types';
 
 export default class Skip extends Command {
@@ -23,18 +22,17 @@ export default class Skip extends Command {
     if (queueExists.songs.length > 1) {
       queueExists.songs.shift();
       queueExists.authors.shift();
-      ReactionHandler.performDeletion(true);
+      ReactionHandler.deleteAsync(PlaybackHandler.musicControls);
 
       const embed = new MessageEmbed();
       embed
         .setTitle('⏭  Skip Music')
         .setDescription('Okay! Setting up the next song for you.')
-        .setColor(config.mainColor);
+        .setColor(AppMainColor);
       msg.channel.send({ embed });
 
-      SongHandler.setSong(
-        this.bot,
-        msg,
+      const playbackHandler = PlaybackHandler.getInstance(this.bot, msg);
+      playbackHandler.setSong(
         queueExists.songs[0] as Song,
         queueExists.authors[0]
       );

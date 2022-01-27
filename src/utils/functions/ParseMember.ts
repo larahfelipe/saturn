@@ -1,6 +1,6 @@
 import { GuildMember } from 'discord.js';
 
-import Member from '@/models/Member';
+import { Member } from '@/models';
 import { IMember } from '@/types';
 
 export async function parseMember(

@@ -1,9 +1,9 @@
 import { Message, MessageEmbed } from 'discord.js';
 
 import config from '@/config';
-import { handleGuildMemberCreation } from '@/services/CreateGuildMemberService';
-import Bot from '@/structs/Bot';
-import Command from '@/structs/Command';
+import { MongoDbIconUrl, MongoDbColor } from '@/constants';
+import { handleGuildMemberCreationService } from '@/services';
+import { Command, Bot } from '@/structs';
 
 export default class AddMember extends Command {
   constructor(bot: Bot) {
@@ -25,16 +25,16 @@ export default class AddMember extends Command {
         `» ${targetMember}'s registry was created by ${msg.author.username}.\nDatabase was updated at ${msg.createdAt}.`
       )
       .setTimestamp(Date.now())
-      .setFooter('MongoDB', config.mongoDbIconUrl)
-      .setColor(config.mongoDbColor);
+      .setFooter('MongoDB', MongoDbIconUrl)
+      .setColor(MongoDbColor);
 
-    await handleGuildMemberCreation(targetMember, msg)
-      .then(() => msg.channel.send({ embed }))
-      .catch((err) => {
-        console.error(err);
-        msg.reply(
-          `${targetMember.user.username} is already registered in database.`
-        );
-      });
+    try {
+      await handleGuildMemberCreationService(targetMember, msg);
+      msg.channel.send({ embed });
+    } catch (err) {
+      console.error(err);
+      this.bot.logger.emitErrorReport(err);
+      msg.reply(`${targetMember.user.username} is already in the database.`);
+    }
   }
 }

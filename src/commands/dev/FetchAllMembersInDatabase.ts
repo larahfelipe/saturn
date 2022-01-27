@@ -1,14 +1,14 @@
 import { Message, MessageEmbed } from 'discord.js';
 
 import config from '@/config';
-import { handleGuildMemberDeletion } from '@/services/DeleteGuildMemberService';
-import { handleFetchAllMembersInDatabase } from '@/services/FetchGuildMemberService';
+import { MongoDbIconUrl, MongoDbColor } from '@/constants';
 import {
-  handleGuildMemberElevation,
-  handleGuildMemberDemotion
-} from '@/services/UpdateGuildMemberService';
-import Bot from '@/structs/Bot';
-import Command from '@/structs/Command';
+  handleGuildMemberFetchService,
+  handleGuildMemberUpdateService,
+  handleGuildMemberDeletionService
+} from '@/services';
+import { Command, Bot } from '@/structs';
+import { MemberEssentials } from '@/types';
 
 export default class FetchAllMembersInDatabase extends Command {
   constructor(bot: Bot) {
@@ -22,7 +22,8 @@ export default class FetchAllMembersInDatabase extends Command {
   async run(msg: Message, args: string[]) {
     try {
       let concatMembersData = '';
-      const members = await handleFetchAllMembersInDatabase();
+      const members =
+        (await handleGuildMemberFetchService()) as MemberEssentials[];
       if (!members) return msg.reply('No member was found in database.');
 
       members.forEach((member, index) => {
@@ -30,23 +31,32 @@ export default class FetchAllMembersInDatabase extends Command {
       });
 
       if (args) {
-        const targetMemberIndex = parseInt(args[1]);
-        const targetOperation = args[2];
+        const [targetMemberIndex, targetOperation] = args.slice(1);
 
         if (args[0] === '&SELECT') {
           const targetMember = members.find(
-            (_, index) => index === targetMemberIndex
+            (_, index) => index === +targetMemberIndex
           );
+          if (!targetMember)
+            throw new Error('Could not find member in database.');
 
           switch (targetOperation) {
             case '&SETADMIN':
-              handleGuildMemberElevation(targetMember!.userId as string, msg);
+              handleGuildMemberUpdateService(
+                targetMember.userId,
+                'PROMOTE',
+                msg
+              );
               break;
             case '&UNSETADMIN':
-              handleGuildMemberDemotion(targetMember!.userId as string, msg);
+              handleGuildMemberUpdateService(
+                targetMember.userId,
+                'DEMOTE',
+                msg
+              );
               break;
             case '&DELETE':
-              handleGuildMemberDeletion(targetMember!.userId as string, msg);
+              handleGuildMemberDeletionService(targetMember.userId, msg);
               break;
             default:
               return msg.channel.send('Unknown command.');
@@ -66,12 +76,12 @@ export default class FetchAllMembersInDatabase extends Command {
         )
         .setDescription(concatMembersData)
         .setTimestamp(Date.now())
-        .setFooter('MongoDB', config.mongoDbIconUrl)
-        .setColor(config.mongoDbColor);
+        .setFooter('MongoDB', MongoDbIconUrl)
+        .setColor(MongoDbColor);
       msg.channel.send({ embed });
     } catch (err) {
-      console.error(err);
-      msg.reply("Couldn't retrieve members from database.");
+      this.bot.logger.emitErrorReport(err);
+      msg.reply('Could not retrieve members from database.');
     }
   }
 }

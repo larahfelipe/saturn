@@ -2,9 +2,14 @@ import { Message, MessageEmbed, version as discordVersion } from 'discord.js';
 import { type, arch, uptime } from 'os';
 
 import config from '@/config';
-import Bot from '@/structs/Bot';
-import Command from '@/structs/Command';
-import { formatSecondsToTime } from '@/utils/functions/FormatSecondsToTime';
+import {
+  ProjectAuthorUrl,
+  ProjectUrl,
+  DiscordIconUrl,
+  AppMainColor
+} from '@/constants';
+import { Command, Bot } from '@/structs';
+import { formatSecondsToTime } from '@/utils';
 
 export default class GetBotInformation extends Command {
   constructor(bot: Bot) {
@@ -21,9 +26,9 @@ export default class GetBotInformation extends Command {
 
     const embed = new MessageEmbed();
     embed
-      .setAuthor(`Saturn Properties`, this.bot.user!.avatarURL()!)
+      .setAuthor('Saturn Properties', this.bot.user!.avatarURL()!)
       .setDescription(
-        `• Saturn © Discord Bot — version 3.x\n• Created and maintained by [Felipe Lara](${config.projectAuthorUrl}) — Licensed under a GNU GPL v3.0`
+        `• Saturn © Discord Bot — version 4.x\n• Created and maintained by [Felipe Lara](${ProjectAuthorUrl}) — Licensed under a GNU GPL v3.0`
       )
       .addField(
         'Bot Status',
@@ -41,14 +46,11 @@ export default class GetBotInformation extends Command {
       )
       .addField(
         'Source',
-        `• [GitHub | Where the world builds software](${config.projectUrl})`
+        `• [GitHub | Where the world builds software](${ProjectUrl})`
       )
       .setTimestamp(Date.now())
-      .setFooter(
-        `Discord Inc. — version ${discordVersion}`,
-        config.discordIconUrl
-      )
-      .setColor(config.mainColor);
+      .setFooter(`Discord Inc. — version ${discordVersion}`, DiscordIconUrl)
+      .setColor(AppMainColor);
     msg.channel.send({ embed });
   }
 }

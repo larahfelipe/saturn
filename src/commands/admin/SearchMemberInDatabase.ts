@@ -1,9 +1,9 @@
 import { Message } from 'discord.js';
 
 import config from '@/config';
-import { handleSearchGuildMember } from '@/services/FetchGuildMemberService';
-import Bot from '@/structs/Bot';
-import Command from '@/structs/Command';
+import { handleGuildMemberFetchService } from '@/services';
+import { Command, Bot } from '@/structs';
+import { MemberEssentials } from '@/types';
 
 export default class SearchMemberInDatabase extends Command {
   constructor(bot: Bot) {
@@ -18,15 +18,16 @@ export default class SearchMemberInDatabase extends Command {
     const targetMember = msg.mentions.members?.first();
     if (!targetMember) return msg.reply('You need to tag someone!');
 
-    await handleSearchGuildMember(targetMember)
-      .then((member) => {
-        msg.channel.send(
-          `\`· Member: ${member!.username} ─ Role Lvl: ${member!.userRoleLvl}\``
-        );
-      })
-      .catch((err) => {
-        console.error(err);
-        msg.reply(`${targetMember.user.username} was not found in database.`);
-      });
+    try {
+      const member = (await handleGuildMemberFetchService(
+        targetMember
+      )) as MemberEssentials;
+      msg.channel.send(
+        `\`· Member: ${member.username} ─ Role Lvl: ${member.userRoleLvl}\``
+      );
+    } catch (err) {
+      this.bot.logger.emitErrorReport(err);
+      msg.reply(`${targetMember.user.username} was not found in database.`);
+    }
   }
 }

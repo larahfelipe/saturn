@@ -1,24 +1,22 @@
 import { readdirSync } from 'fs';
 import { join } from 'path';
 
-import Bot from '@/structs/Bot';
-import Command from '@/structs/Command';
+import { Bot, Command } from '@/structs';
 
-export default class CommandHandler {
+export class CommandHandler {
+  protected bot: Bot;
   static modulesLength: number[] = [];
-  bot: Bot;
 
   constructor(bot: Bot) {
     this.bot = bot;
   }
 
-  private resolveAndSet(foo: string[]) {
+  private resolveAndSet(E: string[]) {
     let TargetCommand: any;
-    if (foo.length === 3) {
-      TargetCommand =
-        require(`../commands/${foo[0]}/${foo[1]}/${foo[2]}`).default;
+    if (E.length === 3) {
+      TargetCommand = require(`../commands/${E[0]}/${E[1]}/${E[2]}`).default;
     } else {
-      TargetCommand = require(`../commands/${foo[0]}/${foo[1]}`).default;
+      TargetCommand = require(`../commands/${E[0]}/${E[1]}`).default;
     }
     const resolvedCommand: Command = new TargetCommand(this.bot);
 

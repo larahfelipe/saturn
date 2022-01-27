@@ -1,16 +1,16 @@
 import { AxiosError } from 'axios';
 import { DiscordAPIError, HTTPError } from 'discord.js';
 
-import Bot from '@/structs/Bot';
+import { Bot } from '@/structs';
 
-export default class Logger {
-  bot: Bot;
+export class Logger {
+  protected bot: Bot;
 
   constructor(bot: Bot) {
     this.bot = bot;
   }
 
-  async handleErrorEvent(error: unknown) {
+  async emitErrorReport(error: unknown) {
     const errorType = error as Error | DiscordAPIError | HTTPError | AxiosError;
     const errorCode = 'code' in errorType ? errorType.code : 'N/A';
     const httpStatus = 'httpStatus' in errorType ? errorType.httpStatus : 'N/A';

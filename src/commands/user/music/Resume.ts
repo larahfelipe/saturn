@@ -1,8 +1,7 @@
 import { Message } from 'discord.js';
 
 import config from '@/config';
-import Bot from '@/structs/Bot';
-import Command from '@/structs/Command';
+import { Command, Bot } from '@/structs';
 
 export default class Resume extends Command {
   constructor(bot: Bot) {

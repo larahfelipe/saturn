@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/larafe1/saturn-bot/releases">
-    <img src="https://img.shields.io/static/v1?label=version&message=3.x&color=5965E0&labelColor=121214" alt="Version">
+    <img src="https://img.shields.io/static/v1?label=version&message=4.x&color=5965E0&labelColor=121214" alt="Version">
   </a>
   <a href="https://www.typescriptlang.org/">
     <img src="https://img.shields.io/static/v1?label=built%20with&message=TypeScript&color=5965E0&labelColor=121214" alt="TypeScript">
@@ -48,8 +48,6 @@ Saturn is a modular multipurpose, user-friendly and feature-rich discord bot. Ju
 - [Discord.js](https://github.com/discordjs/discord.js)
 - [Axios](https://github.com/axios/axios)
 - [Mongoose](https://github.com/Automattic/mongoose)
-- [Ytdl](https://github.com/fent/node-ytdl-core)
-- [Yt-search](https://github.com/talmobi/yt-search)
 
 ## How to use (MUST READ)
 

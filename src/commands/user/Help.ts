@@ -1,9 +1,9 @@
 import { Message, MessageEmbed } from 'discord.js';
 
 import config from '@/config';
-import CommandHandler from '@/handlers/CommandHandler';
-import Bot from '@/structs/Bot';
-import Command from '@/structs/Command';
+import { AppMainColor } from '@/constants';
+import { CommandHandler } from '@/handlers';
+import { Command, Bot } from '@/structs';
 
 export default class Help extends Command {
   constructor(bot: Bot) {
@@ -35,7 +35,7 @@ export default class Help extends Command {
     embed
       .setAuthor('Saturn Commands Help', this.bot.user!.avatarURL()!)
       .setDescription(concatHelpStr)
-      .setColor(config.mainColor);
+      .setColor(AppMainColor);
     msg.channel.send({ embed });
   }
 }

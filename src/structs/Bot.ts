@@ -1,34 +1,39 @@
-import { Client, Collection, MessageEmbed, GuildMember } from 'discord.js';
+import { Client, Collection, GuildMember } from 'discord.js';
 
 import config from '@/config';
-import CommandHandler from '@/handlers/CommandHandler';
-import { handleGuildMemberAuth } from '@/services/AuthenticateGuildMemberService';
-import { IQueue } from '@/types';
-import Database from '@/utils/Database';
-import Logger from '@/utils/Logger';
+import {
+  AppRequiredCredentialsError,
+  AppRequiredCredentalsTypeError,
+  AppCommandErrorTitle,
+  AppCommandErrorDescription,
+  AppErrorColor
+} from '@/constants';
+import { Logger } from '@/errors';
+import { CommandHandler, PlaybackHandler } from '@/handlers';
+import { Database, handleGuildMemberAuthenticationService } from '@/services';
+import { Command, MsgEmbed } from '@/structs';
+import { Queue } from '@/types';
 
-import Command from './Command';
-
-export default class Bot extends Client {
+export class Bot extends Client {
   commands!: Collection<string, Command>;
-  queues!: Map<string, IQueue>;
+  queues!: Map<string, Queue>;
   logger!: Logger;
 
   constructor() {
     super();
     Bot.validateRequiredCredentials();
-    Bot.handleDatabaseConnection();
+    Bot.tryDatabaseConnection();
     Bot.onInteractionStart(this);
   }
 
   private static validateRequiredCredentials() {
     if (!config.botPrefix || !config.botToken)
-      throw new Error('Prefix and/or Token not settled.');
+      throw new Error(AppRequiredCredentialsError);
     if (typeof config.botToken !== 'string')
-      throw new TypeError('Tokens must be of type string.');
+      throw new TypeError(AppRequiredCredentalsTypeError);
   }
 
-  private static handleDatabaseConnection() {
+  private static tryDatabaseConnection() {
     if (config.dbAccess) Database.setConnection();
   }
 
@@ -46,10 +51,10 @@ export default class Bot extends Client {
     this.handleClientLogin(bot);
 
     process.on('unhandledRejection', async (error: Error) => {
-      await bot.logger.handleErrorEvent(error);
+      await bot.logger.emitErrorReport(error);
     });
     process.on('uncaughtExceptionMonitor', async (error) => {
-      await bot.logger.handleErrorEvent(error);
+      await bot.logger.emitErrorReport(error);
     });
   }
 
@@ -59,6 +64,9 @@ export default class Bot extends Client {
 
       if (!msg.content.startsWith(config.botPrefix as string) || msg.author.bot)
         return;
+
+      const embed = MsgEmbed.getInstance();
+      PlaybackHandler.getInstance(bot, msg);
 
       try {
         const args = msg.content
@@ -78,33 +86,28 @@ export default class Bot extends Client {
         if (!getCommand) throw new Error(`${fullCommand} does not exist.`);
 
         if (Database.isConnected) {
-          const getMember = await handleGuildMemberAuth(
+          const getMember = await handleGuildMemberAuthenticationService(
             msg.member as GuildMember
           );
           if (!getMember)
             throw new Error(`${msg.member} is not registered in database.`);
 
-          if (
-            getMember.userRoleLvl >= getCommand!.description.requiredRoleLvl
-          ) {
-            getCommand!.run(msg, args);
+          if (getMember.userRoleLvl >= getCommand.description.requiredRoleLvl) {
+            getCommand.run(msg, args);
           } else
             throw new Error(
               `${msg.member} does not have permission to execute this command.`
             );
         } else {
-          getCommand!.run(msg, args);
+          getCommand.run(msg, args);
         }
       } catch (err) {
-        await bot.logger.handleErrorEvent(err);
+        await bot.logger.emitErrorReport(err);
 
-        const embed = new MessageEmbed();
         embed
-          .setAuthor('❌ Whoops, a wild error appeared!')
-          .setDescription(
-            `Why I'm seeing this?! 🤔\n\nYou probably have a typo in your command's message or you currently don't have permission to execute this command.\n\nYou can get a full commands list by typing \`${config.botPrefix}help\``
-          )
-          .setColor(config.errorColor);
+          .setAuthor(AppCommandErrorTitle)
+          .setDescription(AppCommandErrorDescription)
+          .setColor(AppErrorColor);
         msg.channel.send({ embed });
       }
     });
@@ -118,7 +121,7 @@ export default class Bot extends Client {
         await bot.login(config.botDevToken);
       }
     } catch (err) {
-      console.error(err);
+      bot.logger.emitErrorReport(err);
     }
   }
 }

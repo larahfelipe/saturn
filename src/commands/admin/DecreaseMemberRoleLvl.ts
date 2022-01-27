@@ -1,9 +1,9 @@
 import { Message, MessageEmbed } from 'discord.js';
 
 import config from '@/config';
-import { handleGuildMemberDemotion } from '@/services/UpdateGuildMemberService';
-import Bot from '@/structs/Bot';
-import Command from '@/structs/Command';
+import { MongoDbIconUrl, MongoDbColor } from '@/constants';
+import { handleGuildMemberUpdateService } from '@/services';
+import { Command, Bot } from '@/structs';
 
 export default class DecreaseMemberRoleLvl extends Command {
   constructor(bot: Bot) {
@@ -20,19 +20,20 @@ export default class DecreaseMemberRoleLvl extends Command {
 
     const embed = new MessageEmbed();
     embed
-      .setAuthor(`Saturn Database Manager`, this.bot.user!.avatarURL()!)
+      .setAuthor('Saturn Database Manager', this.bot.user!.avatarURL()!)
       .setDescription(
         `» ${targetMember}'s registry was updated by ${msg.author.username}.\nDatabase was updated at ${msg.createdAt}`
       )
       .setTimestamp(Date.now())
-      .setFooter('MongoDB', config.mongoDbIconUrl)
-      .setColor(config.mongoDbColor);
+      .setFooter('MongoDB', MongoDbIconUrl)
+      .setColor(MongoDbColor);
 
-    await handleGuildMemberDemotion(targetMember, msg)
-      .then(() => msg.channel.send({ embed }))
-      .catch((err) => {
-        console.error(err);
-        msg.reply(`${targetMember.user.username} was not found in database.`);
-      });
+    try {
+      await handleGuildMemberUpdateService(targetMember, 'DEMOTE', msg);
+      msg.channel.send({ embed });
+    } catch (err) {
+      this.bot.logger.emitErrorReport(err);
+      msg.reply(`${targetMember.user.username} was not found in database.`);
+    }
   }
 }

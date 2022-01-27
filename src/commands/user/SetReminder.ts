@@ -1,9 +1,8 @@
 import { Message } from 'discord.js';
 
 import config from '@/config';
-import Bot from '@/structs/Bot';
-import Command from '@/structs/Command';
-import { formatSecondsToTime } from '@/utils/functions/FormatSecondsToTime';
+import { Command, Bot } from '@/structs';
+import { formatSecondsToTime } from '@/utils';
 
 export default class SetReminder extends Command {
   constructor(bot: Bot) {

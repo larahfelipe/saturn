@@ -1,9 +1,9 @@
 import { GuildMember, Message } from 'discord.js';
 
-import Member from '@/models/Member';
-import { parseMember } from '@/utils/functions/ParseMember';
+import { Member } from '@/models';
+import { parseMember } from '@/utils';
 
-async function handleGuildMemberDeletion(
+export async function handleGuildMemberDeletionService(
   targetMember: GuildMember | string,
   msg: Message
 ) {
@@ -20,5 +20,3 @@ async function handleGuildMemberDeletion(
     console.error(err);
   }
 }
-
-export { handleGuildMemberDeletion };
