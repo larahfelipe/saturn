@@ -24,7 +24,11 @@ export class PlaybackHandler {
   }
 
   static getInstance(bot: Bot, msg: Message) {
-    if (!PlaybackHandler.INSTANCE)
+    if (
+      !PlaybackHandler.INSTANCE ||
+      PlaybackHandler.INSTANCE.msg.guild!.id !== msg.guild!.id ||
+      PlaybackHandler.INSTANCE.msg.author.id !== msg.author.id
+    )
       PlaybackHandler.INSTANCE = new PlaybackHandler(bot, msg);
     return PlaybackHandler.INSTANCE;
   }
