@@ -1,9 +1,15 @@
-export const APP_READY = '\n[Saturn] Discord API ready.\n';
+export const APP_READY = '\n[Saturn] Discord API ready to listen interactions.';
+export const APP_FOUND_DATABASE_ACCESS_URL =
+  '\n[Saturn] Found database access URL. Trying to establish connection...';
+export const APP_DATABASE_CONNECTED =
+  '\n[Saturn] Database connection successfully established.';
+export const APP_ACTIVITY = 'Listening you 💜';
 export const APP_MISSING_REQUIRED_CREDENTIALS =
-  '\nMissing required credentials.\n';
+  '\nMissing required credentials.';
 export const APP_COMMAND_ERROR_TITLE = '❌ Whoops, a wild error appeared!';
 export const APP_COMMAND_ERROR_DESCRIPTION =
   "Why I'm seeing this?! 🤔\n\nIt's not you, it's me. Sorry... Just kidding, my guess is that you probably have a typo in your command or something went really wrong with my beautiful rings, just try again later in this case.\n";
+export const APP_RUNTIME_EXCEPTION = 'RUNTIME EXCEPTION';
 
 export const APP_MAIN_COLOR = '#6E76E5';
 export const APP_ERROR_COLOR = '#FB3640';

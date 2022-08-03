@@ -2,9 +2,9 @@ import type { GeneralAppError as TGeneralAppError } from '@/types';
 
 import { GeneralAppError } from './GeneralAppError';
 
-export class UnhandledPromiseRejectionError extends GeneralAppError {
+export class InvalidAppCommandError extends GeneralAppError {
   constructor(props: TGeneralAppError) {
-    props.name = 'UnhandledPromiseRejectionError';
+    props.name = 'InvalidAppCommandError';
     super(props);
   }
 }
