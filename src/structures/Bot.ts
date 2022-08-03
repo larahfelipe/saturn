@@ -2,17 +2,21 @@ import { Client, Collection } from 'discord.js';
 
 import config from '@/config';
 import {
+  APP_ACTIVITY,
   APP_COMMAND_ERROR_DESCRIPTION,
   APP_COMMAND_ERROR_TITLE,
   APP_ERROR_COLOR,
   APP_MISSING_REQUIRED_CREDENTIALS,
   APP_READY
 } from '@/constants';
-import { InvalidAppCommand } from '@/errors/InvalidAppCommand';
+import { GeneralAppError } from '@/errors/GeneralAppError';
+import { InvalidAppCommandError } from '@/errors/InvalidAppCommandError';
 import { MissingRequiredCredentialsError } from '@/errors/MissingRequiredCredentialsError';
 import { UncaughtExceptionMonitorError } from '@/errors/UncaughtExceptionMonitorError';
 import { UnhandledPromiseRejectionError } from '@/errors/UnhandledPromiseRejectionError';
+import { AppErrorHandler } from '@/handlers/AppErrorHandler';
 import { CommandsHandler } from '@/handlers/CommandsHandler';
+import { PrismaClient } from '@/infra/PrismaClient';
 import type { AudioPlayer } from '@/types';
 import { getCommand } from '@/utils/GetCommand';
 import { isChatInputCommand } from '@/utils/ValidateChatInputCommand';
@@ -21,13 +25,24 @@ import type { Command } from './Command';
 import { Embed } from './Embed';
 
 export class Bot extends Client {
+  private static INSTANCE: Bot;
+  DatabaseClient!: PrismaClient;
+  AppErrorHandler!: AppErrorHandler;
   Commands!: Collection<string, Command>;
   AudioPlayers!: Map<string, AudioPlayer>;
 
-  constructor() {
+  private constructor() {
     super();
     this.validateRequiredCredentials();
-    this.onCreateInteraction(this);
+    this.maybeMakeDatabaseConnection();
+    this.onCreateInteraction();
+    this.onListeningInteraction();
+    this.makeDiscordAPIConnection();
+  }
+
+  static getInstance() {
+    if (!this.INSTANCE) this.INSTANCE = new Bot();
+    return this.INSTANCE;
   }
 
   private validateRequiredCredentials() {
@@ -40,32 +55,39 @@ export class Bot extends Client {
     }
   }
 
-  private onCreateInteraction(bot: Bot) {
-    bot.Commands = new Collection();
-    bot.AudioPlayers = new Map();
-    new CommandsHandler(bot).loadCommands();
+  private async maybeMakeDatabaseConnection() {
+    this.DatabaseClient = PrismaClient.getInstance();
+    await this.DatabaseClient.createConnection();
 
-    bot.once('ready', () => console.log(APP_READY));
+    this.AppErrorHandler = AppErrorHandler.getInstance(this);
+  }
 
-    bot.on('shardError', (e) =>
-      console.error('WebSocket connection error:', e)
+  private onCreateInteraction() {
+    this.Commands = new Collection();
+    this.AudioPlayers = new Map();
+    new CommandsHandler(this).loadCommands();
+
+    this.once('ready', () => console.log(APP_READY));
+
+    this.on(
+      'shardError',
+      (e) => new GeneralAppError({ message: e.message, bot: this })
     );
     process.on(
       'unhandledRejection',
-      (e: Error) => new UnhandledPromiseRejectionError(e.message)
+      (e: Error) =>
+        new UnhandledPromiseRejectionError({ message: e.message, bot: this })
     );
     process.on(
       'uncaughtExceptionMonitor',
-      (e: Error) => new UncaughtExceptionMonitorError(e.message)
+      (e: Error) =>
+        new UncaughtExceptionMonitorError({ message: e.message, bot: this })
     );
-
-    this.onListeningInteraction(bot);
-    this.makeDiscordAPIConnection(bot);
   }
 
-  private onListeningInteraction(bot: Bot) {
-    bot.on('message', async (msg) => {
-      bot.user?.setActivity('with your feelings');
+  private onListeningInteraction() {
+    this.on('message', async (msg) => {
+      this.user?.setActivity(APP_ACTIVITY);
 
       if (!isChatInputCommand(msg)) return;
 
@@ -73,15 +95,20 @@ export class Bot extends Client {
 
       try {
         const { formatted, trigger, args } = getCommand(msg);
-        console.log(`@${msg.author.tag} -> ${formatted}`);
+        console.log(`\n@${msg.author.tag} -> ${formatted}`);
 
-        const command = bot.Commands.get(trigger);
+        const command = this.Commands.get(trigger);
         if (!command)
-          throw new InvalidAppCommand(`${trigger} is not a valid command`);
+          throw new InvalidAppCommandError({
+            message: `${trigger} is not a valid command.`,
+            bot: this,
+            interaction: msg
+          });
 
         await command.execute(msg, args);
       } catch (e) {
         console.error(e);
+
         embed
           .setAuthor(APP_COMMAND_ERROR_TITLE)
           .setDescription(APP_COMMAND_ERROR_DESCRIPTION)
@@ -91,9 +118,9 @@ export class Bot extends Client {
     });
   }
 
-  private async makeDiscordAPIConnection(bot: Bot) {
+  private async makeDiscordAPIConnection() {
     try {
-      await bot.login(config.botToken);
+      await this.login(config.botToken);
     } catch (e) {
       console.error(e);
     }

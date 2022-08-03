@@ -1,4 +1,11 @@
-import type { StreamDispatcher, VoiceConnection } from 'discord.js';
+import type { Message, StreamDispatcher, VoiceConnection } from 'discord.js';
+
+export type GeneralAppError = {
+  name?: string;
+  message: string;
+  bot: Bot;
+  interaction?: Message;
+};
 
 export type CommandDetails = {
   name: string;
@@ -17,41 +24,39 @@ export type AudioPlayer = {
 
 export type SpotifyRequestType = 'TRACK' | 'PLAYLIST';
 
-type Artist = {
-  name: string;
-};
-
-type Track = {
+type SpotifyItemTrack = {
   track: {
     name: string;
     duration_ms: number;
-    artists: Artist[];
+    artists: { name: string }[];
   };
 };
 
-type Image = {
+type SpotifyItemImage = {
   url: string;
   height: number;
   width: number;
 };
 
-type Item = {
+type SpotifyItemOwner = {
+  id: string;
+  display_name: string;
+};
+
+type SpotifyItem = {
   [key: string]: {
     name: string;
-    images: Image[];
-    owner: {
-      id: string;
-      display_name: string;
-    };
+    images: SpotifyItemImage[];
+    owner: SpotifyItemOwner;
     tracks: {
-      items: Track[];
+      items: SpotifyItemTrack[];
     };
   };
 };
 
 export type SpotifyPlaylistRawResponse = {
   entities: {
-    items: Item;
+    items: SpotifyItem;
   };
 };
 
@@ -61,17 +66,4 @@ export type SpotifyPlaylist = {
   cover: string;
   tracks: string[];
   duration: number;
-};
-
-export type Track = {
-  artistName: string;
-  albumTitle: string;
-  albumUrl: string;
-  streamUrl: string;
-  videoUrl: string;
-  videoId: string;
-  title: string;
-  durationTimestamp: string;
-  albumCoverUrl: string;
-  altThumbnailUrl: string;
 };

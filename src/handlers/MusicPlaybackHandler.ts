@@ -14,12 +14,11 @@ export class MusicPlaybackHandler {
 
   static getInstance(bot: Bot, msg: Message) {
     if (
-      !MusicPlaybackHandler.INSTANCE ||
-      MusicPlaybackHandler.INSTANCE.msg.guild?.id !== msg.guild?.id ||
-      MusicPlaybackHandler.INSTANCE.msg.author.id !== msg.author.id
+      !this.INSTANCE ||
+      this.INSTANCE.msg.guild?.id !== msg.guild?.id ||
+      this.INSTANCE.msg.author.id !== msg.author.id
     )
-      MusicPlaybackHandler.INSTANCE = new MusicPlaybackHandler(bot, msg);
-
-    return MusicPlaybackHandler.INSTANCE;
+      this.INSTANCE = new MusicPlaybackHandler(bot, msg);
+    return this.INSTANCE;
   }
 }

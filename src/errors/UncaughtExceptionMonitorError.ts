@@ -1,6 +1,10 @@
-export class UncaughtExceptionMonitorError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'UncaughtExceptionMonitorError';
+import type { GeneralAppError as TGeneralAppError } from '@/types';
+
+import { GeneralAppError } from './GeneralAppError';
+
+export class UncaughtExceptionMonitorError extends GeneralAppError {
+  constructor(props: TGeneralAppError) {
+    props.name = 'UncaughtExceptionMonitorError';
+    super(props);
   }
 }
