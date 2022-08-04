@@ -1,8 +1,19 @@
-export const isValidURL = async (value: string) => {
+import { validateURL } from 'ytdl-core';
+
+import { PLATFORMS } from '@/constants';
+
+export const isValidURL = async (
+  value: string,
+  specificPlatform?: keyof typeof PLATFORMS
+) => {
   let isValid = true;
 
   try {
-    new URL(value);
+    if (specificPlatform === PLATFORMS.YouTube) {
+      validateURL(value);
+    } else {
+      new URL(value);
+    }
   } catch (_) {
     isValid = false;
   }

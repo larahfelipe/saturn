@@ -1,6 +1,7 @@
 import { readdirSync } from 'fs';
 import { join } from 'path';
 
+import config from '@/config';
 import type { Bot } from '@/structures/Bot';
 import type { Command } from '@/structures/Command';
 
@@ -25,7 +26,8 @@ export class CommandsHandler {
     const resolvedCommandName = Object.values(resolvedCommandObj)
       .map((Command: any) => {
         const command: Command = new Command(this.bot);
-        this.bot.Commands.set(command.trigger, command);
+        if (command.details.isActive)
+          this.bot.Commands.set(config.botPrefix + command.trigger, command);
 
         return command.name;
       })
