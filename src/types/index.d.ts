@@ -11,13 +11,32 @@ export type CommandDetails = {
   name: string;
   trigger: string;
   help: string;
-  usage: string;
+  isActive: boolean;
+};
+
+export type Track = {
+  title: string;
+  url: string;
+  duration: string;
+  thumbnail: string;
+};
+
+export type TrackData = {
+  data: Track;
+  readableStream: Readable<NodeJS.ReadableStream>;
+};
+
+export type GetTrackResult = {
+  tracks: TrackData[];
+  platform: keyof typeof PLATFORMS;
 };
 
 export type AudioPlayer = {
   state: VoiceConnection;
-  tracks: Track[];
-  authors: string[];
+  tracks: {
+    data: TrackData[];
+    author: string[];
+  };
   volume: number;
   dispatcher: StreamDispatcher | null;
 };

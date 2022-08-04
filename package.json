@@ -36,9 +36,11 @@
     "tsconfig-paths": "^4.0.0",
     "tscpaths": "0.0.9",
     "typescript": "^4.7.4",
+    "yt-search": "^2.10.3",
     "ytdl-core": "^4.11.0"
   },
   "devDependencies": {
+    "@types/yt-search": "^2.3.2",
     "@typescript-eslint/eslint-plugin": "^5.31.0",
     "@typescript-eslint/parser": "^5.31.0",
     "eslint": "^8.20.0",
