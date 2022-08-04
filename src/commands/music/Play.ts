@@ -31,7 +31,7 @@ export class Play extends Command {
 
       tracks.forEach(
         async (track) =>
-          await this.MusicPlaybackHandler.playTrack(track, msg.author.id)
+          await this.MusicPlaybackHandler.play(track, msg.author.id)
       );
     } catch (e) {
       console.error(e);

@@ -110,8 +110,12 @@ export class Bot extends Client {
         console.error(e);
 
         embed
+          .setTitle('')
           .setAuthor(APP_COMMAND_ERROR_TITLE)
+          .setThumbnail('')
           .setDescription(APP_COMMAND_ERROR_DESCRIPTION)
+          .setFooter('')
+          .setTimestamp({} as Date)
           .setColor(APP_ERROR_COLOR);
         msg.channel.send({ embed });
       }
