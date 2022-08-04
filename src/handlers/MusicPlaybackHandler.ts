@@ -10,12 +10,24 @@ import {
   APP_LOADING_PLAYLIST_TRACKS_DESCRIPTION,
   APP_LOADING_PLAYLIST_TRACKS_TITLE,
   APP_MAIN_COLOR,
+  APP_MUSIC_PLAYBACK_PHRASE,
+  APP_MUSIC_PLAYBACK_TITLE,
+  APP_NO_TRACK_PLAYING,
+  APP_QUEUE_EMPTY,
+  APP_QUEUE_TITLE,
+  APP_SKIP_TRACK_DESCRIPTION,
+  APP_SKIP_TRACK_TITLE,
+  APP_STOP_MUSIC_PLAYBACK_DESCRIPTION,
+  APP_STOP_MUSIC_PLAYBACK_TITLE,
   APP_USER_NOT_IN_VOICE_CHANNEL,
   APP_WARNING_COLOR,
   CD_GIF_URL,
+  OKAY_EMOJI,
   PLATFORMS,
   SPOTIFY_BASE_URL,
   SPOTIFY_COLOR,
+  SPOTIFY_PHRASE,
+  THUMBS_UP_EMOJI,
   YOUTUBE_BASE_URL
 } from '@/constants';
 import { GeneralAppError } from '@/errors/GeneralAppError';
@@ -29,6 +41,7 @@ import type {
   TrackData
 } from '@/types';
 import { formatSecondsToStdTime } from '@/utils/FormatTime';
+import { getImagePaletteColors } from '@/utils/GetImagePaletteColors';
 import { parseSpotifyResponse } from '@/utils/ParseSpotifyResponse';
 import { isValidURL } from '@/utils/ValidateURL';
 
@@ -88,7 +101,7 @@ export class MusicPlaybackHandler {
   private async setTrack(track: TrackData, requestAuthor: string) {
     let audioPlayer = this.bot.AudioPlayers.get(this.msg.guild!.id);
 
-    if (!Object.keys(track).length && audioPlayer) {
+    if (!track && audioPlayer) {
       audioPlayer.state.disconnect();
       this.bot.AudioPlayers.delete(this.msg.guild!.id);
     }
@@ -113,34 +126,34 @@ export class MusicPlaybackHandler {
     try {
       audioPlayer.dispatcher = audioPlayer.state.play(track.readableStream);
 
+      const thumbnailPredominantColors = await getImagePaletteColors(
+        track.data.thumbnail
+      );
       const embed = Embed.getInstance();
       embed
         .setTitle('')
-        .setAuthor('We hear you 💜', CD_GIF_URL)
+        .setAuthor(APP_MUSIC_PLAYBACK_PHRASE, CD_GIF_URL)
         .setThumbnail(track.data.thumbnail)
         .setDescription(
           `Now playing **[${track.data.title}](${track.data.url})** requested by <@${requestAuthor}>`
         )
-        .setFooter(`Song duration: ${track.data.duration}`)
+        .setFooter(`Track duration: ${track.data.duration}`)
         .setTimestamp({} as Date)
-        .setColor(APP_MAIN_COLOR);
+        .setColor(thumbnailPredominantColors.LightVibrant || APP_MAIN_COLOR);
       this.msg.channel.send({ embed });
 
       audioPlayer.dispatcher.on('finish', async () => {
         audioPlayer?.tracks.data.shift();
         audioPlayer?.tracks.author.shift();
-        audioPlayer?.dispatcher?.destroy();
 
-        if (audioPlayer?.tracks.data.length) {
-          const musicPlaybackHandler = MusicPlaybackHandler.getInstance(
-            this.bot,
-            this.msg
-          );
-          await musicPlaybackHandler.setTrack(
-            audioPlayer.tracks.data[0],
-            audioPlayer.tracks.author[0]
-          );
-        }
+        const musicPlaybackHandler = MusicPlaybackHandler.getInstance(
+          this.bot,
+          this.msg
+        );
+        await musicPlaybackHandler.setTrack(
+          audioPlayer!.tracks.data[0],
+          audioPlayer!.tracks.author[0]
+        );
       });
 
       audioPlayer.dispatcher.on('error', (err) => {
@@ -230,6 +243,7 @@ export class MusicPlaybackHandler {
           .setAuthor(
             `"${spotifyPlaylist.name}"\nSpotify playlist by ${spotifyPlaylist.owner}`
           )
+          .setThumbnail(spotifyPlaylist.cover)
           .setDescription(
             `\n• Total playlist tracks: \`${
               spotifyPlaylist.tracks.length
@@ -237,8 +251,7 @@ export class MusicPlaybackHandler {
               spotifyPlaylist.duration / 1000
             )}\``
           )
-          .setThumbnail(spotifyPlaylist.cover)
-          .setFooter('Spotify | Music for everyone')
+          .setFooter(SPOTIFY_PHRASE)
           .setTimestamp({} as Date)
           .setColor(SPOTIFY_COLOR);
         this.msg.channel.send({ embed });
@@ -246,8 +259,8 @@ export class MusicPlaybackHandler {
         embed
           .setTitle('')
           .setAuthor(APP_LOADING_PLAYLIST_TRACKS_TITLE)
-          .setDescription(APP_LOADING_PLAYLIST_TRACKS_DESCRIPTION)
           .setThumbnail('')
+          .setDescription(APP_LOADING_PLAYLIST_TRACKS_DESCRIPTION)
           .setFooter('')
           .setTimestamp({} as Date)
           .setColor(APP_WARNING_COLOR);
@@ -269,13 +282,13 @@ export class MusicPlaybackHandler {
     }
   }
 
-  async playTrack(track: TrackData, requestAuthor: string) {
+  async play(track: TrackData, requestAuthor: string) {
     const embed = Embed.getInstance();
     const audioPlayer = this.bot.AudioPlayers.get(this.msg.guild!.id);
 
     if (!audioPlayer) {
       embed
-        .setTitle('🎵  Music Playback')
+        .setTitle(APP_MUSIC_PLAYBACK_TITLE)
         .setAuthor('')
         .setThumbnail('')
         .setDescription(
@@ -297,7 +310,7 @@ export class MusicPlaybackHandler {
       this.bot.AudioPlayers.set(this.msg.guild!.id, audioPlayer);
 
       embed
-        .setTitle('📃  Queue')
+        .setTitle(APP_QUEUE_TITLE)
         .setAuthor('')
         .setThumbnail('')
         .setDescription(
@@ -315,5 +328,73 @@ export class MusicPlaybackHandler {
         .setColor(APP_MAIN_COLOR);
       this.msg.channel.send({ embed });
     }
+  }
+
+  async pause(msg: Message) {
+    const audioPlayer = this.bot.AudioPlayers.get(this.msg.guild!.id);
+    if (!audioPlayer || !audioPlayer.state)
+      return this.msg.reply(APP_NO_TRACK_PLAYING);
+
+    await msg.react(THUMBS_UP_EMOJI);
+    audioPlayer.state.dispatcher.pause();
+  }
+
+  async resume(msg: Message) {
+    const audioPlayer = this.bot.AudioPlayers.get(this.msg.guild!.id);
+    if (!audioPlayer || !audioPlayer.state)
+      return this.msg.reply(APP_NO_TRACK_PLAYING);
+
+    await msg.react(OKAY_EMOJI);
+    audioPlayer.state.dispatcher.resume();
+  }
+
+  async skip() {
+    const audioPlayer = this.bot.AudioPlayers.get(this.msg.guild!.id);
+    if (!audioPlayer) return this.msg.reply(APP_NO_TRACK_PLAYING);
+
+    if (audioPlayer.tracks.data.length === 1)
+      return this.msg.reply(APP_QUEUE_EMPTY);
+
+    audioPlayer.tracks.data.shift();
+    audioPlayer.tracks.author.shift();
+
+    const embed = Embed.getInstance();
+    embed
+      .setTitle(APP_SKIP_TRACK_TITLE)
+      .setAuthor('')
+      .setThumbnail('')
+      .setDescription(APP_SKIP_TRACK_DESCRIPTION)
+      .setFooter('')
+      .setTimestamp({} as Date)
+      .setColor(APP_MAIN_COLOR);
+    this.msg.channel.send({ embed });
+
+    const musicPlaybackHandler = MusicPlaybackHandler.getInstance(
+      this.bot,
+      this.msg
+    );
+    await musicPlaybackHandler.setTrack(
+      audioPlayer.tracks.data[0],
+      audioPlayer.tracks.author[0]
+    );
+  }
+
+  async stop() {
+    const audioPlayer = this.bot.AudioPlayers.get(this.msg.guild!.id);
+    if (!audioPlayer) return this.msg.reply(APP_NO_TRACK_PLAYING);
+
+    const embed = Embed.getInstance();
+    embed
+      .setTitle(APP_STOP_MUSIC_PLAYBACK_TITLE)
+      .setAuthor('')
+      .setThumbnail('')
+      .setDescription(APP_STOP_MUSIC_PLAYBACK_DESCRIPTION)
+      .setFooter('')
+      .setTimestamp({} as Date)
+      .setColor(APP_WARNING_COLOR);
+    this.msg.channel.send({ embed });
+
+    audioPlayer.state.disconnect();
+    this.bot.AudioPlayers.delete(this.msg.guild!.id);
   }
 }
