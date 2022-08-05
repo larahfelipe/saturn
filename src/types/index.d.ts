@@ -9,7 +9,7 @@ export type GeneralAppError = {
 
 export type CommandDetails = {
   name: string;
-  trigger: string;
+  trigger: [string, string?];
   help: string;
   isActive: boolean;
 };

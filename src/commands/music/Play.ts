@@ -11,7 +11,7 @@ export class Play extends Command {
   constructor(bot: Bot) {
     super(bot, {
       name: 'Play',
-      trigger: 'play',
+      trigger: ['play', 'p'],
       help: 'Play a track or a Spotify playlist',
       isActive: true
     });

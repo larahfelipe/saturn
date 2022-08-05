@@ -1,9 +1,9 @@
+export const APP_COMMANDS_LOADED = '\n[Saturn] Commands loaded successfully.';
 export const APP_READY = '\n[Saturn] Discord API ready to listen interactions.';
 export const APP_FOUND_DATABASE_ACCESS_URL =
   '\n[Saturn] Found database access URL. Trying to establish connection...';
 export const APP_DATABASE_CONNECTED =
   '\n[Saturn] Database connection successfully established.';
-export const APP_ACTIVITY = 'Listening you 💜';
 
 export const APP_MISSING_REQUIRED_CREDENTIALS =
   '\nMissing required credentials.';
@@ -14,7 +14,7 @@ export const APP_RUNTIME_EXCEPTION = 'RUNTIME EXCEPTION';
 export const APP_USER_NOT_IN_VOICE_CHANNEL =
   'You need to be in a voice channel first.';
 
-export const APP_MUSIC_PLAYBACK_PHRASE = 'We hear you 💜';
+export const APP_MUSIC_PLAYBACK_PHRASE = 'I heard you 💜';
 export const APP_MUSIC_PLAYBACK_TITLE = '🎵  Music Playback';
 export const APP_LOADING_PLAYLIST_TRACKS_TITLE =
   'Gotcha!, loading playlist songs ... ⏳';
@@ -32,16 +32,22 @@ export const APP_STOP_MUSIC_PLAYBACK_DESCRIPTION =
 export const SPOTIFY_PHRASE = 'Spotify | Music for everyone';
 
 export const APP_MAIN_COLOR = '#6E76E5';
+export const APP_SUCCESS_COLOR = '#00FF00';
 export const APP_ERROR_COLOR = '#FB3640';
 export const APP_WARNING_COLOR = '#FFB319';
-export const SPOTIFY_COLOR = '#1ED760';
 
 export const PLATFORMS = {
-  Spotify: 'Spotify',
-  YouTube: 'YouTube'
+  Spotify: {
+    name: 'Spotify',
+    color: '#1ED760',
+    baseUrl: 'https://open.spotify.com/'
+  },
+  YouTube: {
+    name: 'YouTube',
+    color: '#FF0000',
+    baseUrl: 'https://www.youtube.com/'
+  }
 };
-export const YOUTUBE_BASE_URL = 'https://www.youtube.com/';
-export const SPOTIFY_BASE_URL = 'https://open.spotify.com/';
 
 export const CD_GIF_URL =
   'https://raw.githubusercontent.com/larafe1/saturn-bot/master/src/assets/cd.gif';

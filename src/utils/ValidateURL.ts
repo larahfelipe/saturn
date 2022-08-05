@@ -2,20 +2,23 @@ import { validateURL } from 'ytdl-core';
 
 import { PLATFORMS } from '@/constants';
 
-export const isValidURL = async (
+export const isValidURL = (
   value: string,
-  specificPlatform?: keyof typeof PLATFORMS
+  platform?: keyof typeof PLATFORMS
 ) => {
-  let isValid = true;
+  let isValid = false;
 
-  try {
-    if (specificPlatform === PLATFORMS.YouTube) {
-      validateURL(value);
-    } else {
-      new URL(value);
-    }
-  } catch (_) {
-    isValid = false;
+  switch (platform) {
+    case 'YouTube':
+      isValid = validateURL(value);
+      break;
+    case 'Spotify':
+      isValid = value.includes(PLATFORMS.Spotify.baseUrl);
+      break;
+    default:
+      isValid = value.includes('http') && value.startsWith('http');
+      break;
   }
+
   return isValid;
 };

@@ -8,7 +8,7 @@ export class Stop extends Command {
   constructor(bot: Bot) {
     super(bot, {
       name: 'Stop',
-      trigger: 'stop',
+      trigger: ['stop'],
       help: 'Stops the music playback',
       isActive: true
     });

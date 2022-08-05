@@ -8,7 +8,7 @@ export class Resume extends Command {
   constructor(bot: Bot) {
     super(bot, {
       name: 'Resume',
-      trigger: 'resume',
+      trigger: ['resume'],
       help: 'Resumes the current track',
       isActive: true
     });
