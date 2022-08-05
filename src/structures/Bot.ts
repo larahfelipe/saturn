@@ -2,7 +2,7 @@ import { Client, Collection } from 'discord.js';
 
 import config from '@/config';
 import {
-  APP_ACTIVITY,
+  APP_COMMANDS_LOADED,
   APP_COMMAND_ERROR_DESCRIPTION,
   APP_COMMAND_ERROR_TITLE,
   APP_ERROR_COLOR,
@@ -16,6 +16,7 @@ import { UncaughtExceptionMonitorError } from '@/errors/UncaughtExceptionMonitor
 import { UnhandledPromiseRejectionError } from '@/errors/UnhandledPromiseRejectionError';
 import { AppErrorHandler } from '@/handlers/AppErrorHandler';
 import { CommandsHandler } from '@/handlers/CommandsHandler';
+import { MessageChannelHandler } from '@/handlers/MessageChannelHandler';
 import { PrismaClient } from '@/infra/PrismaClient';
 import type { AudioPlayer } from '@/types';
 import { getCommand } from '@/utils/GetCommand';
@@ -28,7 +29,9 @@ export class Bot extends Client {
   private static INSTANCE: Bot;
   DatabaseClient!: PrismaClient;
   AppErrorHandler!: AppErrorHandler;
+  MessageChannelHandler!: MessageChannelHandler;
   Commands!: Collection<string, Command>;
+  CommandsAlias!: Collection<string, Command>;
   AudioPlayers!: Map<string, AudioPlayer>;
 
   private constructor() {
@@ -62,42 +65,47 @@ export class Bot extends Client {
     this.AppErrorHandler = AppErrorHandler.getInstance(this);
   }
 
-  private onCreateInteraction() {
+  private async onCreateInteraction() {
     this.Commands = new Collection();
+    this.CommandsAlias = new Collection();
     this.AudioPlayers = new Map();
-    new CommandsHandler(this).loadCommands();
+    const loadedCommands = await new CommandsHandler(this).loadCommands();
+    if (loadedCommands) console.log(APP_COMMANDS_LOADED);
 
     this.once('ready', () => console.log(APP_READY));
 
     this.on(
       'shardError',
-      (e) => new GeneralAppError({ message: e.message, bot: this })
+      ({ message }) => new GeneralAppError({ message, bot: this })
     );
     process.on(
       'unhandledRejection',
-      (e: Error) =>
-        new UnhandledPromiseRejectionError({ message: e.message, bot: this })
+      ({ message }: Error) =>
+        new UnhandledPromiseRejectionError({ message, bot: this })
     );
     process.on(
       'uncaughtExceptionMonitor',
-      (e: Error) =>
-        new UncaughtExceptionMonitorError({ message: e.message, bot: this })
+      ({ message }: Error) =>
+        new UncaughtExceptionMonitorError({ message, bot: this })
     );
   }
 
   private onListeningInteraction() {
     this.on('message', async (msg) => {
-      this.user?.setActivity(APP_ACTIVITY);
+      this.MessageChannelHandler = MessageChannelHandler.getInstance(msg);
+      const embed = Embed.getInstance();
+
+      this.user?.setActivity(`Orbiting in ${msg.guild?.name}`);
 
       if (!isChatInputCommand(msg)) return;
-
-      const embed = Embed.getInstance();
 
       try {
         const { formatted, trigger, args } = getCommand(msg);
         console.log(`\n@${msg.author.tag} -> ${formatted}`);
 
-        const command = this.Commands.get(trigger);
+        const command =
+          this.Commands.get(trigger) || this.CommandsAlias.get(trigger);
+
         if (!command)
           throw new InvalidAppCommandError({
             message: `${trigger} is not a valid command.`,

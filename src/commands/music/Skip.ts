@@ -8,7 +8,7 @@ export class Skip extends Command {
   constructor(bot: Bot) {
     super(bot, {
       name: 'Skip',
-      trigger: 'skip',
+      trigger: ['skip'],
       help: 'Skips the current track',
       isActive: true
     });

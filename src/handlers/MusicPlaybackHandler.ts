@@ -19,16 +19,14 @@ import {
   APP_SKIP_TRACK_TITLE,
   APP_STOP_MUSIC_PLAYBACK_DESCRIPTION,
   APP_STOP_MUSIC_PLAYBACK_TITLE,
+  APP_SUCCESS_COLOR,
   APP_USER_NOT_IN_VOICE_CHANNEL,
   APP_WARNING_COLOR,
   CD_GIF_URL,
   OKAY_EMOJI,
   PLATFORMS,
-  SPOTIFY_BASE_URL,
-  SPOTIFY_COLOR,
   SPOTIFY_PHRASE,
-  THUMBS_UP_EMOJI,
-  YOUTUBE_BASE_URL
+  THUMBS_UP_EMOJI
 } from '@/constants';
 import { GeneralAppError } from '@/errors/GeneralAppError';
 import { InvalidParameterError } from '@/errors/InvalidParameterError';
@@ -176,7 +174,7 @@ export class MusicPlaybackHandler {
     if (!trackUri.length) throw new Error('Track URI not provided');
 
     let response = {} as VideoMetadataResult | VideoSearchResult;
-    const isValidYouTubeUrl = await isValidURL(trackUri, 'YouTube');
+    const isValidYouTubeUrl = isValidURL(trackUri, 'YouTube');
 
     if (isValidYouTubeUrl) {
       response = await yts({ videoId: ytdl.getURLVideoID(trackUri) });
@@ -184,7 +182,7 @@ export class MusicPlaybackHandler {
       const { videos } = await yts(trackUri);
       if (!videos.length) return;
 
-      response = videos.at(0) as VideoSearchResult;
+      response = videos[0] as VideoSearchResult;
     }
     const { title, thumbnail, url, timestamp } = response;
 
@@ -201,7 +199,7 @@ export class MusicPlaybackHandler {
     let parsedData: string | SpotifyPlaylist = trackUri;
 
     try {
-      if (trackUri.includes(YOUTUBE_BASE_URL)) {
+      if (isValidURL(trackUri, 'YouTube')) {
         const isValidYouTubeUrl = isValidURL(trackUri, 'YouTube');
         if (!isValidYouTubeUrl)
           throw new InvalidParameterError(
@@ -209,13 +207,18 @@ export class MusicPlaybackHandler {
           );
 
         platform = 'YouTube';
-      } else if (trackUri.includes(SPOTIFY_BASE_URL)) {
+      } else if (isValidURL(trackUri, 'Spotify')) {
         platform = 'Spotify';
 
         const { data }: AxiosResponse<string> = await axios.get(trackUri);
         if (!data.length) throw new Error('No data returned');
 
         const contentType = trackUri.includes('track') ? 'TRACK' : 'PLAYLIST';
+
+        // Temporary fix for Spotify Playlists
+        if (contentType === 'PLAYLIST')
+          return this.msg.reply('Spotify playlists are not supported yet.');
+
         if (contentType) {
           parsedData = parseSpotifyResponse(
             contentType,
@@ -235,7 +238,7 @@ export class MusicPlaybackHandler {
       const isPlaylist = trackData.length > 1;
 
       if (isPlaylist && platform === 'Spotify') {
-        const spotifyPlaylist = {} as SpotifyPlaylist;
+        const spotifyPlaylist = parsedData as SpotifyPlaylist;
 
         const embed = Embed.getInstance();
         embed
@@ -253,7 +256,7 @@ export class MusicPlaybackHandler {
           )
           .setFooter(SPOTIFY_PHRASE)
           .setTimestamp({} as Date)
-          .setColor(SPOTIFY_COLOR);
+          .setColor(PLATFORMS.Spotify.color);
         this.msg.channel.send({ embed });
 
         embed
@@ -296,7 +299,7 @@ export class MusicPlaybackHandler {
         )
         .setFooter('')
         .setTimestamp({} as Date)
-        .setColor(APP_MAIN_COLOR);
+        .setColor(APP_SUCCESS_COLOR);
       this.msg.channel.send({ embed });
 
       const musicPlaybackHandler = MusicPlaybackHandler.getInstance(

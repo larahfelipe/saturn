@@ -8,7 +8,7 @@ export abstract class Command {
   bot: Bot;
   details: CommandDetails;
   name: string;
-  trigger: string;
+  trigger: [string, string?];
 
   constructor(bot: Bot, details: CommandDetails) {
     this.bot = bot;

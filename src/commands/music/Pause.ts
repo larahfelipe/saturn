@@ -8,7 +8,7 @@ export class Pause extends Command {
   constructor(bot: Bot) {
     super(bot, {
       name: 'Pause',
-      trigger: 'pause',
+      trigger: ['pause'],
       help: 'Pauses the current track',
       isActive: true
     });
