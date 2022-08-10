@@ -1,15 +1,17 @@
-import { Client, Collection } from 'discord.js';
+import type { AudioPlayer } from '@discordjs/voice';
+import {
+  Client,
+  Collection,
+  GatewayIntentBits,
+  type Snowflake
+} from 'discord.js';
 
 import config from '@/config';
 import {
   APP_COMMANDS_LOADED,
-  APP_COMMAND_ERROR_DESCRIPTION,
-  APP_COMMAND_ERROR_TITLE,
-  APP_ERROR_COLOR,
   APP_MISSING_REQUIRED_CREDENTIALS,
   APP_READY
 } from '@/constants';
-import { GeneralAppError } from '@/errors/GeneralAppError';
 import { InvalidAppCommandError } from '@/errors/InvalidAppCommandError';
 import { MissingRequiredCredentialsError } from '@/errors/MissingRequiredCredentialsError';
 import { UncaughtExceptionMonitorError } from '@/errors/UncaughtExceptionMonitorError';
@@ -18,24 +20,26 @@ import { AppErrorHandler } from '@/handlers/AppErrorHandler';
 import { CommandsHandler } from '@/handlers/CommandsHandler';
 import { MessageChannelHandler } from '@/handlers/MessageChannelHandler';
 import { PrismaClient } from '@/infra/PrismaClient';
-import type { AudioPlayer } from '@/types';
-import { getCommand } from '@/utils/GetCommand';
-import { isChatInputCommand } from '@/utils/ValidateChatInputCommand';
 
 import type { Command } from './Command';
-import { Embed } from './Embed';
 
 export class Bot extends Client {
   private static INSTANCE: Bot;
-  DatabaseClient!: PrismaClient;
-  AppErrorHandler!: AppErrorHandler;
-  MessageChannelHandler!: MessageChannelHandler;
-  Commands!: Collection<string, Command>;
-  CommandsAlias!: Collection<string, Command>;
-  AudioPlayers!: Map<string, AudioPlayer>;
+  databaseClient!: PrismaClient;
+  appErrorHandler!: AppErrorHandler;
+  messageChannelHandler!: MessageChannelHandler;
+  commands!: Collection<Snowflake, Command>;
+  subscriptions!: Map<Snowflake, AudioPlayer>;
 
   private constructor() {
-    super();
+    super({
+      intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildVoiceStates
+      ]
+    });
     this.validateRequiredCredentials();
     this.maybeMakeDatabaseConnection();
     this.onCreateInteraction();
@@ -49,9 +53,9 @@ export class Bot extends Client {
   }
 
   private validateRequiredCredentials() {
-    const { botToken, botPrefix } = config;
+    const { botToken, botAppId, guildId } = config;
 
-    if (!botToken || !botPrefix) {
+    if (!botToken || !botAppId || !guildId) {
       throw new MissingRequiredCredentialsError(
         APP_MISSING_REQUIRED_CREDENTIALS
       );
@@ -59,25 +63,20 @@ export class Bot extends Client {
   }
 
   private async maybeMakeDatabaseConnection() {
-    this.DatabaseClient = PrismaClient.getInstance();
-    await this.DatabaseClient.createConnection();
+    this.databaseClient = PrismaClient.getInstance();
+    await this.databaseClient.createConnection();
 
-    this.AppErrorHandler = AppErrorHandler.getInstance(this);
+    this.appErrorHandler = AppErrorHandler.getInstance(this);
   }
 
   private async onCreateInteraction() {
-    this.Commands = new Collection();
-    this.CommandsAlias = new Collection();
-    this.AudioPlayers = new Map();
-    const loadedCommands = await new CommandsHandler(this).loadCommands();
-    if (loadedCommands) console.log(APP_COMMANDS_LOADED);
+    this.commands = new Collection();
+    this.subscriptions = new Map();
+    const isCommandsLoaded = await new CommandsHandler(this).loadCommands();
+    if (isCommandsLoaded) console.log(APP_COMMANDS_LOADED);
 
     this.once('ready', () => console.log(APP_READY));
 
-    this.on(
-      'shardError',
-      ({ message }) => new GeneralAppError({ message, bot: this })
-    );
     process.on(
       'unhandledRejection',
       ({ message }: Error) =>
@@ -91,41 +90,42 @@ export class Bot extends Client {
   }
 
   private onListeningInteraction() {
-    this.on('message', async (msg) => {
-      this.MessageChannelHandler = MessageChannelHandler.getInstance(msg);
-      const embed = Embed.getInstance();
+    this.on('interactionCreate', async (interaction) => {
+      this.messageChannelHandler =
+        MessageChannelHandler.getInstance(interaction);
+      // const embed = Embed.getInstance();
 
-      this.user?.setActivity(`Orbiting in ${msg.guild?.name}`);
+      this.user?.setActivity(`Orbiting in ${interaction.guild?.name}`);
 
-      if (!isChatInputCommand(msg)) return;
+      if (!interaction.isChatInputCommand()) return;
 
       try {
-        const { formatted, trigger, args } = getCommand(msg);
-        console.log(`\n@${msg.author.tag} -> ${formatted}`);
+        await interaction.deferReply();
 
-        const command =
-          this.Commands.get(trigger) || this.CommandsAlias.get(trigger);
+        console.log(`\n@${interaction.user.tag} -> ${interaction.commandName}`);
+
+        const command = this.commands.get(interaction.commandName);
 
         if (!command)
           throw new InvalidAppCommandError({
-            message: `${trigger} is not a valid command.`,
+            message: `${interaction.commandName} is not a valid command.`,
             bot: this,
-            interaction: msg
+            interaction
           });
 
-        await command.execute(msg, args);
+        await command.execute(interaction);
       } catch (e) {
         console.error(e);
 
-        embed
-          .setTitle('')
-          .setAuthor(APP_COMMAND_ERROR_TITLE)
-          .setThumbnail('')
-          .setDescription(APP_COMMAND_ERROR_DESCRIPTION)
-          .setFooter('')
-          .setTimestamp({} as Date)
-          .setColor(APP_ERROR_COLOR);
-        msg.channel.send({ embed });
+        // embed
+        //   .setTitle('')
+        //   .setAuthor({ name: APP_COMMAND_ERROR_TITLE })
+        //   .setThumbnail('')
+        //   .setDescription(APP_COMMAND_ERROR_DESCRIPTION)
+        //   .setFooter({ text: '' })
+        //   .setTimestamp({} as Date)
+        //   .setColor(APP_ERROR_COLOR);
+        // interaction.channel?.send({ embeds: [embed] });
       }
     });
   }
