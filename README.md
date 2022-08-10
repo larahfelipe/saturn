@@ -65,16 +65,17 @@ yarn
 
 When the installation finishes, find the `.env.example` inside of the project's folder and open it with some text editor of your choice.
 
-Now, make sure that you have your own bot token in hands — in case you don't know how to get it, go to the [Discord developers portal](https://discord.com/developers/) and create a new app, then, go to the "Bot" section and copy your generated token.
+Now, make sure that you have your bot token and app id in hands — in case you don't know how to get these things, go to the [Discord developers portal](https://discord.com/developers/) and create a new app, copy your application id and then, go to the "Bot" section and copy your generated token.
 
-After that, set your bot token and some prefix of your choice (e.g: !, +, -). When you're done, rename the `.env.example` to `.env`.
+After that, set your credentials, and also, your `GUILD_ID`. When you're done, rename the `.env.example` to `.env`.
 
 ```bash
 BOT_TOKEN=
-BOT_PREFIX=
+BOT_APP_ID=
+GUILD_ID=
 ```
 
-Saturn also provides integration with [Prisma](https://www.prisma.io/), which is an ORM, and already has a built-in error database, which is a database that stores all the errors that the bot has encountered during its runtime. This can be useful for debugging purposes. To have this feature enabled, you must set the `DATABASE_URL` environment variable to the URL of your database, which is also available in the `.env` file.
+Saturn also provides integration with [Prisma](https://www.prisma.io/), which is an ORM, and already has a built-in error database, which is a database that stores all the errors that the bot has encountered during its runtime. This can be useful for debugging purposes. To have this feature enabled, you must set the `DATABASE_URL` environment variable to the URL of your database, which is also available in the `.env.example` file.
 
 ```bash
 DATABASE_URL=

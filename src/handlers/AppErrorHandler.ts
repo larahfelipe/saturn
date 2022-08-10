@@ -8,12 +8,12 @@ import type { GeneralAppError } from '@/types';
 export class AppErrorHandler {
   private static INSTANCE: AppErrorHandler;
   protected bot: Bot;
-  CreateAppErrorReport!: DatabaseCreateAppErrorReport;
+  createAppErrorReport!: DatabaseCreateAppErrorReport;
 
   private constructor(bot: Bot) {
     this.bot = bot;
 
-    this.CreateAppErrorReport = new DatabaseCreateAppErrorReport(
+    this.createAppErrorReport = new DatabaseCreateAppErrorReport(
       new AppErrorRepository()
     );
   }
@@ -25,7 +25,7 @@ export class AppErrorHandler {
 
   async handle({ interaction, message, name }: GeneralAppError) {
     const triggeredBy = interaction
-      ? `${interaction.author.tag} <${interaction.author.id}>`
+      ? `${interaction.user.tag} <${interaction.user.id}>`
       : APP_RUNTIME_EXCEPTION;
 
     let appError = {
@@ -35,8 +35,8 @@ export class AppErrorHandler {
       triggeredBy
     } as AppError;
 
-    if (this.bot.DatabaseClient.isConnected())
-      appError = await this.CreateAppErrorReport.create(appError);
+    if (this.bot.databaseClient.isConnected())
+      appError = await this.createAppErrorReport.create(appError);
 
     return appError;
   }

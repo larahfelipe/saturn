@@ -1,6 +1,6 @@
-import { MessageEmbed } from 'discord.js';
+import { EmbedBuilder } from 'discord.js';
 
-export class Embed extends MessageEmbed {
+export class Embed extends EmbedBuilder {
   private static INSTANCE: Embed;
 
   private constructor() {

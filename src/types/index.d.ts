@@ -1,17 +1,15 @@
-import type { Message, StreamDispatcher, VoiceConnection } from 'discord.js';
+import type { CommandInteraction, SlashCommandBuilder } from 'discord.js';
 
 export type GeneralAppError = {
   name?: string;
   message: string;
   bot: Bot;
-  interaction?: Message;
+  interaction?: CommandInteraction;
 };
 
-export type CommandDetails = {
-  name: string;
-  trigger: [string, string?];
-  help: string;
+export type CommandData = {
   isActive: boolean;
+  build: Omit<SlashCommandBuilder, 'addSubcommand' | 'addSubcommandGroup'>;
 };
 
 export type Track = {
@@ -29,16 +27,6 @@ export type TrackData = {
 export type GetTrackResult = {
   tracks: TrackData[];
   platform: keyof typeof PLATFORMS;
-};
-
-export type AudioPlayer = {
-  state: VoiceConnection;
-  tracks: {
-    data: TrackData[];
-    author: string[];
-  };
-  volume: number;
-  dispatcher: StreamDispatcher | null;
 };
 
 export type SpotifyRequestType = 'TRACK' | 'PLAYLIST';

@@ -1,65 +1,51 @@
+import {
+  createAudioPlayer,
+  createAudioResource,
+  entersState,
+  joinVoiceChannel,
+  VoiceConnectionStatus,
+  type AudioPlayer,
+  type VoiceConnection
+} from '@discordjs/voice';
 import axios, { type AxiosResponse } from 'axios';
-import type { Message } from 'discord.js';
+import { GuildMember, type CommandInteraction } from 'discord.js';
 import yts, {
   type VideoMetadataResult,
   type VideoSearchResult
 } from 'yt-search';
 import ytdl, { type downloadOptions as DownloadOptions } from 'ytdl-core';
 
-import {
-  APP_LOADING_PLAYLIST_TRACKS_DESCRIPTION,
-  APP_LOADING_PLAYLIST_TRACKS_TITLE,
-  APP_MAIN_COLOR,
-  APP_MUSIC_PLAYBACK_PHRASE,
-  APP_MUSIC_PLAYBACK_TITLE,
-  APP_NO_TRACK_PLAYING,
-  APP_QUEUE_EMPTY,
-  APP_QUEUE_TITLE,
-  APP_SKIP_TRACK_DESCRIPTION,
-  APP_SKIP_TRACK_TITLE,
-  APP_STOP_MUSIC_PLAYBACK_DESCRIPTION,
-  APP_STOP_MUSIC_PLAYBACK_TITLE,
-  APP_SUCCESS_COLOR,
-  APP_USER_NOT_IN_VOICE_CHANNEL,
-  APP_WARNING_COLOR,
-  CD_GIF_URL,
-  OKAY_EMOJI,
-  PLATFORMS,
-  SPOTIFY_PHRASE,
-  THUMBS_UP_EMOJI
-} from '@/constants';
+import { PLATFORMS } from '@/constants';
 import { GeneralAppError } from '@/errors/GeneralAppError';
 import { InvalidParameterError } from '@/errors/InvalidParameterError';
 import type { Bot } from '@/structures/Bot';
-import { Embed } from '@/structures/Embed';
 import type {
   GetTrackResult,
   SpotifyPlaylist,
   Track,
   TrackData
 } from '@/types';
-import { formatSecondsToStdTime } from '@/utils/FormatTime';
-import { getImagePaletteColors } from '@/utils/GetImagePaletteColors';
 import { parseSpotifyResponse } from '@/utils/ParseSpotifyResponse';
 import { isValidURL } from '@/utils/ValidateURL';
 
 export class MusicPlaybackHandler {
   private static INSTANCE: MusicPlaybackHandler;
+  protected voiceConnection!: VoiceConnection;
   protected bot: Bot;
-  protected msg: Message;
+  protected interaction: CommandInteraction;
 
-  private constructor(bot: Bot, msg: Message) {
+  private constructor(bot: Bot, interaction: CommandInteraction) {
     this.bot = bot;
-    this.msg = msg;
+    this.interaction = interaction;
   }
 
-  static getInstance(bot: Bot, msg: Message) {
+  static getInstance(bot: Bot, interaction: CommandInteraction) {
     if (
       !this.INSTANCE ||
-      this.INSTANCE.msg.guild?.id !== msg.guild?.id ||
-      this.INSTANCE.msg.author.id !== msg.author.id
+      this.INSTANCE.interaction.guild?.id !== interaction.guild?.id ||
+      this.INSTANCE.interaction.user.id !== interaction.user.id
     )
-      this.INSTANCE = new MusicPlaybackHandler(bot, msg);
+      this.INSTANCE = new MusicPlaybackHandler(bot, interaction);
     return this.INSTANCE;
   }
 
@@ -97,68 +83,85 @@ export class MusicPlaybackHandler {
   }
 
   private async setTrack(track: TrackData, requestAuthor: string) {
-    let audioPlayer = this.bot.AudioPlayers.get(this.msg.guild!.id);
+    let audioPlayer = this.bot.subscriptions.get(
+      this.interaction.guildId!
+    ) as AudioPlayer;
 
-    if (!track && audioPlayer) {
-      audioPlayer.state.disconnect();
-      this.bot.AudioPlayers.delete(this.msg.guild!.id);
-    }
-
-    if (!this.msg.member?.voice.channel)
-      return this.msg.reply(APP_USER_NOT_IN_VOICE_CHANNEL);
+    if (!track && audioPlayer) this.stop();
 
     if (!audioPlayer) {
-      const makeBotConnection = await this.msg.member.voice.channel.join();
+      if (
+        this.interaction.member instanceof GuildMember &&
+        this.interaction.member.voice.channel
+      ) {
+        const voiceChannel = this.interaction.member?.voice.channel;
 
-      audioPlayer = {
-        state: makeBotConnection,
-        tracks: {
-          data: [track],
-          author: [requestAuthor]
-        },
-        volume: 10,
-        dispatcher: null
-      };
+        this.voiceConnection = joinVoiceChannel({
+          channelId: voiceChannel.id,
+          guildId: voiceChannel.guild.id,
+          adapterCreator: voiceChannel.guild.voiceAdapterCreator
+        });
+      }
+
+      audioPlayer = createAudioPlayer();
+
+      this.voiceConnection.subscribe(audioPlayer);
+
+      this.bot.subscriptions.set(
+        this.interaction.guildId!,
+        this.voiceConnection as VoiceConnection & AudioPlayer
+      );
     }
 
     try {
-      audioPlayer.dispatcher = audioPlayer.state.play(track.readableStream);
-
-      const thumbnailPredominantColors = await getImagePaletteColors(
-        track.data.thumbnail
+      await entersState(
+        this.voiceConnection,
+        VoiceConnectionStatus.Ready,
+        20e3
       );
-      const embed = Embed.getInstance();
-      embed
-        .setTitle('')
-        .setAuthor(APP_MUSIC_PLAYBACK_PHRASE, CD_GIF_URL)
-        .setThumbnail(track.data.thumbnail)
-        .setDescription(
-          `Now playing **[${track.data.title}](${track.data.url})** requested by <@${requestAuthor}>`
-        )
-        .setFooter(`Track duration: ${track.data.duration}`)
-        .setTimestamp({} as Date)
-        .setColor(thumbnailPredominantColors.LightVibrant || APP_MAIN_COLOR);
-      this.msg.channel.send({ embed });
 
-      audioPlayer.dispatcher.on('finish', async () => {
-        audioPlayer?.tracks.data.shift();
-        audioPlayer?.tracks.author.shift();
+      const audioResource = createAudioResource(track.readableStream);
 
-        const musicPlaybackHandler = MusicPlaybackHandler.getInstance(
-          this.bot,
-          this.msg
-        );
-        await musicPlaybackHandler.setTrack(
-          audioPlayer!.tracks.data[0],
-          audioPlayer!.tracks.author[0]
-        );
-      });
+      audioPlayer.play(audioResource);
 
-      audioPlayer.dispatcher.on('error', (err) => {
-        throw err;
-      });
+      // const thumbnailPredominantColors = await getImagePaletteColors(
+      //   track.data.thumbnail
+      // );
+      // const embed = Embed.getInstance();
+      // embed
+      //   .setTitle('')
+      //   .setAuthor({ name: APP_MUSIC_PLAYBACK_TITLE, url: CD_GIF_URL })
+      //   .setThumbnail(track.data.thumbnail)
+      //   .setDescription(
+      //     `Now playing **[${track.data.title}](${track.data.url})** requested by <@${requestAuthor}>`
+      //   )
+      //   .setFooter({ text: `Track duration: ${track.data.duration}` })
+      //   .setTimestamp({} as Date)
+      //   .setColor(
+      //     (thumbnailPredominantColors.LightVibrant ||
+      //       APP_MAIN_COLOR) as ColorResolvable
+      //   );
+      // this.interaction.channel?.send({ embeds: [embed] });
 
-      this.bot.AudioPlayers.set(this.msg.guild!.id, audioPlayer);
+      // audioPlayer.dispatcher.on('finish', async () => {
+      //   audioPlayer?.tracks.data.shift();
+      //   audioPlayer?.tracks.author.shift();
+
+      //   const musicPlaybackHandler = MusicPlaybackHandler.getInstance(
+      //     this.bot,
+      //     this.msg
+      //   );
+      //   await musicPlaybackHandler.setTrack(
+      //     audioPlayer!.tracks.data[0],
+      //     audioPlayer!.tracks.author[0]
+      //   );
+      // });
+
+      // audioPlayer.dispatcher.on('error', (err) => {
+      //   throw err;
+      // });
+
+      // this.bot.AudioPlayers.set(this.msg.guild!.id, audioPlayer);
     } catch (e) {
       console.error(e);
       const { message } = e as Error;
@@ -167,6 +170,8 @@ export class MusicPlaybackHandler {
         bot: this.bot,
         message
       });
+
+      this.voiceConnection.destroy();
     }
   }
 
@@ -217,7 +222,9 @@ export class MusicPlaybackHandler {
 
         // Temporary fix for Spotify Playlists
         if (contentType === 'PLAYLIST')
-          return this.msg.reply('Spotify playlists are not supported yet.');
+          return this.interaction.reply(
+            'Spotify playlists are not supported yet.'
+          );
 
         if (contentType) {
           parsedData = parseSpotifyResponse(
@@ -235,40 +242,38 @@ export class MusicPlaybackHandler {
 
       const trackData = await this.downloadTrack(requestedTrackUri);
 
-      const isPlaylist = trackData.length > 1;
+      // const isPlaylist = trackData.length > 1;
 
-      if (isPlaylist && platform === 'Spotify') {
-        const spotifyPlaylist = parsedData as SpotifyPlaylist;
-
-        const embed = Embed.getInstance();
-        embed
-          .setTitle('')
-          .setAuthor(
-            `"${spotifyPlaylist.name}"\nSpotify playlist by ${spotifyPlaylist.owner}`
-          )
-          .setThumbnail(spotifyPlaylist.cover)
-          .setDescription(
-            `\n• Total playlist tracks: \`${
-              spotifyPlaylist.tracks.length
-            }\`\n• Playlist duration: \`${formatSecondsToStdTime(
-              spotifyPlaylist.duration / 1000
-            )}\``
-          )
-          .setFooter(SPOTIFY_PHRASE)
-          .setTimestamp({} as Date)
-          .setColor(PLATFORMS.Spotify.color);
-        this.msg.channel.send({ embed });
-
-        embed
-          .setTitle('')
-          .setAuthor(APP_LOADING_PLAYLIST_TRACKS_TITLE)
-          .setThumbnail('')
-          .setDescription(APP_LOADING_PLAYLIST_TRACKS_DESCRIPTION)
-          .setFooter('')
-          .setTimestamp({} as Date)
-          .setColor(APP_WARNING_COLOR);
-        this.msg.channel.send({ embed });
-      }
+      // if (isPlaylist && platform === 'Spotify') {
+      // const spotifyPlaylist = parsedData as SpotifyPlaylist;
+      // const embed = Embed.getInstance();
+      // embed
+      //   .setTitle('')
+      //   .setAuthor({
+      //     name: `"${spotifyPlaylist.name}"\nSpotify playlist by ${spotifyPlaylist.owner}`
+      //   })
+      //   .setThumbnail(spotifyPlaylist.cover)
+      //   .setDescription(
+      //     `\n• Total playlist tracks: \`${
+      //       spotifyPlaylist.tracks.length
+      //     }\`\n• Playlist duration: \`${formatSecondsToStdTime(
+      //       spotifyPlaylist.duration / 1000
+      //     )}\``
+      //   )
+      //   .setFooter({ text: SPOTIFY_PHRASE })
+      //   .setTimestamp({} as Date)
+      //   .setColor(PLATFORMS.Spotify.color as ColorResolvable);
+      // this.interaction.channel?.send({ embeds: [embed] });
+      // embed
+      //   .setTitle('')
+      //   .setAuthor({ name: APP_LOADING_PLAYLIST_TRACKS_TITLE })
+      //   .setThumbnail('')
+      //   .setDescription(APP_LOADING_PLAYLIST_TRACKS_DESCRIPTION)
+      //   .setFooter({ text: '' })
+      //   .setTimestamp({} as Date)
+      //   .setColor(APP_WARNING_COLOR);
+      // this.interaction.channel?.send({ embeds: [embed] });
+      // }
 
       return {
         platform,
@@ -286,118 +291,117 @@ export class MusicPlaybackHandler {
   }
 
   async play(track: TrackData, requestAuthor: string) {
-    const embed = Embed.getInstance();
-    const audioPlayer = this.bot.AudioPlayers.get(this.msg.guild!.id);
+    // const embed = Embed.getInstance();
+    const audioPlayer = this.bot.subscriptions.get(this.interaction.guild!.id);
 
     if (!audioPlayer) {
-      embed
-        .setTitle(APP_MUSIC_PLAYBACK_TITLE)
-        .setAuthor('')
-        .setThumbnail('')
-        .setDescription(
-          `Joining channel \`${this.msg.member!.voice.channel!.name}\``
-        )
-        .setFooter('')
-        .setTimestamp({} as Date)
-        .setColor(APP_SUCCESS_COLOR);
-      this.msg.channel.send({ embed });
+      // embed
+      //   .setTitle(APP_MUSIC_PLAYBACK_TITLE)
+      //   .setAuthor({ name: '' })
+      //   .setThumbnail('')
+      //   .setDescription(
+      //     `Joining channel \`${
+      //       (this.interaction.member as GuildMember).voice.channel!.name
+      //     }\``
+      //   )
+      //   .setFooter({ text: '' })
+      //   .setTimestamp({} as Date)
+      //   .setColor(APP_SUCCESS_COLOR);
+      // this.interaction.channel?.send({ embeds: [embed] });
 
       const musicPlaybackHandler = MusicPlaybackHandler.getInstance(
         this.bot,
-        this.msg
+        this.interaction
       );
       await musicPlaybackHandler.setTrack(track, requestAuthor);
     } else {
-      audioPlayer.tracks.data.push(track);
-      audioPlayer.tracks.author.push(requestAuthor);
-      this.bot.AudioPlayers.set(this.msg.guild!.id, audioPlayer);
-
-      embed
-        .setTitle(APP_QUEUE_TITLE)
-        .setAuthor('')
-        .setThumbnail('')
-        .setDescription(
-          `Got it! [${track.data.title}](${
-            track.data.url
-          }) was added to the queue and his current position is \`${audioPlayer.tracks.data.indexOf(
-            track
-          )}\``
-        )
-        .setFooter(
-          `Added by ${this.msg.author.username}`,
-          this.msg.author.displayAvatarURL()
-        )
-        .setTimestamp(Date.now())
-        .setColor(APP_MAIN_COLOR);
-      this.msg.channel.send({ embed });
+      // audioPlayer.tracks.data.push(track);
+      // audioPlayer.tracks.author.push(requestAuthor);
+      // this.bot.Subscriptions.set(this.interaction.guildId!, audioPlayer);
+      // embed
+      //   .setTitle(APP_QUEUE_TITLE)
+      //   .setAuthor({ name: '' })
+      //   .setThumbnail('')
+      //   .setDescription(
+      //     `Got it! [${track.data.title}](${
+      //       track.data.url
+      //     }) was added to the queue and his current position is \`${audioPlayer.tracks.data.indexOf(
+      //       track
+      //     )}\``
+      //   )
+      //   .setFooter({
+      //     text: `Added by ${this.interaction.member?.user.username}`,
+      //     iconURL: this.interaction.member!.user.avatar as string
+      //   })
+      //   .setTimestamp(Date.now())
+      //   .setColor(APP_MAIN_COLOR);
+      // this.interaction.channel?.send({ embeds: [embed] });
     }
   }
 
-  async pause(msg: Message) {
-    const audioPlayer = this.bot.AudioPlayers.get(this.msg.guild!.id);
-    if (!audioPlayer || !audioPlayer.state)
-      return this.msg.reply(APP_NO_TRACK_PLAYING);
-
-    await msg.react(THUMBS_UP_EMOJI);
-    audioPlayer.state.dispatcher.pause();
+  async pause() {
+    // const audioPlayer: AudioPlayer = this.bot.Subscriptions.get(
+    //   this.interaction.guildId!
+    // );
+    // if (!audioPlayer || !audioPlayer.state)
+    //   return this.interaction.reply(APP_NO_TRACK_PLAYING);
+    // audioPlayer.pause();
   }
 
-  async resume(msg: Message) {
-    const audioPlayer = this.bot.AudioPlayers.get(this.msg.guild!.id);
-    if (!audioPlayer || !audioPlayer.state)
-      return this.msg.reply(APP_NO_TRACK_PLAYING);
-
-    await msg.react(OKAY_EMOJI);
-    audioPlayer.state.dispatcher.resume();
+  async resume() {
+    // const audioPlayer: AudioPlayer = this.bot.Subscriptions.get(
+    //   this.interaction.guildId!
+    // );
+    // if (!audioPlayer || !audioPlayer.state)
+    //   return this.interaction.reply(APP_NO_TRACK_PLAYING);
+    // audioPlayer.unpause();
   }
 
   async skip() {
-    const audioPlayer = this.bot.AudioPlayers.get(this.msg.guild!.id);
-    if (!audioPlayer) return this.msg.reply(APP_NO_TRACK_PLAYING);
-
-    if (audioPlayer.tracks.data.length === 1)
-      return this.msg.reply(APP_QUEUE_EMPTY);
-
-    audioPlayer.tracks.data.shift();
-    audioPlayer.tracks.author.shift();
-
-    const embed = Embed.getInstance();
-    embed
-      .setTitle(APP_SKIP_TRACK_TITLE)
-      .setAuthor('')
-      .setThumbnail('')
-      .setDescription(APP_SKIP_TRACK_DESCRIPTION)
-      .setFooter('')
-      .setTimestamp({} as Date)
-      .setColor(APP_MAIN_COLOR);
-    this.msg.channel.send({ embed });
-
-    const musicPlaybackHandler = MusicPlaybackHandler.getInstance(
-      this.bot,
-      this.msg
-    );
-    await musicPlaybackHandler.setTrack(
-      audioPlayer.tracks.data[0],
-      audioPlayer.tracks.author[0]
-    );
+    // const audioPlayer: AudioPlayer = this.bot.Subscriptions.get(
+    //   this.interaction.guildId!
+    // );
+    // if (!audioPlayer) return this.interaction.reply(APP_NO_TRACK_PLAYING);
+    // if (audioPlayer.tracks.data.length === 1)
+    // return this.interaction.reply(APP_QUEUE_EMPTY);
+    // audioPlayer.tracks.data.shift();
+    // audioPlayer.tracks.author.shift();
+    // const embed = Embed.getInstance();
+    // embed
+    //   .setTitle(APP_SKIP_TRACK_TITLE)
+    //   .setAuthor({ name: '' })
+    //   .setThumbnail('')
+    //   .setDescription(APP_SKIP_TRACK_DESCRIPTION)
+    //   .setFooter({ text: '' })
+    //   .setTimestamp({} as Date)
+    //   .setColor(APP_MAIN_COLOR);
+    // this.interaction.channel?.send({ embeds: [embed] });
+    // const musicPlaybackHandler = MusicPlaybackHandler.getInstance(
+    //   this.bot,
+    //   this.msg
+    // );
+    // await musicPlaybackHandler.setTrack(
+    //   audioPlayer.tracks.data[0],
+    //   audioPlayer.tracks.author[0]
+    // );
   }
 
   async stop() {
-    const audioPlayer = this.bot.AudioPlayers.get(this.msg.guild!.id);
-    if (!audioPlayer) return this.msg.reply(APP_NO_TRACK_PLAYING);
-
-    const embed = Embed.getInstance();
-    embed
-      .setTitle(APP_STOP_MUSIC_PLAYBACK_TITLE)
-      .setAuthor('')
-      .setThumbnail('')
-      .setDescription(APP_STOP_MUSIC_PLAYBACK_DESCRIPTION)
-      .setFooter('')
-      .setTimestamp({} as Date)
-      .setColor(APP_WARNING_COLOR);
-    this.msg.channel.send({ embed });
-
-    audioPlayer.state.disconnect();
-    this.bot.AudioPlayers.delete(this.msg.guild!.id);
+    // const audioPlayer: AudioPlayer = this.bot.Subscriptions.get(
+    //   this.interaction.guildId!
+    // );
+    // if (!audioPlayer) return this.interaction.reply(APP_NO_TRACK_PLAYING);
+    // const embed = Embed.getInstance();
+    // embed
+    //   .setTitle(APP_STOP_MUSIC_PLAYBACK_TITLE)
+    //   .setAuthor({ name: '' })
+    //   .setThumbnail('')
+    //   .setDescription(APP_STOP_MUSIC_PLAYBACK_DESCRIPTION)
+    //   .setFooter({ text: '' })
+    //   .setTimestamp({} as Date)
+    //   .setColor(APP_WARNING_COLOR);
+    // this.interaction.channel?.send({ embeds: [embed] });
+    // audioPlayer.stop();
+    // this.bot.Subscriptions.delete(this.interaction.guildId!);
   }
 }

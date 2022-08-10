@@ -1,4 +1,4 @@
-import type { Message } from 'discord.js';
+import { SlashCommandBuilder, type CommandInteraction } from 'discord.js';
 
 import { MusicPlaybackHandler } from '@/handlers/MusicPlaybackHandler';
 import type { Bot } from '@/structures/Bot';
@@ -10,19 +10,28 @@ export class Play extends Command {
 
   constructor(bot: Bot) {
     super(bot, {
-      name: 'Play',
-      trigger: ['play', 'p'],
-      help: 'Play a track or a Spotify playlist',
-      isActive: true
+      isActive: true,
+      build: new SlashCommandBuilder()
+        .setName('play')
+        .setDescription('Plays a track from YouTube or Spotify')
+        .addStringOption((option) =>
+          option
+            .setName('track')
+            .setDescription('The track name or URL to play')
+            .setRequired(true)
+        )
     });
   }
 
-  async execute(msg: Message, args: string[]) {
-    if (!args.length)
-      return msg.reply('Please provide a track or a Spotify playlist URL.');
+  async execute(interaction: CommandInteraction) {
+    const requestedTrack = interaction.options.get('track')?.value as string;
+    if (!requestedTrack?.length)
+      return interaction.followUp('Please provide a track to play it.');
 
-    this.MusicPlaybackHandler = MusicPlaybackHandler.getInstance(this.bot, msg);
-    const requestedTrack = args.join(' ');
+    this.MusicPlaybackHandler = MusicPlaybackHandler.getInstance(
+      this.bot,
+      interaction
+    );
 
     try {
       const { tracks } = (await this.MusicPlaybackHandler.getTrack(
@@ -31,7 +40,7 @@ export class Play extends Command {
 
       tracks.forEach(
         async (track) =>
-          await this.MusicPlaybackHandler.play(track, msg.author.id)
+          await this.MusicPlaybackHandler.play(track, interaction.user.id)
       );
     } catch (e) {
       console.error(e);

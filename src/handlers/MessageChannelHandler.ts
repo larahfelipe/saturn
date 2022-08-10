@@ -1,54 +1,66 @@
-import type { Collection, Message } from 'discord.js';
+import {
+  ChannelType,
+  type CommandInteraction,
+  type Interaction
+} from 'discord.js';
 
 export class MessageChannelHandler {
   private static INSTANCE: MessageChannelHandler;
-  protected msg: Message;
+  protected msg: Interaction | CommandInteraction;
 
-  private constructor(msg: Message) {
+  private constructor(msg: Interaction) {
     this.msg = msg;
   }
 
-  static getInstance(msg: Message) {
+  static getInstance(msg: Interaction) {
     if (!MessageChannelHandler.INSTANCE)
       MessageChannelHandler.INSTANCE = new MessageChannelHandler(msg);
     return MessageChannelHandler.INSTANCE;
   }
 
   async getFirstHundredSent() {
-    return await this.msg.channel.messages.fetch({ limit: 100 });
+    const firstHundredMsgs = await this.msg.channel?.messages.fetch({
+      limit: 100
+    });
+
+    return firstHundredMsgs;
   }
 
   async getLastSent() {
-    return await this.msg.channel.messages.fetch({ limit: 1 });
+    const lastSentMsg = await this.msg.channel?.messages.fetch({ limit: 1 });
+
+    return lastSentMsg;
   }
 
   async getFirstHundredBotSent() {
-    const firstHundredBotMsgs = await this.msg.channel.messages
+    const firstHundredBotMsgs = await this.msg.channel?.messages
       .fetch({ limit: 100 })
       .then((msgs) => {
         return msgs.filter((msg) => msg.author.bot);
       });
+
     return firstHundredBotMsgs;
   }
 
   async getLastBotSent() {
-    const lastMsgBotSent = await this.msg.channel.messages
+    const lastMsgBotSent = await this.msg.channel?.messages
       .fetch({ limit: 100 })
       .then((msgs) => {
         return msgs.filter((msg) => msg.author.bot).first();
       });
+
     return lastMsgBotSent;
   }
 
-  async bulkDelete(targetMsgs: Collection<string, Message>) {
-    if (this.msg.channel.type === 'dm') return;
+  async bulkDelete(targetMsgs: typeof this.msg) {
+    if (this.msg.channel?.type === ChannelType.DM) return;
 
-    await this.msg.channel.bulkDelete(targetMsgs);
+    await this.msg.channel?.bulkDelete(targetMsgs as any);
   }
 
-  async delete(targetMsg: Message) {
-    if (this.msg.channel.type === 'dm') return;
+  async delete(targetMsg: typeof this.msg) {
+    if (this.msg.channel?.type === ChannelType.DM) return;
 
-    await targetMsg.delete();
+    await this.msg.channel?.delete(targetMsg as any);
   }
 }
