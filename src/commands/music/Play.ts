@@ -6,8 +6,6 @@ import { Command } from '@/structures/Command';
 import type { GetTrackResult } from '@/types';
 
 export class Play extends Command {
-  MusicPlaybackHandler!: MusicPlaybackHandler;
-
   constructor(bot: Bot) {
     super(bot, {
       isActive: true,
@@ -24,23 +22,21 @@ export class Play extends Command {
   }
 
   async execute(interaction: CommandInteraction) {
-    const requestedTrack = interaction.options.get('track')?.value as string;
-    if (!requestedTrack?.length)
-      return interaction.followUp('Please provide a track to play it.');
+    const requestedTrack = interaction.options.get('track')!.value as string;
 
-    this.MusicPlaybackHandler = MusicPlaybackHandler.getInstance(
+    const musicPlaybackHandler = MusicPlaybackHandler.getInstance(
       this.bot,
       interaction
     );
 
     try {
-      const { tracks } = (await this.MusicPlaybackHandler.getTrack(
+      const { tracks } = (await musicPlaybackHandler.getTrack(
         requestedTrack
       )) as GetTrackResult;
 
       tracks.forEach(
         async (track) =>
-          await this.MusicPlaybackHandler.play(track, interaction.user.id)
+          await musicPlaybackHandler.play(track, interaction.user.id)
       );
     } catch (e) {
       console.error(e);

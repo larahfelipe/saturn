@@ -7,7 +7,7 @@ import { Command } from '@/structures/Command';
 export class Pause extends Command {
   constructor(bot: Bot) {
     super(bot, {
-      isActive: false,
+      isActive: true,
       build: new SlashCommandBuilder()
         .setName('pause')
         .setDescription('Pause the current song')
@@ -20,6 +20,6 @@ export class Pause extends Command {
       interaction
     );
 
-    await musicPlaybackHandler.pause();
+    musicPlaybackHandler.pause();
   }
 }

@@ -74,3 +74,5 @@ export type SpotifyPlaylist = {
   tracks: string[];
   duration: number;
 };
+
+export type RGBVector = [number, number, number];

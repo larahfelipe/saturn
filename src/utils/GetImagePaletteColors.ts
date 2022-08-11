@@ -1,10 +1,9 @@
 import Vibrant from 'node-vibrant';
 
 import { InvalidParameterError } from '@/errors/InvalidParameterError';
+import type { RGBVector } from '@/types';
 
 import { isValidURL } from './ValidateURL';
-
-type RGBVector = [number, number, number];
 
 type Palette = {
   Vibrant: string | RGBVector | undefined;
