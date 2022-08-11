@@ -7,7 +7,7 @@ import { Command } from '@/structures/Command';
 export class Resume extends Command {
   constructor(bot: Bot) {
     super(bot, {
-      isActive: false,
+      isActive: true,
       build: new SlashCommandBuilder()
         .setName('resume')
         .setDescription('Resume the current song')
@@ -20,6 +20,6 @@ export class Resume extends Command {
       interaction
     );
 
-    await musicPlaybackHandler.resume();
+    musicPlaybackHandler.resume();
   }
 }

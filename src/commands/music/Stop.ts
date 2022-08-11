@@ -7,7 +7,7 @@ import { Command } from '@/structures/Command';
 export class Stop extends Command {
   constructor(bot: Bot) {
     super(bot, {
-      isActive: false,
+      isActive: true,
       build: new SlashCommandBuilder()
         .setName('stop')
         .setDescription('Stop the current song')
@@ -20,6 +20,6 @@ export class Stop extends Command {
       interaction
     );
 
-    await musicPlaybackHandler.stop();
+    musicPlaybackHandler.stop(true);
   }
 }

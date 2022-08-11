@@ -9,6 +9,9 @@ import {
 import config from '@/config';
 import {
   APP_COMMANDS_LOADED,
+  APP_COMMAND_ERROR_DESCRIPTION,
+  APP_COMMAND_ERROR_TITLE,
+  APP_ERROR_COLOR,
   APP_MISSING_REQUIRED_CREDENTIALS,
   APP_READY
 } from '@/constants';
@@ -22,6 +25,7 @@ import { MessageChannelHandler } from '@/handlers/MessageChannelHandler';
 import { PrismaClient } from '@/infra/PrismaClient';
 
 import type { Command } from './Command';
+import { Embed } from './Embed';
 
 export class Bot extends Client {
   private static INSTANCE: Bot;
@@ -93,7 +97,7 @@ export class Bot extends Client {
     this.on('interactionCreate', async (interaction) => {
       this.messageChannelHandler =
         MessageChannelHandler.getInstance(interaction);
-      // const embed = Embed.getInstance();
+      const embed = Embed.getInstance();
 
       this.user?.setActivity(`Orbiting in ${interaction.guild?.name}`);
 
@@ -102,7 +106,9 @@ export class Bot extends Client {
       try {
         await interaction.deferReply();
 
-        console.log(`\n@${interaction.user.tag} -> ${interaction.commandName}`);
+        console.log(
+          `\n@${interaction.user.tag} triggered "${interaction.commandName}" command.`
+        );
 
         const command = this.commands.get(interaction.commandName);
 
@@ -117,15 +123,13 @@ export class Bot extends Client {
       } catch (e) {
         console.error(e);
 
-        // embed
-        //   .setTitle('')
-        //   .setAuthor({ name: APP_COMMAND_ERROR_TITLE })
-        //   .setThumbnail('')
-        //   .setDescription(APP_COMMAND_ERROR_DESCRIPTION)
-        //   .setFooter({ text: '' })
-        //   .setTimestamp({} as Date)
-        //   .setColor(APP_ERROR_COLOR);
-        // interaction.channel?.send({ embeds: [embed] });
+        embed.build(interaction, {
+          author: {
+            name: APP_COMMAND_ERROR_TITLE
+          },
+          description: APP_COMMAND_ERROR_DESCRIPTION,
+          color: APP_ERROR_COLOR
+        });
       }
     });
   }

@@ -1,8 +1,10 @@
 import {
+  AudioPlayerStatus,
   createAudioPlayer,
   createAudioResource,
   entersState,
   joinVoiceChannel,
+  VoiceConnectionDisconnectReason,
   VoiceConnectionStatus,
   type AudioPlayer,
   type VoiceConnection
@@ -15,28 +17,63 @@ import yts, {
 } from 'yt-search';
 import ytdl, { type downloadOptions as DownloadOptions } from 'ytdl-core';
 
-import { PLATFORMS } from '@/constants';
+import {
+  APP_MAIN_COLOR,
+  APP_MUSIC_PLAYBACK_PHRASE,
+  APP_MUSIC_PLAYBACK_TITLE,
+  APP_NO_TRACK_PLAYING,
+  APP_QUEUE_TITLE,
+  APP_SKIP_TRACK_DESCRIPTION,
+  APP_SKIP_TRACK_TITLE,
+  APP_STOP_MUSIC_PLAYBACK_DESCRIPTION,
+  APP_STOP_MUSIC_PLAYBACK_TITLE,
+  APP_SUCCESS_COLOR,
+  APP_WARNING_COLOR,
+  CD_GIF_URL,
+  MAX_VOICE_CONNECTION_JOIN_ATTEMPTS,
+  PLATFORMS
+} from '@/constants';
 import { GeneralAppError } from '@/errors/GeneralAppError';
 import { InvalidParameterError } from '@/errors/InvalidParameterError';
+import type { VCWebSocketCloseError } from '@/errors/VCWebSocketCloseError';
 import type { Bot } from '@/structures/Bot';
+import { Embed } from '@/structures/Embed';
 import type {
   GetTrackResult,
   SpotifyPlaylist,
   Track,
   TrackData
 } from '@/types';
+import { getImagePaletteColors } from '@/utils/GetImagePaletteColors';
 import { parseSpotifyResponse } from '@/utils/ParseSpotifyResponse';
 import { isValidURL } from '@/utils/ValidateURL';
 
+type BroadcastData = {
+  track: TrackData;
+  requesterId: string;
+};
+
+type Queue = BroadcastData[];
+
+type VoiceConnectionNewState = {
+  status: VoiceConnectionStatus;
+  reason: VoiceConnectionDisconnectReason;
+  closeCode: number;
+};
+
 export class MusicPlaybackHandler {
   private static INSTANCE: MusicPlaybackHandler;
-  protected voiceConnection!: VoiceConnection;
   protected bot: Bot;
   protected interaction: CommandInteraction;
+  protected audioPlayer!: AudioPlayer;
+  protected voiceConnection!: VoiceConnection;
+  protected queueLock = false;
+  queue: Queue;
 
   private constructor(bot: Bot, interaction: CommandInteraction) {
     this.bot = bot;
     this.interaction = interaction;
+    this.queue = [];
   }
 
   static getInstance(bot: Bot, interaction: CommandInteraction) {
@@ -67,8 +104,8 @@ export class MusicPlaybackHandler {
 
         const trackReadableStream = ytdl(trackInfo.url, downloadOptions).on(
           'error',
-          (err) => {
-            throw err;
+          (e) => {
+            throw e;
           }
         );
 
@@ -82,97 +119,186 @@ export class MusicPlaybackHandler {
     return tracksData;
   }
 
-  private async setTrack(track: TrackData, requestAuthor: string) {
-    let audioPlayer = this.bot.subscriptions.get(
-      this.interaction.guildId!
-    ) as AudioPlayer;
+  private async processQueue(skipTrack = false): Promise<void> {
+    if (
+      this.queueLock ||
+      !this.queue.length ||
+      (this.audioPlayer.state.status !== AudioPlayerStatus.Idle && !skipTrack)
+    )
+      return;
 
-    if (!track && audioPlayer) this.stop();
+    this.queueLock = true;
 
-    if (!audioPlayer) {
-      if (
-        this.interaction.member instanceof GuildMember &&
-        this.interaction.member.voice.channel
-      ) {
-        const voiceChannel = this.interaction.member?.voice.channel;
-
-        this.voiceConnection = joinVoiceChannel({
-          channelId: voiceChannel.id,
-          guildId: voiceChannel.guild.id,
-          adapterCreator: voiceChannel.guild.voiceAdapterCreator
-        });
-      }
-
-      audioPlayer = createAudioPlayer();
-
-      this.voiceConnection.subscribe(audioPlayer);
-
-      this.bot.subscriptions.set(
-        this.interaction.guildId!,
-        this.voiceConnection as VoiceConnection & AudioPlayer
-      );
-    }
-
+    const { track } = this.queue.shift()!;
     try {
-      await entersState(
-        this.voiceConnection,
-        VoiceConnectionStatus.Ready,
-        20e3
-      );
-
       const audioResource = createAudioResource(track.readableStream);
 
-      audioPlayer.play(audioResource);
+      this.audioPlayer.play(audioResource);
 
-      // const thumbnailPredominantColors = await getImagePaletteColors(
-      //   track.data.thumbnail
-      // );
-      // const embed = Embed.getInstance();
-      // embed
-      //   .setTitle('')
-      //   .setAuthor({ name: APP_MUSIC_PLAYBACK_TITLE, url: CD_GIF_URL })
-      //   .setThumbnail(track.data.thumbnail)
-      //   .setDescription(
-      //     `Now playing **[${track.data.title}](${track.data.url})** requested by <@${requestAuthor}>`
-      //   )
-      //   .setFooter({ text: `Track duration: ${track.data.duration}` })
-      //   .setTimestamp({} as Date)
-      //   .setColor(
-      //     (thumbnailPredominantColors.LightVibrant ||
-      //       APP_MAIN_COLOR) as ColorResolvable
-      //   );
-      // this.interaction.channel?.send({ embeds: [embed] });
-
-      // audioPlayer.dispatcher.on('finish', async () => {
-      //   audioPlayer?.tracks.data.shift();
-      //   audioPlayer?.tracks.author.shift();
-
-      //   const musicPlaybackHandler = MusicPlaybackHandler.getInstance(
-      //     this.bot,
-      //     this.msg
-      //   );
-      //   await musicPlaybackHandler.setTrack(
-      //     audioPlayer!.tracks.data[0],
-      //     audioPlayer!.tracks.author[0]
-      //   );
-      // });
-
-      // audioPlayer.dispatcher.on('error', (err) => {
-      //   throw err;
-      // });
-
-      // this.bot.AudioPlayers.set(this.msg.guild!.id, audioPlayer);
+      this.queueLock = false;
     } catch (e) {
       console.error(e);
       const { message } = e as Error;
+      this.queueLock = false;
 
       new GeneralAppError({
         bot: this.bot,
         message
       });
 
-      this.voiceConnection.destroy();
+      return await this.processQueue();
     }
+  }
+
+  private async setAudioBroadcast(data: BroadcastData | null) {
+    this.audioPlayer = this.bot.subscriptions.get(
+      this.interaction.guildId!
+    ) as AudioPlayer;
+
+    try {
+      if (!this.audioPlayer) {
+        if (
+          this.interaction.member instanceof GuildMember &&
+          this.interaction.member.voice.channel
+        ) {
+          this.audioPlayer = createAudioPlayer();
+
+          const voiceChannel = this.interaction.member?.voice.channel;
+
+          this.voiceConnection = joinVoiceChannel({
+            channelId: voiceChannel.id,
+            guildId: voiceChannel.guild.id,
+            adapterCreator: voiceChannel.guild.voiceAdapterCreator
+          });
+
+          this.voiceConnection.subscribe(this.audioPlayer);
+
+          this.bot.subscriptions.set(
+            this.interaction.guildId!,
+            this.audioPlayer
+          );
+        }
+      }
+
+      await this.enqueue(data as BroadcastData);
+
+      this.voiceConnection.on('stateChange', async (_: any, newState: any) => {
+        const { status, reason, closeCode } =
+          newState as VoiceConnectionNewState;
+
+        const onReadyToMakeVoiceConnection =
+          status === VoiceConnectionStatus.Connecting ||
+          status === VoiceConnectionStatus.Signalling;
+
+        const onVoiceConnectionDisconnected =
+          status === VoiceConnectionStatus.Disconnected;
+
+        const onVoiceConnectionDestroyed =
+          status === VoiceConnectionStatus.Destroyed;
+
+        if (onReadyToMakeVoiceConnection) {
+          try {
+            await entersState(
+              this.voiceConnection,
+              VoiceConnectionStatus.Ready,
+              20_000 // 20 seconds
+            );
+          } catch (e) {
+            if (
+              this.voiceConnection.state.status !==
+              VoiceConnectionStatus.Destroyed
+            )
+              this.voiceConnection.destroy();
+
+            throw e;
+          }
+        } else if (onVoiceConnectionDisconnected) {
+          const maybeReestablishVoiceConnection =
+            reason === VoiceConnectionDisconnectReason.WebSocketClose &&
+            closeCode === 4014;
+
+          const notReachedMaxReconnectAttempts =
+            this.voiceConnection.rejoinAttempts <
+            MAX_VOICE_CONNECTION_JOIN_ATTEMPTS;
+
+          if (maybeReestablishVoiceConnection) {
+            try {
+              await entersState(
+                this.voiceConnection,
+                VoiceConnectionStatus.Connecting,
+                5_000 // 5 seconds
+              );
+            } catch (e) {
+              throw e as VCWebSocketCloseError;
+            }
+          } else if (notReachedMaxReconnectAttempts) {
+            this.voiceConnection.rejoinAttempts++;
+            this.voiceConnection.rejoin();
+          } else {
+            this.voiceConnection.destroy();
+          }
+        } else if (onVoiceConnectionDestroyed) this.stop();
+      });
+
+      this.voiceConnection.on('error', (e) => {
+        throw e;
+      });
+
+      this.audioPlayer.on('stateChange', async (oldState, newState) => {
+        const onFinishPlaying =
+          newState.status === AudioPlayerStatus.Idle &&
+          oldState.status !== AudioPlayerStatus.Idle;
+
+        const onStartPlaying =
+          newState.status === AudioPlayerStatus.Playing &&
+          oldState.status !== AudioPlayerStatus.Paused;
+
+        if (onFinishPlaying) await this.processQueue();
+
+        if (onStartPlaying) {
+          const { track, requesterId } = data as BroadcastData;
+
+          const thumbnailPredominantColors = await getImagePaletteColors(
+            track.data.thumbnail
+          );
+
+          const embed = Embed.getInstance();
+          embed.build(this.interaction, {
+            author: {
+              name: APP_MUSIC_PLAYBACK_PHRASE,
+              iconURL: CD_GIF_URL
+            },
+            thumbnail: track.data.thumbnail,
+            description: `Now playing **[${track.data.title}](${track.data.url})** requested by <@${requesterId}>`,
+            footer: {
+              text: `Track duration: ${track.data.duration}`
+            },
+            color: thumbnailPredominantColors.LightVibrant ?? APP_MAIN_COLOR
+          });
+
+          data = null;
+        }
+      });
+
+      this.audioPlayer.on('error', (e) => {
+        throw e;
+      });
+    } catch (e) {
+      const { message } = e as Error;
+      console.error(e);
+
+      this.stop();
+
+      new GeneralAppError({
+        bot: this.bot,
+        message
+      });
+    }
+  }
+
+  async enqueue(data: BroadcastData) {
+    this.queue.push(data);
+    await this.processQueue();
   }
 
   async getTrackInfo(trackUri: string) {
@@ -200,7 +326,7 @@ export class MusicPlaybackHandler {
   }
 
   async getTrack(trackUri: string) {
-    let platform = '' as keyof typeof PLATFORMS;
+    let platform: keyof typeof PLATFORMS = 'YouTube';
     let parsedData: string | SpotifyPlaylist = trackUri;
 
     try {
@@ -210,8 +336,6 @@ export class MusicPlaybackHandler {
           throw new InvalidParameterError(
             'An invalid YouTube URL was provided'
           );
-
-        platform = 'YouTube';
       } else if (isValidURL(trackUri, 'Spotify')) {
         platform = 'Spotify';
 
@@ -222,7 +346,7 @@ export class MusicPlaybackHandler {
 
         // Temporary fix for Spotify Playlists
         if (contentType === 'PLAYLIST')
-          return this.interaction.reply(
+          return this.interaction.followUp(
             'Spotify playlists are not supported yet.'
           );
 
@@ -243,7 +367,6 @@ export class MusicPlaybackHandler {
       const trackData = await this.downloadTrack(requestedTrackUri);
 
       // const isPlaylist = trackData.length > 1;
-
       // if (isPlaylist && platform === 'Spotify') {
       // const spotifyPlaylist = parsedData as SpotifyPlaylist;
       // const embed = Embed.getInstance();
@@ -290,118 +413,87 @@ export class MusicPlaybackHandler {
     }
   }
 
-  async play(track: TrackData, requestAuthor: string) {
-    // const embed = Embed.getInstance();
-    const audioPlayer = this.bot.subscriptions.get(this.interaction.guild!.id);
+  async play(track: TrackData, requesterId: string) {
+    const data: BroadcastData = {
+      track,
+      requesterId
+    };
 
-    if (!audioPlayer) {
-      // embed
-      //   .setTitle(APP_MUSIC_PLAYBACK_TITLE)
-      //   .setAuthor({ name: '' })
-      //   .setThumbnail('')
-      //   .setDescription(
-      //     `Joining channel \`${
-      //       (this.interaction.member as GuildMember).voice.channel!.name
-      //     }\``
-      //   )
-      //   .setFooter({ text: '' })
-      //   .setTimestamp({} as Date)
-      //   .setColor(APP_SUCCESS_COLOR);
-      // this.interaction.channel?.send({ embeds: [embed] });
+    await this.setAudioBroadcast(data);
 
-      const musicPlaybackHandler = MusicPlaybackHandler.getInstance(
-        this.bot,
-        this.interaction
-      );
-      await musicPlaybackHandler.setTrack(track, requestAuthor);
-    } else {
-      // audioPlayer.tracks.data.push(track);
-      // audioPlayer.tracks.author.push(requestAuthor);
-      // this.bot.Subscriptions.set(this.interaction.guildId!, audioPlayer);
-      // embed
-      //   .setTitle(APP_QUEUE_TITLE)
-      //   .setAuthor({ name: '' })
-      //   .setThumbnail('')
-      //   .setDescription(
-      //     `Got it! [${track.data.title}](${
-      //       track.data.url
-      //     }) was added to the queue and his current position is \`${audioPlayer.tracks.data.indexOf(
-      //       track
-      //     )}\``
-      //   )
-      //   .setFooter({
-      //     text: `Added by ${this.interaction.member?.user.username}`,
-      //     iconURL: this.interaction.member!.user.avatar as string
-      //   })
-      //   .setTimestamp(Date.now())
-      //   .setColor(APP_MAIN_COLOR);
-      // this.interaction.channel?.send({ embeds: [embed] });
+    const embed = Embed.getInstance();
+
+    if (!this.queue.length) {
+      embed.build(this.interaction, {
+        title: APP_MUSIC_PLAYBACK_TITLE,
+        description: `Joining channel \`${
+          (this.interaction.member as GuildMember).voice.channel!.name
+        }\``,
+        color: APP_SUCCESS_COLOR
+      });
+      return;
     }
+
+    embed.build(this.interaction, {
+      title: APP_QUEUE_TITLE,
+      description: `Got it! [${track.data.title}](${
+        track.data.url
+      }) was added to the queue and his current position is \`${
+        this.queue.indexOf(data) + 1
+      }\``,
+      footer: {
+        text: `Added by ${this.interaction.member?.user.username}`
+      },
+      timestamp: new Date(),
+      color: APP_MAIN_COLOR
+    });
   }
 
-  async pause() {
-    // const audioPlayer: AudioPlayer = this.bot.Subscriptions.get(
-    //   this.interaction.guildId!
-    // );
-    // if (!audioPlayer || !audioPlayer.state)
-    //   return this.interaction.reply(APP_NO_TRACK_PLAYING);
-    // audioPlayer.pause();
+  pause() {
+    const audioPlayer = this.bot.subscriptions.get(this.interaction.guildId!);
+    if (!audioPlayer) return this.interaction.followUp(APP_NO_TRACK_PLAYING);
+
+    this.audioPlayer.pause();
   }
 
-  async resume() {
-    // const audioPlayer: AudioPlayer = this.bot.Subscriptions.get(
-    //   this.interaction.guildId!
-    // );
-    // if (!audioPlayer || !audioPlayer.state)
-    //   return this.interaction.reply(APP_NO_TRACK_PLAYING);
-    // audioPlayer.unpause();
+  resume() {
+    const audioPlayer = this.bot.subscriptions.get(this.interaction.guildId!);
+    if (!audioPlayer) return this.interaction.followUp(APP_NO_TRACK_PLAYING);
+
+    this.audioPlayer.unpause();
   }
 
-  async skip() {
-    // const audioPlayer: AudioPlayer = this.bot.Subscriptions.get(
-    //   this.interaction.guildId!
-    // );
-    // if (!audioPlayer) return this.interaction.reply(APP_NO_TRACK_PLAYING);
-    // if (audioPlayer.tracks.data.length === 1)
-    // return this.interaction.reply(APP_QUEUE_EMPTY);
-    // audioPlayer.tracks.data.shift();
-    // audioPlayer.tracks.author.shift();
-    // const embed = Embed.getInstance();
-    // embed
-    //   .setTitle(APP_SKIP_TRACK_TITLE)
-    //   .setAuthor({ name: '' })
-    //   .setThumbnail('')
-    //   .setDescription(APP_SKIP_TRACK_DESCRIPTION)
-    //   .setFooter({ text: '' })
-    //   .setTimestamp({} as Date)
-    //   .setColor(APP_MAIN_COLOR);
-    // this.interaction.channel?.send({ embeds: [embed] });
-    // const musicPlaybackHandler = MusicPlaybackHandler.getInstance(
-    //   this.bot,
-    //   this.msg
-    // );
-    // await musicPlaybackHandler.setTrack(
-    //   audioPlayer.tracks.data[0],
-    //   audioPlayer.tracks.author[0]
-    // );
+  skip() {
+    const audioPlayer = this.bot.subscriptions.get(this.interaction.guildId!);
+    if (!audioPlayer) return this.interaction.followUp(APP_NO_TRACK_PLAYING);
+
+    const embed = Embed.getInstance();
+    embed.build(this.interaction, {
+      title: APP_SKIP_TRACK_TITLE,
+      description: APP_SKIP_TRACK_DESCRIPTION,
+      color: APP_MAIN_COLOR
+    });
+
+    this.processQueue(true);
   }
 
-  async stop() {
-    // const audioPlayer: AudioPlayer = this.bot.Subscriptions.get(
-    //   this.interaction.guildId!
-    // );
-    // if (!audioPlayer) return this.interaction.reply(APP_NO_TRACK_PLAYING);
-    // const embed = Embed.getInstance();
-    // embed
-    //   .setTitle(APP_STOP_MUSIC_PLAYBACK_TITLE)
-    //   .setAuthor({ name: '' })
-    //   .setThumbnail('')
-    //   .setDescription(APP_STOP_MUSIC_PLAYBACK_DESCRIPTION)
-    //   .setFooter({ text: '' })
-    //   .setTimestamp({} as Date)
-    //   .setColor(APP_WARNING_COLOR);
-    // this.interaction.channel?.send({ embeds: [embed] });
-    // audioPlayer.stop();
-    // this.bot.Subscriptions.delete(this.interaction.guildId!);
+  stop(shouldNotifyChannel = false) {
+    const audioPlayer = this.bot.subscriptions.get(this.interaction.guildId!);
+    if (!audioPlayer) return this.interaction.followUp(APP_NO_TRACK_PLAYING);
+
+    if (shouldNotifyChannel) {
+      const embed = Embed.getInstance();
+      embed.build(this.interaction, {
+        title: APP_STOP_MUSIC_PLAYBACK_TITLE,
+        description: APP_STOP_MUSIC_PLAYBACK_DESCRIPTION,
+        color: APP_WARNING_COLOR
+      });
+    }
+
+    this.audioPlayer.stop(true);
+    this.voiceConnection.destroy();
+    this.bot.subscriptions.delete(this.interaction.guildId!);
+    this.queueLock = false;
+    this.queue = [];
   }
 }

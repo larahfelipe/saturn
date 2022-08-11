@@ -7,7 +7,7 @@ import { Command } from '@/structures/Command';
 export class Skip extends Command {
   constructor(bot: Bot) {
     super(bot, {
-      isActive: false,
+      isActive: true,
       build: new SlashCommandBuilder()
         .setName('skip')
         .setDescription('Skip the current song')
@@ -20,6 +20,6 @@ export class Skip extends Command {
       interaction
     );
 
-    await musicPlaybackHandler.skip();
+    musicPlaybackHandler.skip();
   }
 }
