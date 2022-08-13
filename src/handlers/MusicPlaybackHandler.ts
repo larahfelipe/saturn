@@ -1,5 +1,16 @@
+import {
+  AudioPlayerStatus,
+  createAudioPlayer,
+  createAudioResource,
+  entersState,
+  joinVoiceChannel,
+  VoiceConnectionDisconnectReason,
+  VoiceConnectionStatus,
+  type AudioPlayer,
+  type VoiceConnection
+} from '@discordjs/voice';
 import axios, { type AxiosResponse } from 'axios';
-import type { Message } from 'discord.js';
+import { GuildMember, type CommandInteraction } from 'discord.js';
 import yts, {
   type VideoMetadataResult,
   type VideoSearchResult
@@ -7,29 +18,24 @@ import yts, {
 import ytdl, { type downloadOptions as DownloadOptions } from 'ytdl-core';
 
 import {
-  APP_LOADING_PLAYLIST_TRACKS_DESCRIPTION,
-  APP_LOADING_PLAYLIST_TRACKS_TITLE,
   APP_MAIN_COLOR,
   APP_MUSIC_PLAYBACK_PHRASE,
   APP_MUSIC_PLAYBACK_TITLE,
   APP_NO_TRACK_PLAYING,
-  APP_QUEUE_EMPTY,
   APP_QUEUE_TITLE,
   APP_SKIP_TRACK_DESCRIPTION,
   APP_SKIP_TRACK_TITLE,
   APP_STOP_MUSIC_PLAYBACK_DESCRIPTION,
   APP_STOP_MUSIC_PLAYBACK_TITLE,
   APP_SUCCESS_COLOR,
-  APP_USER_NOT_IN_VOICE_CHANNEL,
   APP_WARNING_COLOR,
   CD_GIF_URL,
-  OKAY_EMOJI,
-  PLATFORMS,
-  SPOTIFY_PHRASE,
-  THUMBS_UP_EMOJI
+  MAX_VOICE_CONNECTION_JOIN_ATTEMPTS,
+  PLATFORMS
 } from '@/constants';
 import { GeneralAppError } from '@/errors/GeneralAppError';
 import { InvalidParameterError } from '@/errors/InvalidParameterError';
+import type { VCWebSocketCloseError } from '@/errors/VCWebSocketCloseError';
 import type { Bot } from '@/structures/Bot';
 import { Embed } from '@/structures/Embed';
 import type {
@@ -38,28 +44,45 @@ import type {
   Track,
   TrackData
 } from '@/types';
-import { formatSecondsToStdTime } from '@/utils/FormatTime';
 import { getImagePaletteColors } from '@/utils/GetImagePaletteColors';
 import { parseSpotifyResponse } from '@/utils/ParseSpotifyResponse';
 import { isValidURL } from '@/utils/ValidateURL';
 
+type BroadcastData = {
+  track: TrackData;
+  requesterId: string;
+};
+
+type Queue = BroadcastData[];
+
+type VoiceConnectionNewState = {
+  status: VoiceConnectionStatus;
+  reason: VoiceConnectionDisconnectReason;
+  closeCode: number;
+};
+
 export class MusicPlaybackHandler {
   private static INSTANCE: MusicPlaybackHandler;
   protected bot: Bot;
-  protected msg: Message;
+  protected interaction: CommandInteraction;
+  protected audioPlayer!: AudioPlayer;
+  protected voiceConnection!: VoiceConnection;
+  protected queueLock = false;
+  queue: Queue;
 
-  private constructor(bot: Bot, msg: Message) {
+  private constructor(bot: Bot, interaction: CommandInteraction) {
     this.bot = bot;
-    this.msg = msg;
+    this.interaction = interaction;
+    this.queue = [];
   }
 
-  static getInstance(bot: Bot, msg: Message) {
+  static getInstance(bot: Bot, interaction: CommandInteraction) {
     if (
       !this.INSTANCE ||
-      this.INSTANCE.msg.guild?.id !== msg.guild?.id ||
-      this.INSTANCE.msg.author.id !== msg.author.id
+      this.INSTANCE.interaction.guild?.id !== interaction.guild?.id ||
+      this.INSTANCE.interaction.user.id !== interaction.user.id
     )
-      this.INSTANCE = new MusicPlaybackHandler(bot, msg);
+      this.INSTANCE = new MusicPlaybackHandler(bot, interaction);
     return this.INSTANCE;
   }
 
@@ -81,8 +104,8 @@ export class MusicPlaybackHandler {
 
         const trackReadableStream = ytdl(trackInfo.url, downloadOptions).on(
           'error',
-          (err) => {
-            throw err;
+          (e) => {
+            throw e;
           }
         );
 
@@ -96,78 +119,186 @@ export class MusicPlaybackHandler {
     return tracksData;
   }
 
-  private async setTrack(track: TrackData, requestAuthor: string) {
-    let audioPlayer = this.bot.AudioPlayers.get(this.msg.guild!.id);
+  private async processQueue(skipTrack = false): Promise<void> {
+    if (
+      this.queueLock ||
+      !this.queue.length ||
+      (this.audioPlayer.state.status !== AudioPlayerStatus.Idle && !skipTrack)
+    )
+      return;
 
-    if (!track && audioPlayer) {
-      audioPlayer.state.disconnect();
-      this.bot.AudioPlayers.delete(this.msg.guild!.id);
-    }
+    this.queueLock = true;
 
-    if (!this.msg.member?.voice.channel)
-      return this.msg.reply(APP_USER_NOT_IN_VOICE_CHANNEL);
-
-    if (!audioPlayer) {
-      const makeBotConnection = await this.msg.member.voice.channel.join();
-
-      audioPlayer = {
-        state: makeBotConnection,
-        tracks: {
-          data: [track],
-          author: [requestAuthor]
-        },
-        volume: 10,
-        dispatcher: null
-      };
-    }
-
+    const { track } = this.queue.shift()!;
     try {
-      audioPlayer.dispatcher = audioPlayer.state.play(track.readableStream);
+      const audioResource = createAudioResource(track.readableStream);
 
-      const thumbnailPredominantColors = await getImagePaletteColors(
-        track.data.thumbnail
-      );
-      const embed = Embed.getInstance();
-      embed
-        .setTitle('')
-        .setAuthor(APP_MUSIC_PLAYBACK_PHRASE, CD_GIF_URL)
-        .setThumbnail(track.data.thumbnail)
-        .setDescription(
-          `Now playing **[${track.data.title}](${track.data.url})** requested by <@${requestAuthor}>`
-        )
-        .setFooter(`Track duration: ${track.data.duration}`)
-        .setTimestamp({} as Date)
-        .setColor(thumbnailPredominantColors.LightVibrant || APP_MAIN_COLOR);
-      this.msg.channel.send({ embed });
+      this.audioPlayer.play(audioResource);
 
-      audioPlayer.dispatcher.on('finish', async () => {
-        audioPlayer?.tracks.data.shift();
-        audioPlayer?.tracks.author.shift();
-
-        const musicPlaybackHandler = MusicPlaybackHandler.getInstance(
-          this.bot,
-          this.msg
-        );
-        await musicPlaybackHandler.setTrack(
-          audioPlayer!.tracks.data[0],
-          audioPlayer!.tracks.author[0]
-        );
-      });
-
-      audioPlayer.dispatcher.on('error', (err) => {
-        throw err;
-      });
-
-      this.bot.AudioPlayers.set(this.msg.guild!.id, audioPlayer);
+      this.queueLock = false;
     } catch (e) {
       console.error(e);
       const { message } = e as Error;
+      this.queueLock = false;
+
+      new GeneralAppError({
+        bot: this.bot,
+        message
+      });
+
+      return await this.processQueue();
+    }
+  }
+
+  private async setAudioBroadcast(data: BroadcastData | null) {
+    this.audioPlayer = this.bot.subscriptions.get(
+      this.interaction.guildId!
+    ) as AudioPlayer;
+
+    try {
+      if (!this.audioPlayer) {
+        if (
+          this.interaction.member instanceof GuildMember &&
+          this.interaction.member.voice.channel
+        ) {
+          this.audioPlayer = createAudioPlayer();
+
+          const voiceChannel = this.interaction.member?.voice.channel;
+
+          this.voiceConnection = joinVoiceChannel({
+            channelId: voiceChannel.id,
+            guildId: voiceChannel.guild.id,
+            adapterCreator: voiceChannel.guild.voiceAdapterCreator
+          });
+
+          this.voiceConnection.subscribe(this.audioPlayer);
+
+          this.bot.subscriptions.set(
+            this.interaction.guildId!,
+            this.audioPlayer
+          );
+        }
+      }
+
+      await this.enqueue(data as BroadcastData);
+
+      this.voiceConnection.on('stateChange', async (_: any, newState: any) => {
+        const { status, reason, closeCode } =
+          newState as VoiceConnectionNewState;
+
+        const onReadyToMakeVoiceConnection =
+          status === VoiceConnectionStatus.Connecting ||
+          status === VoiceConnectionStatus.Signalling;
+
+        const onVoiceConnectionDisconnected =
+          status === VoiceConnectionStatus.Disconnected;
+
+        const onVoiceConnectionDestroyed =
+          status === VoiceConnectionStatus.Destroyed;
+
+        if (onReadyToMakeVoiceConnection) {
+          try {
+            await entersState(
+              this.voiceConnection,
+              VoiceConnectionStatus.Ready,
+              20_000 // 20 seconds
+            );
+          } catch (e) {
+            if (
+              this.voiceConnection.state.status !==
+              VoiceConnectionStatus.Destroyed
+            )
+              this.voiceConnection.destroy();
+
+            throw e;
+          }
+        } else if (onVoiceConnectionDisconnected) {
+          const maybeReestablishVoiceConnection =
+            reason === VoiceConnectionDisconnectReason.WebSocketClose &&
+            closeCode === 4014;
+
+          const notReachedMaxReconnectAttempts =
+            this.voiceConnection.rejoinAttempts <
+            MAX_VOICE_CONNECTION_JOIN_ATTEMPTS;
+
+          if (maybeReestablishVoiceConnection) {
+            try {
+              await entersState(
+                this.voiceConnection,
+                VoiceConnectionStatus.Connecting,
+                5_000 // 5 seconds
+              );
+            } catch (e) {
+              throw e as VCWebSocketCloseError;
+            }
+          } else if (notReachedMaxReconnectAttempts) {
+            this.voiceConnection.rejoinAttempts++;
+            this.voiceConnection.rejoin();
+          } else {
+            this.voiceConnection.destroy();
+          }
+        } else if (onVoiceConnectionDestroyed) this.stop();
+      });
+
+      this.voiceConnection.on('error', (e) => {
+        throw e;
+      });
+
+      this.audioPlayer.on('stateChange', async (oldState, newState) => {
+        const onFinishPlaying =
+          newState.status === AudioPlayerStatus.Idle &&
+          oldState.status !== AudioPlayerStatus.Idle;
+
+        const onStartPlaying =
+          newState.status === AudioPlayerStatus.Playing &&
+          oldState.status !== AudioPlayerStatus.Paused;
+
+        if (onFinishPlaying) await this.processQueue();
+
+        if (onStartPlaying) {
+          const { track, requesterId } = data as BroadcastData;
+
+          const thumbnailPredominantColors = await getImagePaletteColors(
+            track.data.thumbnail
+          );
+
+          const embed = Embed.getInstance();
+          embed.build(this.interaction, {
+            author: {
+              name: APP_MUSIC_PLAYBACK_PHRASE,
+              iconURL: CD_GIF_URL
+            },
+            thumbnail: track.data.thumbnail,
+            description: `Now playing **[${track.data.title}](${track.data.url})** requested by <@${requesterId}>`,
+            footer: {
+              text: `Track duration: ${track.data.duration}`
+            },
+            color: thumbnailPredominantColors.LightVibrant ?? APP_MAIN_COLOR
+          });
+
+          data = null;
+        }
+      });
+
+      this.audioPlayer.on('error', (e) => {
+        throw e;
+      });
+    } catch (e) {
+      const { message } = e as Error;
+      console.error(e);
+
+      this.stop();
 
       new GeneralAppError({
         bot: this.bot,
         message
       });
     }
+  }
+
+  async enqueue(data: BroadcastData) {
+    this.queue.push(data);
+    await this.processQueue();
   }
 
   async getTrackInfo(trackUri: string) {
@@ -195,7 +326,7 @@ export class MusicPlaybackHandler {
   }
 
   async getTrack(trackUri: string) {
-    let platform = '' as keyof typeof PLATFORMS;
+    let platform: keyof typeof PLATFORMS = 'YouTube';
     let parsedData: string | SpotifyPlaylist = trackUri;
 
     try {
@@ -205,8 +336,6 @@ export class MusicPlaybackHandler {
           throw new InvalidParameterError(
             'An invalid YouTube URL was provided'
           );
-
-        platform = 'YouTube';
       } else if (isValidURL(trackUri, 'Spotify')) {
         platform = 'Spotify';
 
@@ -217,7 +346,9 @@ export class MusicPlaybackHandler {
 
         // Temporary fix for Spotify Playlists
         if (contentType === 'PLAYLIST')
-          return this.msg.reply('Spotify playlists are not supported yet.');
+          return this.interaction.followUp(
+            'Spotify playlists are not supported yet.'
+          );
 
         if (contentType) {
           parsedData = parseSpotifyResponse(
@@ -235,40 +366,37 @@ export class MusicPlaybackHandler {
 
       const trackData = await this.downloadTrack(requestedTrackUri);
 
-      const isPlaylist = trackData.length > 1;
-
-      if (isPlaylist && platform === 'Spotify') {
-        const spotifyPlaylist = parsedData as SpotifyPlaylist;
-
-        const embed = Embed.getInstance();
-        embed
-          .setTitle('')
-          .setAuthor(
-            `"${spotifyPlaylist.name}"\nSpotify playlist by ${spotifyPlaylist.owner}`
-          )
-          .setThumbnail(spotifyPlaylist.cover)
-          .setDescription(
-            `\n• Total playlist tracks: \`${
-              spotifyPlaylist.tracks.length
-            }\`\n• Playlist duration: \`${formatSecondsToStdTime(
-              spotifyPlaylist.duration / 1000
-            )}\``
-          )
-          .setFooter(SPOTIFY_PHRASE)
-          .setTimestamp({} as Date)
-          .setColor(PLATFORMS.Spotify.color);
-        this.msg.channel.send({ embed });
-
-        embed
-          .setTitle('')
-          .setAuthor(APP_LOADING_PLAYLIST_TRACKS_TITLE)
-          .setThumbnail('')
-          .setDescription(APP_LOADING_PLAYLIST_TRACKS_DESCRIPTION)
-          .setFooter('')
-          .setTimestamp({} as Date)
-          .setColor(APP_WARNING_COLOR);
-        this.msg.channel.send({ embed });
-      }
+      // const isPlaylist = trackData.length > 1;
+      // if (isPlaylist && platform === 'Spotify') {
+      // const spotifyPlaylist = parsedData as SpotifyPlaylist;
+      // const embed = Embed.getInstance();
+      // embed
+      //   .setTitle('')
+      //   .setAuthor({
+      //     name: `"${spotifyPlaylist.name}"\nSpotify playlist by ${spotifyPlaylist.owner}`
+      //   })
+      //   .setThumbnail(spotifyPlaylist.cover)
+      //   .setDescription(
+      //     `\n• Total playlist tracks: \`${
+      //       spotifyPlaylist.tracks.length
+      //     }\`\n• Playlist duration: \`${formatSecondsToStdTime(
+      //       spotifyPlaylist.duration / 1000
+      //     )}\``
+      //   )
+      //   .setFooter({ text: SPOTIFY_PHRASE })
+      //   .setTimestamp({} as Date)
+      //   .setColor(PLATFORMS.Spotify.color as ColorResolvable);
+      // this.interaction.channel?.send({ embeds: [embed] });
+      // embed
+      //   .setTitle('')
+      //   .setAuthor({ name: APP_LOADING_PLAYLIST_TRACKS_TITLE })
+      //   .setThumbnail('')
+      //   .setDescription(APP_LOADING_PLAYLIST_TRACKS_DESCRIPTION)
+      //   .setFooter({ text: '' })
+      //   .setTimestamp({} as Date)
+      //   .setColor(APP_WARNING_COLOR);
+      // this.interaction.channel?.send({ embeds: [embed] });
+      // }
 
       return {
         platform,
@@ -285,119 +413,87 @@ export class MusicPlaybackHandler {
     }
   }
 
-  async play(track: TrackData, requestAuthor: string) {
+  async play(track: TrackData, requesterId: string) {
+    const data: BroadcastData = {
+      track,
+      requesterId
+    };
+
+    await this.setAudioBroadcast(data);
+
     const embed = Embed.getInstance();
-    const audioPlayer = this.bot.AudioPlayers.get(this.msg.guild!.id);
 
-    if (!audioPlayer) {
-      embed
-        .setTitle(APP_MUSIC_PLAYBACK_TITLE)
-        .setAuthor('')
-        .setThumbnail('')
-        .setDescription(
-          `Joining channel \`${this.msg.member!.voice.channel!.name}\``
-        )
-        .setFooter('')
-        .setTimestamp({} as Date)
-        .setColor(APP_SUCCESS_COLOR);
-      this.msg.channel.send({ embed });
-
-      const musicPlaybackHandler = MusicPlaybackHandler.getInstance(
-        this.bot,
-        this.msg
-      );
-      await musicPlaybackHandler.setTrack(track, requestAuthor);
-    } else {
-      audioPlayer.tracks.data.push(track);
-      audioPlayer.tracks.author.push(requestAuthor);
-      this.bot.AudioPlayers.set(this.msg.guild!.id, audioPlayer);
-
-      embed
-        .setTitle(APP_QUEUE_TITLE)
-        .setAuthor('')
-        .setThumbnail('')
-        .setDescription(
-          `Got it! [${track.data.title}](${
-            track.data.url
-          }) was added to the queue and his current position is \`${audioPlayer.tracks.data.indexOf(
-            track
-          )}\``
-        )
-        .setFooter(
-          `Added by ${this.msg.author.username}`,
-          this.msg.author.displayAvatarURL()
-        )
-        .setTimestamp(Date.now())
-        .setColor(APP_MAIN_COLOR);
-      this.msg.channel.send({ embed });
+    if (!this.queue.length) {
+      embed.build(this.interaction, {
+        title: APP_MUSIC_PLAYBACK_TITLE,
+        description: `Joining channel \`${
+          (this.interaction.member as GuildMember).voice.channel!.name
+        }\``,
+        color: APP_SUCCESS_COLOR
+      });
+      return;
     }
+
+    embed.build(this.interaction, {
+      title: APP_QUEUE_TITLE,
+      description: `Got it! [${track.data.title}](${
+        track.data.url
+      }) was added to the queue and his current position is \`${
+        this.queue.indexOf(data) + 1
+      }\``,
+      footer: {
+        text: `Added by ${this.interaction.member?.user.username}`
+      },
+      timestamp: new Date(),
+      color: APP_MAIN_COLOR
+    });
   }
 
-  async pause(msg: Message) {
-    const audioPlayer = this.bot.AudioPlayers.get(this.msg.guild!.id);
-    if (!audioPlayer || !audioPlayer.state)
-      return this.msg.reply(APP_NO_TRACK_PLAYING);
+  pause() {
+    const audioPlayer = this.bot.subscriptions.get(this.interaction.guildId!);
+    if (!audioPlayer) return this.interaction.followUp(APP_NO_TRACK_PLAYING);
 
-    await msg.react(THUMBS_UP_EMOJI);
-    audioPlayer.state.dispatcher.pause();
+    this.audioPlayer.pause();
   }
 
-  async resume(msg: Message) {
-    const audioPlayer = this.bot.AudioPlayers.get(this.msg.guild!.id);
-    if (!audioPlayer || !audioPlayer.state)
-      return this.msg.reply(APP_NO_TRACK_PLAYING);
+  resume() {
+    const audioPlayer = this.bot.subscriptions.get(this.interaction.guildId!);
+    if (!audioPlayer) return this.interaction.followUp(APP_NO_TRACK_PLAYING);
 
-    await msg.react(OKAY_EMOJI);
-    audioPlayer.state.dispatcher.resume();
+    this.audioPlayer.unpause();
   }
 
-  async skip() {
-    const audioPlayer = this.bot.AudioPlayers.get(this.msg.guild!.id);
-    if (!audioPlayer) return this.msg.reply(APP_NO_TRACK_PLAYING);
-
-    if (audioPlayer.tracks.data.length === 1)
-      return this.msg.reply(APP_QUEUE_EMPTY);
-
-    audioPlayer.tracks.data.shift();
-    audioPlayer.tracks.author.shift();
+  skip() {
+    const audioPlayer = this.bot.subscriptions.get(this.interaction.guildId!);
+    if (!audioPlayer) return this.interaction.followUp(APP_NO_TRACK_PLAYING);
 
     const embed = Embed.getInstance();
-    embed
-      .setTitle(APP_SKIP_TRACK_TITLE)
-      .setAuthor('')
-      .setThumbnail('')
-      .setDescription(APP_SKIP_TRACK_DESCRIPTION)
-      .setFooter('')
-      .setTimestamp({} as Date)
-      .setColor(APP_MAIN_COLOR);
-    this.msg.channel.send({ embed });
+    embed.build(this.interaction, {
+      title: APP_SKIP_TRACK_TITLE,
+      description: APP_SKIP_TRACK_DESCRIPTION,
+      color: APP_MAIN_COLOR
+    });
 
-    const musicPlaybackHandler = MusicPlaybackHandler.getInstance(
-      this.bot,
-      this.msg
-    );
-    await musicPlaybackHandler.setTrack(
-      audioPlayer.tracks.data[0],
-      audioPlayer.tracks.author[0]
-    );
+    this.processQueue(true);
   }
 
-  async stop() {
-    const audioPlayer = this.bot.AudioPlayers.get(this.msg.guild!.id);
-    if (!audioPlayer) return this.msg.reply(APP_NO_TRACK_PLAYING);
+  stop(shouldNotifyChannel = false) {
+    const audioPlayer = this.bot.subscriptions.get(this.interaction.guildId!);
+    if (!audioPlayer) return this.interaction.followUp(APP_NO_TRACK_PLAYING);
 
-    const embed = Embed.getInstance();
-    embed
-      .setTitle(APP_STOP_MUSIC_PLAYBACK_TITLE)
-      .setAuthor('')
-      .setThumbnail('')
-      .setDescription(APP_STOP_MUSIC_PLAYBACK_DESCRIPTION)
-      .setFooter('')
-      .setTimestamp({} as Date)
-      .setColor(APP_WARNING_COLOR);
-    this.msg.channel.send({ embed });
+    if (shouldNotifyChannel) {
+      const embed = Embed.getInstance();
+      embed.build(this.interaction, {
+        title: APP_STOP_MUSIC_PLAYBACK_TITLE,
+        description: APP_STOP_MUSIC_PLAYBACK_DESCRIPTION,
+        color: APP_WARNING_COLOR
+      });
+    }
 
-    audioPlayer.state.disconnect();
-    this.bot.AudioPlayers.delete(this.msg.guild!.id);
+    this.audioPlayer.stop(true);
+    this.voiceConnection.destroy();
+    this.bot.subscriptions.delete(this.interaction.guildId!);
+    this.queueLock = false;
+    this.queue = [];
   }
 }

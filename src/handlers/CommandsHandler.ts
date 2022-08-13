@@ -1,3 +1,8 @@
+import { REST } from '@discordjs/rest';
+import {
+  Routes,
+  type RESTPostAPIApplicationCommandsJSONBody
+} from 'discord.js';
 import glob from 'glob';
 import { join } from 'path';
 
@@ -15,12 +20,12 @@ type ResolvedCommandObjRelativePath = {
 
 export class CommandsHandler {
   protected bot: Bot;
-  private allCommands: string[];
+  private slashCommands: RESTPostAPIApplicationCommandsJSONBody[];
   private modulesLength: ModulesLength;
 
   constructor(bot: Bot) {
     this.bot = bot;
-    this.allCommands = [];
+    this.slashCommands = [];
     this.modulesLength = {};
   }
 
@@ -42,23 +47,29 @@ export class CommandsHandler {
   private resolveCommand(relativePath: string) {
     const resolvedCommandObjRelativePath: ResolvedCommandObjRelativePath = require(`../commands/${relativePath}`);
 
-    const resolvedCommandName = Object.values(
-      resolvedCommandObjRelativePath
-    ).map((Command: any) => {
-      const command: Command = new Command(this.bot);
+    const resolvedCommand = Object.values(resolvedCommandObjRelativePath).map(
+      (Command: any) => {
+        const command: Command = new Command(this.bot);
 
-      if (command.details.isActive) {
-        const [defaultTrigger, altTrigger] = command.details.trigger;
+        if (command.data.isActive) {
+          this.bot.commands.set(command.data.build.name, command);
 
-        this.bot.Commands.set(config.botPrefix + defaultTrigger, command);
-        if (altTrigger)
-          this.bot.CommandsAlias.set(config.botPrefix + altTrigger, command);
-
-        return command.name;
+          const builtCommandToJson = command.data.build.toJSON();
+          return builtCommandToJson;
+        }
       }
-    })[0];
+    )[0];
 
-    return resolvedCommandName as string;
+    return resolvedCommand;
+  }
+
+  private async setDiscordSlashCommandsAPI() {
+    const rest = new REST({ version: '10' }).setToken(config.botToken);
+
+    await rest.put(
+      Routes.applicationGuildCommands(config.botAppId, config.guildId),
+      { body: this.slashCommands }
+    );
   }
 
   getModulesLength() {
@@ -66,22 +77,31 @@ export class CommandsHandler {
   }
 
   async loadCommands() {
+    let isCommandsLoaded = false;
+
     try {
       const commandsDir = join(__dirname, '../commands');
 
-      glob('**/*.+(js|ts)', { cwd: commandsDir }, (err, res) => {
+      glob('**/*.+(js|ts)', { cwd: commandsDir }, async (err, res) => {
         if (err) throw err;
         const resolvedCommandsPartialPath = res;
         this.calculateModulesLength(resolvedCommandsPartialPath);
 
         resolvedCommandsPartialPath.forEach((commandPath) => {
-          const resolvedCommand = this.resolveCommand(commandPath);
-          this.allCommands.push(resolvedCommand);
+          const resolvedSlashCommand = this.resolveCommand(commandPath);
+
+          if (resolvedSlashCommand)
+            this.slashCommands.push(resolvedSlashCommand);
         });
+
+        await this.setDiscordSlashCommandsAPI();
+        isCommandsLoaded = true;
       });
-      return this.allCommands;
     } catch (e) {
       console.error(e);
+    } finally {
+      // eslint-disable-next-line no-unsafe-finally
+      return isCommandsLoaded;
     }
   }
 }
