@@ -1,6 +1,5 @@
-import { SlashCommandBuilder, type CommandInteraction } from 'discord.js';
+import { SlashCommandBuilder } from 'discord.js';
 
-import { MusicPlaybackHandler } from '@/handlers/MusicPlaybackHandler';
 import type { Bot } from '@/structures/Bot';
 import { Command } from '@/structures/Command';
 
@@ -10,16 +9,11 @@ export class Skip extends Command {
       isActive: true,
       build: new SlashCommandBuilder()
         .setName('skip')
-        .setDescription('Skip the current song')
+        .setDescription('Skips the current track')
     });
   }
 
-  async execute(interaction: CommandInteraction) {
-    const musicPlaybackHandler = MusicPlaybackHandler.getInstance(
-      this.bot,
-      interaction
-    );
-
-    musicPlaybackHandler.skip();
+  async execute() {
+    this.bot.musicPlaybackHandler.skip();
   }
 }

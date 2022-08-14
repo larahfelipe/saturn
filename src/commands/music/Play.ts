@@ -1,6 +1,5 @@
 import { SlashCommandBuilder, type CommandInteraction } from 'discord.js';
 
-import { MusicPlaybackHandler } from '@/handlers/MusicPlaybackHandler';
 import type { Bot } from '@/structures/Bot';
 import { Command } from '@/structures/Command';
 import type { GetTrackResult } from '@/types';
@@ -24,19 +23,14 @@ export class Play extends Command {
   async execute(interaction: CommandInteraction) {
     const requestedTrack = interaction.options.get('track')!.value as string;
 
-    const musicPlaybackHandler = MusicPlaybackHandler.getInstance(
-      this.bot,
-      interaction
-    );
-
     try {
-      const { tracks } = (await musicPlaybackHandler.getTrack(
+      const { tracks } = (await this.bot.musicPlaybackHandler.getTrack(
         requestedTrack
       )) as GetTrackResult;
 
       tracks.forEach(
         async (track) =>
-          await musicPlaybackHandler.play(track, interaction.user.id)
+          await this.bot.musicPlaybackHandler.play(track, interaction.user.id)
       );
     } catch (e) {
       console.error(e);

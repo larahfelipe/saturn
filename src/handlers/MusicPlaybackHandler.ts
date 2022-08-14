@@ -151,10 +151,6 @@ export class MusicPlaybackHandler {
   }
 
   private async setAudioBroadcast(data: BroadcastData | null) {
-    this.audioPlayer = this.bot.subscriptions.get(
-      this.interaction.guildId!
-    ) as AudioPlayer;
-
     try {
       if (!this.audioPlayer) {
         if (

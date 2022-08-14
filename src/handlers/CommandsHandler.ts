@@ -95,8 +95,8 @@ export class CommandsHandler {
         });
 
         await this.setDiscordSlashCommandsAPI();
-        isCommandsLoaded = true;
       });
+      isCommandsLoaded = true;
     } catch (e) {
       console.error(e);
     } finally {

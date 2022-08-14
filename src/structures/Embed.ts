@@ -3,7 +3,8 @@ import {
   type ColorResolvable,
   type CommandInteraction,
   type EmbedAuthorData,
-  type EmbedFooterData
+  type EmbedFooterData,
+  type Interaction
 } from 'discord.js';
 
 import type { RGBVector } from '@/types';
@@ -31,7 +32,7 @@ export class Embed extends EmbedBuilder {
     return Embed.INSTANCE;
   }
 
-  build(interaction: CommandInteraction, data: EmbedData) {
+  build(interaction: Interaction | CommandInteraction, data: EmbedData) {
     try {
       this.setTitle(data.title ?? null);
       this.setAuthor(data.author ?? null);
