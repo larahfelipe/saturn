@@ -1,13 +1,13 @@
 import {
+  AudioPlayer,
   AudioPlayerStatus,
   createAudioPlayer,
   createAudioResource,
   entersState,
   joinVoiceChannel,
+  VoiceConnection,
   VoiceConnectionDisconnectReason,
-  VoiceConnectionStatus,
-  type AudioPlayer,
-  type VoiceConnection
+  VoiceConnectionStatus
 } from '@discordjs/voice';
 import axios, { type AxiosResponse } from 'axios';
 import { GuildMember, type CommandInteraction } from 'discord.js';
@@ -79,8 +79,7 @@ export class MusicPlaybackHandler {
   static getInstance(bot: Bot, interaction: CommandInteraction) {
     if (
       !this.INSTANCE ||
-      this.INSTANCE.interaction.guild?.id !== interaction.guild?.id ||
-      this.INSTANCE.interaction.user.id !== interaction.user.id
+      this.INSTANCE.interaction.guild?.id !== interaction.guild?.id
     )
       this.INSTANCE = new MusicPlaybackHandler(bot, interaction);
     return this.INSTANCE;
@@ -119,10 +118,15 @@ export class MusicPlaybackHandler {
     return tracksData;
   }
 
-  private async processQueue(skipTrack = false): Promise<void> {
+  private async processQueue(skipTrack = false): Promise<unknown> {
+    if (
+      !this.queue.length &&
+      this.audioPlayer.state.status === AudioPlayerStatus.Idle
+    )
+      return this.stop();
+
     if (
       this.queueLock ||
-      !this.queue.length ||
       (this.audioPlayer.state.status !== AudioPlayerStatus.Idle && !skipTrack)
     )
       return;
@@ -151,10 +155,6 @@ export class MusicPlaybackHandler {
   }
 
   private async setAudioBroadcast(data: BroadcastData | null) {
-    this.audioPlayer = this.bot.subscriptions.get(
-      this.interaction.guildId!
-    ) as AudioPlayer;
-
     try {
       if (!this.audioPlayer) {
         if (
@@ -192,9 +192,6 @@ export class MusicPlaybackHandler {
 
         const onVoiceConnectionDisconnected =
           status === VoiceConnectionStatus.Disconnected;
-
-        const onVoiceConnectionDestroyed =
-          status === VoiceConnectionStatus.Destroyed;
 
         if (onReadyToMakeVoiceConnection) {
           try {
@@ -237,7 +234,7 @@ export class MusicPlaybackHandler {
           } else {
             this.voiceConnection.destroy();
           }
-        } else if (onVoiceConnectionDestroyed) this.stop();
+        }
       });
 
       this.voiceConnection.on('error', (e) => {
@@ -256,6 +253,7 @@ export class MusicPlaybackHandler {
         if (onFinishPlaying) await this.processQueue();
 
         if (onStartPlaying) {
+          if (!data) return;
           const { track, requesterId } = data as BroadcastData;
 
           const thumbnailPredominantColors = await getImagePaletteColors(
@@ -490,8 +488,15 @@ export class MusicPlaybackHandler {
       });
     }
 
-    this.audioPlayer.stop(true);
-    this.voiceConnection.destroy();
+    if (this.audioPlayer instanceof AudioPlayer) this.audioPlayer.stop(true);
+    if (
+      this.voiceConnection instanceof VoiceConnection &&
+      this.voiceConnection.state.status !== VoiceConnectionStatus.Destroyed
+    )
+      this.voiceConnection.destroy();
+
+    this.audioPlayer = null as any;
+    this.voiceConnection = null as any;
     this.bot.subscriptions.delete(this.interaction.guildId!);
     this.queueLock = false;
     this.queue = [];

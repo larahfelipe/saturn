@@ -1,6 +1,5 @@
 import { SlashCommandBuilder, type CommandInteraction } from 'discord.js';
 
-import { MusicPlaybackHandler } from '@/handlers/MusicPlaybackHandler';
 import type { Bot } from '@/structures/Bot';
 import { Command } from '@/structures/Command';
 
@@ -10,16 +9,12 @@ export class Resume extends Command {
       isActive: true,
       build: new SlashCommandBuilder()
         .setName('resume')
-        .setDescription('Resume the current song')
+        .setDescription('Resumes the current track')
     });
   }
 
   async execute(interaction: CommandInteraction) {
-    const musicPlaybackHandler = MusicPlaybackHandler.getInstance(
-      this.bot,
-      interaction
-    );
-
-    musicPlaybackHandler.resume();
+    this.bot.musicPlaybackHandler.resume();
+    await this.bot.messageChannelHandler.signCommandExecution(interaction);
   }
 }

@@ -1,8 +1,12 @@
 import {
   ChannelType,
+  type Collection,
   type CommandInteraction,
-  type Interaction
+  type Interaction,
+  type Message
 } from 'discord.js';
+
+import { BLANK_CHAR } from '@/constants';
 
 export class MessageChannelHandler {
   private static INSTANCE: MessageChannelHandler;
@@ -35,7 +39,7 @@ export class MessageChannelHandler {
   async getFirstHundredBotSent() {
     const firstHundredBotMsgs = await this.msg.channel?.messages
       .fetch({ limit: 100 })
-      .then((msgs) => {
+      .then((msgs: Collection<string, Message>) => {
         return msgs.filter((msg) => msg.author.bot);
       });
 
@@ -45,7 +49,7 @@ export class MessageChannelHandler {
   async getLastBotSent() {
     const lastMsgBotSent = await this.msg.channel?.messages
       .fetch({ limit: 100 })
-      .then((msgs) => {
+      .then((msgs: Collection<string, Message>) => {
         return msgs.filter((msg) => msg.author.bot).first();
       });
 
@@ -55,12 +59,10 @@ export class MessageChannelHandler {
   async bulkDelete(targetMsgs: typeof this.msg) {
     if (this.msg.channel?.type === ChannelType.DM) return;
 
-    await this.msg.channel?.bulkDelete(targetMsgs as any);
+    await this.msg.channel?.bulkDelete(targetMsgs as any, true);
   }
 
-  async delete(targetMsg: typeof this.msg) {
-    if (this.msg.channel?.type === ChannelType.DM) return;
-
-    await this.msg.channel?.delete(targetMsg as any);
+  async signCommandExecution(interaction: CommandInteraction) {
+    await interaction.followUp(BLANK_CHAR);
   }
 }
