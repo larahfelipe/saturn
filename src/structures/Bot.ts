@@ -3,6 +3,7 @@ import {
   Client,
   Collection,
   GatewayIntentBits,
+  type CommandInteraction,
   type Snowflake
 } from 'discord.js';
 
@@ -22,6 +23,7 @@ import { UnhandledPromiseRejectionError } from '@/errors/UnhandledPromiseRejecti
 import { AppErrorHandler } from '@/handlers/AppErrorHandler';
 import { CommandsHandler } from '@/handlers/CommandsHandler';
 import { MessageChannelHandler } from '@/handlers/MessageChannelHandler';
+import { MusicPlaybackHandler } from '@/handlers/MusicPlaybackHandler';
 import { PrismaClient } from '@/infra/PrismaClient';
 
 import type { Command } from './Command';
@@ -31,6 +33,7 @@ export class Bot extends Client {
   private static INSTANCE: Bot;
   databaseClient!: PrismaClient;
   appErrorHandler!: AppErrorHandler;
+  musicPlaybackHandler!: MusicPlaybackHandler;
   messageChannelHandler!: MessageChannelHandler;
   commands!: Collection<Snowflake, Command>;
   subscriptions!: Map<Snowflake, AudioPlayer>;
@@ -95,6 +98,10 @@ export class Bot extends Client {
 
   private onListeningInteraction() {
     this.on('interactionCreate', async (interaction) => {
+      this.musicPlaybackHandler = MusicPlaybackHandler.getInstance(
+        this,
+        interaction as CommandInteraction
+      );
       this.messageChannelHandler =
         MessageChannelHandler.getInstance(interaction);
       const embed = Embed.getInstance();
@@ -107,7 +114,7 @@ export class Bot extends Client {
         await interaction.deferReply();
 
         console.log(
-          `\n@${interaction.user.tag} triggered "${interaction.commandName}" command.`
+          `\n> @${interaction.user.tag} triggered "${interaction.commandName}" command.`
         );
 
         const command = this.commands.get(interaction.commandName);

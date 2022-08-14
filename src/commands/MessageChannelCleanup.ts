@@ -1,10 +1,5 @@
-import {
-  SlashCommandBuilder,
-  type CommandInteraction,
-  type Interaction
-} from 'discord.js';
+import { SlashCommandBuilder, type CommandInteraction } from 'discord.js';
 
-import { MessageChannelHandler } from '@/handlers/MessageChannelHandler';
 import type { Bot } from '@/structures/Bot';
 import { Command } from '@/structures/Command';
 
@@ -14,19 +9,18 @@ export class MessageChannelCleanup extends Command {
       isActive: true,
       build: new SlashCommandBuilder()
         .setName('cleanup')
-        .setDescription('Clear the messages in the current channel')
+        .setDescription('Cleans up the message channel')
     });
   }
 
   async execute(interaction: CommandInteraction) {
-    const firstHundredSentMessages = await MessageChannelHandler.getInstance(
-      interaction as Interaction
-    ).getFirstHundredSent();
+    const firstHundredSentMessages =
+      await this.bot.messageChannelHandler.getFirstHundredSent();
     if (!firstHundredSentMessages)
       return interaction.followUp('Could not fetch messages');
 
-    await MessageChannelHandler.getInstance(
-      interaction as Interaction
-    ).bulkDelete(firstHundredSentMessages as any);
+    await this.bot.messageChannelHandler.bulkDelete(
+      firstHundredSentMessages as any
+    );
   }
 }
