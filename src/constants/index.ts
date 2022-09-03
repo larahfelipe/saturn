@@ -51,6 +51,8 @@ export const PLATFORMS = {
 
 export const MAX_VOICE_CONNECTION_JOIN_ATTEMPTS = 5;
 
+export const BLANK_CHAR = '\u2800';
+
 export const CD_GIF_URL =
   'https://raw.githubusercontent.com/larafe1/saturn-bot/master/src/assets/cd.gif';
 
