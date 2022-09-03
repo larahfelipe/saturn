@@ -487,7 +487,6 @@ export class MusicPlaybackHandler {
     }
 
     this.audioPlayer.stop(true);
-    this.voiceConnection.destroy();
     this.bot.subscriptions.delete(this.interaction.guildId!);
     this.queueLock = false;
     this.queue = [];

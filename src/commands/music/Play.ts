@@ -34,6 +34,8 @@ export class Play extends Command {
       );
     } catch (e) {
       console.error(e);
+    } finally {
+      await this.bot.messageChannelHandler.signCommandExecution(interaction);
     }
   }
 }
