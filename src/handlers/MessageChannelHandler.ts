@@ -59,7 +59,7 @@ export class MessageChannelHandler {
   async bulkDelete(targetMsgs: typeof this.msg) {
     if (this.msg.channel?.type === ChannelType.DM) return;
 
-    await this.msg.channel?.bulkDelete(targetMsgs as any);
+    await this.msg.channel?.bulkDelete(targetMsgs as any, true);
   }
 
   async signCommandExecution(interaction: CommandInteraction) {
