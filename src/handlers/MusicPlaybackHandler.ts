@@ -1,13 +1,13 @@
 import {
+  AudioPlayer,
   AudioPlayerStatus,
   createAudioPlayer,
   createAudioResource,
   entersState,
   joinVoiceChannel,
+  VoiceConnection,
   VoiceConnectionDisconnectReason,
-  VoiceConnectionStatus,
-  type AudioPlayer,
-  type VoiceConnection
+  VoiceConnectionStatus
 } from '@discordjs/voice';
 import axios, { type AxiosResponse } from 'axios';
 import { GuildMember, type CommandInteraction } from 'discord.js';
@@ -119,10 +119,15 @@ export class MusicPlaybackHandler {
     return tracksData;
   }
 
-  private async processQueue(skipTrack = false): Promise<void> {
+  private async processQueue(skipTrack = false): Promise<unknown> {
+    if (
+      !this.queue.length &&
+      this.audioPlayer.state.status === AudioPlayerStatus.Idle
+    )
+      return this.stop();
+
     if (
       this.queueLock ||
-      !this.queue.length ||
       (this.audioPlayer.state.status !== AudioPlayerStatus.Idle && !skipTrack)
     )
       return;
@@ -252,6 +257,7 @@ export class MusicPlaybackHandler {
         if (onFinishPlaying) await this.processQueue();
 
         if (onStartPlaying) {
+          if (!data) return;
           const { track, requesterId } = data as BroadcastData;
 
           const thumbnailPredominantColors = await getImagePaletteColors(
@@ -486,7 +492,15 @@ export class MusicPlaybackHandler {
       });
     }
 
-    this.audioPlayer.stop(true);
+    if (this.audioPlayer instanceof AudioPlayer) this.audioPlayer.stop(true);
+    if (
+      this.voiceConnection instanceof VoiceConnection &&
+      this.voiceConnection.state.status !== VoiceConnectionStatus.Destroyed
+    )
+      this.voiceConnection.destroy();
+
+    this.audioPlayer = null as any;
+    this.voiceConnection = null as any;
     this.bot.subscriptions.delete(this.interaction.guildId!);
     this.queueLock = false;
     this.queue = [];
