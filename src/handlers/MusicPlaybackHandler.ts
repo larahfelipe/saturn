@@ -79,8 +79,7 @@ export class MusicPlaybackHandler {
   static getInstance(bot: Bot, interaction: CommandInteraction) {
     if (
       !this.INSTANCE ||
-      this.INSTANCE.interaction.guild?.id !== interaction.guild?.id ||
-      this.INSTANCE.interaction.user.id !== interaction.user.id
+      this.INSTANCE.interaction.guild?.id !== interaction.guild?.id
     )
       this.INSTANCE = new MusicPlaybackHandler(bot, interaction);
     return this.INSTANCE;
@@ -194,9 +193,6 @@ export class MusicPlaybackHandler {
         const onVoiceConnectionDisconnected =
           status === VoiceConnectionStatus.Disconnected;
 
-        const onVoiceConnectionDestroyed =
-          status === VoiceConnectionStatus.Destroyed;
-
         if (onReadyToMakeVoiceConnection) {
           try {
             await entersState(
@@ -238,7 +234,7 @@ export class MusicPlaybackHandler {
           } else {
             this.voiceConnection.destroy();
           }
-        } else if (onVoiceConnectionDestroyed) this.stop();
+        }
       });
 
       this.voiceConnection.on('error', (e) => {
