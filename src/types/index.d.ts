@@ -12,6 +12,13 @@ export type CommandData = {
   build: Omit<SlashCommandBuilder, 'addSubcommand' | 'addSubcommandGroup'>;
 };
 
+export type BroadcastData = {
+  track: TrackData;
+  requesterId: string;
+};
+
+export type Queue = BroadcastData[];
+
 export type Track = {
   title: string;
   url: string;

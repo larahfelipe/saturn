@@ -32,7 +32,7 @@ export class Embed extends EmbedBuilder {
     return Embed.INSTANCE;
   }
 
-  build(interaction: Interaction | CommandInteraction, data: EmbedData) {
+  async build(interaction: Interaction | CommandInteraction, data: EmbedData) {
     try {
       this.setTitle(data.title ?? null);
       this.setAuthor(data.author ?? null);
@@ -43,7 +43,7 @@ export class Embed extends EmbedBuilder {
       this.setTimestamp(data.timestamp ?? null);
       this.setColor((data.color as ColorResolvable) ?? null);
 
-      interaction.channel?.send({ embeds: [this] });
+      await interaction.channel?.send({ embeds: [this] });
     } catch (e) {
       console.error(e);
     }

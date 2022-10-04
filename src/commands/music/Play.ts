@@ -30,12 +30,13 @@ export class Play extends Command {
 
       tracks.forEach(
         async (track) =>
-          await this.bot.musicPlaybackHandler.play(track, interaction.user.id)
+          await this.bot.musicPlaybackHandler.play({
+            requesterId: interaction.user.id,
+            track
+          })
       );
     } catch (e) {
       console.error(e);
-    } finally {
-      await this.bot.messageChannelHandler.signCommandExecution(interaction);
     }
   }
 }

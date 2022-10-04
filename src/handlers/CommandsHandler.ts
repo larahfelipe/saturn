@@ -1,12 +1,17 @@
 import { REST } from '@discordjs/rest';
 import {
   Routes,
+  type CacheType,
+  type CommandInteraction,
+  type Interaction,
   type RESTPostAPIApplicationCommandsJSONBody
 } from 'discord.js';
 import glob from 'glob';
 import { join } from 'path';
 
 import config from '@/config';
+import { BLANK_CHAR } from '@/constants';
+import { InvalidAppCommandError } from '@/errors/InvalidAppCommandError';
 import type { Bot } from '@/structures/Bot';
 import type { Command } from '@/structures/Command';
 
@@ -19,14 +24,21 @@ type ResolvedCommandObjRelativePath = {
 };
 
 export class CommandsHandler {
+  private static INSTANCE: CommandsHandler;
   protected bot: Bot;
   private slashCommands: RESTPostAPIApplicationCommandsJSONBody[];
   private modulesLength: ModulesLength;
 
-  constructor(bot: Bot) {
+  private constructor(bot: Bot) {
     this.bot = bot;
     this.slashCommands = [];
     this.modulesLength = {};
+  }
+
+  static getInstance(bot: Bot) {
+    if (!CommandsHandler.INSTANCE)
+      CommandsHandler.INSTANCE = new CommandsHandler(bot);
+    return CommandsHandler.INSTANCE;
   }
 
   private calculateModulesLength(commandsPartialPath: string[]) {
@@ -103,5 +115,30 @@ export class CommandsHandler {
       // eslint-disable-next-line no-unsafe-finally
       return isCommandsLoaded;
     }
+  }
+
+  async execute(interaction: Interaction<CacheType>) {
+    if (!interaction.isCommand()) return;
+
+    await interaction.deferReply();
+
+    const command = this.bot.commands.get(interaction.commandName);
+    if (!command)
+      throw new InvalidAppCommandError({
+        message: `${interaction.commandName} is not a valid command.`,
+        bot: this.bot,
+        interaction
+      });
+
+    console.log(
+      `\n> @${interaction.user.tag} triggered "${interaction.commandName}" command.`
+    );
+
+    await command.execute(interaction);
+    if (!interaction.replied) await this.signExecution(interaction);
+  }
+
+  private async signExecution(interaction: CommandInteraction) {
+    await interaction.followUp(BLANK_CHAR);
   }
 }
