@@ -10,13 +10,9 @@ import {
 import config from '@/config';
 import {
   APP_COMMANDS_LOADED,
-  APP_COMMAND_ERROR_DESCRIPTION,
-  APP_COMMAND_ERROR_TITLE,
-  APP_ERROR_COLOR,
   APP_MISSING_REQUIRED_CREDENTIALS,
   APP_READY
 } from '@/constants';
-import { InvalidAppCommandError } from '@/errors/InvalidAppCommandError';
 import { MissingRequiredCredentialsError } from '@/errors/MissingRequiredCredentialsError';
 import { UncaughtExceptionMonitorError } from '@/errors/UncaughtExceptionMonitorError';
 import { UnhandledPromiseRejectionError } from '@/errors/UnhandledPromiseRejectionError';
@@ -25,14 +21,15 @@ import { CommandsHandler } from '@/handlers/CommandsHandler';
 import { MessageChannelHandler } from '@/handlers/MessageChannelHandler';
 import { MusicPlaybackHandler } from '@/handlers/MusicPlaybackHandler';
 import { PrismaClient } from '@/infra/PrismaClient';
+import { ChannelMessagingUtils } from '@/utils/ChannelMessagingUtils';
 
 import type { Command } from './Command';
-import { Embed } from './Embed';
 
 export class Bot extends Client {
   private static INSTANCE: Bot;
   databaseClient!: PrismaClient;
   appErrorHandler!: AppErrorHandler;
+  commandsHandler!: CommandsHandler;
   musicPlaybackHandler!: MusicPlaybackHandler;
   messageChannelHandler!: MessageChannelHandler;
   commands!: Collection<Snowflake, Command>;
@@ -78,8 +75,9 @@ export class Bot extends Client {
 
   private async onCreateInteraction() {
     this.commands = new Collection();
+    this.commandsHandler = CommandsHandler.getInstance(this);
     this.subscriptions = new Map();
-    const isCommandsLoaded = await new CommandsHandler(this).loadCommands();
+    const isCommandsLoaded = await this.commandsHandler.loadCommands();
     if (isCommandsLoaded) console.log(APP_COMMANDS_LOADED);
 
     this.once('ready', () => console.log(APP_READY));
@@ -104,39 +102,15 @@ export class Bot extends Client {
       );
       this.messageChannelHandler =
         MessageChannelHandler.getInstance(interaction);
-      const embed = Embed.getInstance();
 
       this.user?.setActivity(`Orbiting in ${interaction.guild?.name}`);
 
-      if (!interaction.isChatInputCommand()) return;
-
       try {
-        await interaction.deferReply();
-
-        console.log(
-          `\n> @${interaction.user.tag} triggered "${interaction.commandName}" command.`
-        );
-
-        const command = this.commands.get(interaction.commandName);
-
-        if (!command)
-          throw new InvalidAppCommandError({
-            message: `${interaction.commandName} is not a valid command.`,
-            bot: this,
-            interaction
-          });
-
-        await command.execute(interaction);
+        await this.commandsHandler.execute(interaction);
       } catch (e) {
         console.error(e);
 
-        embed.build(interaction, {
-          author: {
-            name: APP_COMMAND_ERROR_TITLE
-          },
-          description: APP_COMMAND_ERROR_DESCRIPTION,
-          color: APP_ERROR_COLOR
-        });
+        await ChannelMessagingUtils.makeBotCommandErrorEmbed(interaction);
       }
     });
   }

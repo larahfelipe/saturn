@@ -6,8 +6,6 @@ import {
   type Message
 } from 'discord.js';
 
-import { BLANK_CHAR } from '@/constants';
-
 export class MessageChannelHandler {
   private static INSTANCE: MessageChannelHandler;
   protected msg: Interaction | CommandInteraction;
@@ -60,9 +58,5 @@ export class MessageChannelHandler {
     if (this.msg.channel?.type === ChannelType.DM) return;
 
     await this.msg.channel?.bulkDelete(targetMsgs as any, true);
-  }
-
-  async signCommandExecution(interaction: CommandInteraction) {
-    await interaction.followUp(BLANK_CHAR);
   }
 }

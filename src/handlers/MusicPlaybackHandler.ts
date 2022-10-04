@@ -15,21 +15,10 @@ import yts, {
   type VideoMetadataResult,
   type VideoSearchResult
 } from 'yt-search';
-import ytdl, { type downloadOptions as DownloadOptions } from 'ytdl-core';
+import ytdl, { type downloadOptions as YtdlDownloadOptions } from 'ytdl-core';
 
 import {
-  APP_MAIN_COLOR,
-  APP_MUSIC_PLAYBACK_PHRASE,
-  APP_MUSIC_PLAYBACK_TITLE,
   APP_NO_TRACK_PLAYING,
-  APP_QUEUE_TITLE,
-  APP_SKIP_TRACK_DESCRIPTION,
-  APP_SKIP_TRACK_TITLE,
-  APP_STOP_MUSIC_PLAYBACK_DESCRIPTION,
-  APP_STOP_MUSIC_PLAYBACK_TITLE,
-  APP_SUCCESS_COLOR,
-  APP_WARNING_COLOR,
-  CD_GIF_URL,
   MAX_VOICE_CONNECTION_JOIN_ATTEMPTS,
   PLATFORMS
 } from '@/constants';
@@ -37,23 +26,17 @@ import { GeneralAppError } from '@/errors/GeneralAppError';
 import { InvalidParameterError } from '@/errors/InvalidParameterError';
 import type { VCWebSocketCloseError } from '@/errors/VCWebSocketCloseError';
 import type { Bot } from '@/structures/Bot';
-import { Embed } from '@/structures/Embed';
 import type {
+  BroadcastData,
   GetTrackResult,
+  Queue,
   SpotifyPlaylist,
   Track,
   TrackData
 } from '@/types';
-import { getImagePaletteColors } from '@/utils/GetImagePaletteColors';
+import { ChannelMessagingUtils } from '@/utils/ChannelMessagingUtils';
 import { parseSpotifyResponse } from '@/utils/ParseSpotifyResponse';
 import { isValidURL } from '@/utils/ValidateURL';
-
-type BroadcastData = {
-  track: TrackData;
-  requesterId: string;
-};
-
-type Queue = BroadcastData[];
 
 type VoiceConnectionNewState = {
   status: VoiceConnectionStatus;
@@ -89,7 +72,7 @@ export class MusicPlaybackHandler {
     if (!tracksUri.length)
       throw new InvalidParameterError('Tracks URI not provided');
 
-    const downloadOptions: DownloadOptions = {
+    const downloadOptions: YtdlDownloadOptions = {
       filter: 'audioonly',
       quality: 'highestaudio',
       highWaterMark: 1 << 25
@@ -123,7 +106,7 @@ export class MusicPlaybackHandler {
       !this.queue.length &&
       this.audioPlayer.state.status === AudioPlayerStatus.Idle
     )
-      return this.stop();
+      return await this.stop();
 
     if (
       this.queueLock ||
@@ -133,11 +116,18 @@ export class MusicPlaybackHandler {
 
     this.queueLock = true;
 
-    const { track } = this.queue.shift()!;
+    const broadcastData = this.queue.shift()!;
     try {
-      const audioResource = createAudioResource(track.readableStream);
+      const audioResource = createAudioResource(
+        broadcastData.track.readableStream
+      );
 
       this.audioPlayer.play(audioResource);
+
+      await ChannelMessagingUtils.makeAudioPlayerTrackPlayingEmbed({
+        interaction: this.interaction,
+        payload: broadcastData
+      });
 
       this.queueLock = false;
     } catch (e) {
@@ -154,7 +144,7 @@ export class MusicPlaybackHandler {
     }
   }
 
-  private async setAudioBroadcast(data: BroadcastData | null) {
+  private async setAudioBroadcast(broadcastData: BroadcastData) {
     try {
       if (!this.audioPlayer) {
         if (
@@ -180,7 +170,7 @@ export class MusicPlaybackHandler {
         }
       }
 
-      await this.enqueue(data as BroadcastData);
+      await this.enqueue(broadcastData);
 
       this.voiceConnection.on('stateChange', async (_: any, newState: any) => {
         const { status, reason, closeCode } =
@@ -246,36 +236,11 @@ export class MusicPlaybackHandler {
           newState.status === AudioPlayerStatus.Idle &&
           oldState.status !== AudioPlayerStatus.Idle;
 
-        const onStartPlaying =
-          newState.status === AudioPlayerStatus.Playing &&
-          oldState.status !== AudioPlayerStatus.Paused;
-
         if (onFinishPlaying) await this.processQueue();
 
-        if (onStartPlaying) {
-          if (!data) return;
-          const { track, requesterId } = data as BroadcastData;
-
-          const thumbnailPredominantColors = await getImagePaletteColors(
-            track.data.thumbnail
-          );
-
-          const embed = Embed.getInstance();
-          embed.build(this.interaction, {
-            author: {
-              name: APP_MUSIC_PLAYBACK_PHRASE,
-              iconURL: CD_GIF_URL
-            },
-            thumbnail: track.data.thumbnail,
-            description: `Now playing **[${track.data.title}](${track.data.url})** requested by <@${requesterId}>`,
-            footer: {
-              text: `Track duration: ${track.data.duration}`
-            },
-            color: thumbnailPredominantColors.LightVibrant ?? APP_MAIN_COLOR
-          });
-
-          data = null;
-        }
+        // const onStartPlaying =
+        //   newState.status === AudioPlayerStatus.Playing &&
+        //   oldState.status !== AudioPlayerStatus.Paused;
       });
 
       this.audioPlayer.on('error', (e) => {
@@ -285,7 +250,7 @@ export class MusicPlaybackHandler {
       const { message } = e as Error;
       console.error(e);
 
-      this.stop();
+      await this.stop();
 
       new GeneralAppError({
         bot: this.bot,
@@ -411,89 +376,87 @@ export class MusicPlaybackHandler {
     }
   }
 
-  async play(track: TrackData, requesterId: string) {
-    const data: BroadcastData = {
-      track,
-      requesterId
-    };
+  async play(broadcastData: BroadcastData) {
+    const audioPlayer = this.bot.subscriptions.get(this.interaction.guildId!);
 
-    await this.setAudioBroadcast(data);
-
-    const embed = Embed.getInstance();
-
-    if (!this.queue.length) {
-      embed.build(this.interaction, {
-        title: APP_MUSIC_PLAYBACK_TITLE,
-        description: `Joining channel \`${
-          (this.interaction.member as GuildMember).voice.channel!.name
-        }\``,
-        color: APP_SUCCESS_COLOR
-      });
-      return;
+    if (!audioPlayer && !this.queue.length) {
+      await ChannelMessagingUtils.makeVCConnectionSignallingEmbed(
+        this.interaction
+      );
+      return await this.setAudioBroadcast(broadcastData);
     }
 
-    embed.build(this.interaction, {
-      title: APP_QUEUE_TITLE,
-      description: `Got it! [${track.data.title}](${
-        track.data.url
-      }) was added to the queue and his current position is \`${
-        this.queue.indexOf(data) + 1
-      }\``,
-      footer: {
-        text: `Added by ${this.interaction.member?.user.username}`
-      },
-      timestamp: new Date(),
-      color: APP_MAIN_COLOR
+    await this.setAudioBroadcast(broadcastData);
+
+    await ChannelMessagingUtils.makeAudioPlayerQueueCreationEmbed({
+      interaction: this.interaction,
+      payload: {
+        broadcastData,
+        queue: this.queue
+      }
     });
   }
 
-  pause() {
+  async pause() {
     const audioPlayer = this.bot.subscriptions.get(this.interaction.guildId!);
-    if (!audioPlayer) return this.interaction.followUp(APP_NO_TRACK_PLAYING);
+    if (!audioPlayer) {
+      await this.interaction.followUp(APP_NO_TRACK_PLAYING);
+      this.interaction.replied = true;
+      return;
+    }
 
     this.audioPlayer.pause();
   }
 
-  resume() {
+  async resume() {
     const audioPlayer = this.bot.subscriptions.get(this.interaction.guildId!);
-    if (!audioPlayer) return this.interaction.followUp(APP_NO_TRACK_PLAYING);
+    if (!audioPlayer) {
+      await this.interaction.followUp(APP_NO_TRACK_PLAYING);
+      this.interaction.replied = true;
+      return;
+    }
 
     this.audioPlayer.unpause();
   }
 
-  skip() {
+  async skip() {
     const audioPlayer = this.bot.subscriptions.get(this.interaction.guildId!);
-    if (!audioPlayer) return this.interaction.followUp(APP_NO_TRACK_PLAYING);
-
-    const embed = Embed.getInstance();
-    embed.build(this.interaction, {
-      title: APP_SKIP_TRACK_TITLE,
-      description: APP_SKIP_TRACK_DESCRIPTION,
-      color: APP_MAIN_COLOR
-    });
-
-    this.processQueue(true);
-  }
-
-  stop(shouldNotifyChannel = false) {
-    const audioPlayer = this.bot.subscriptions.get(this.interaction.guildId!);
-    if (!audioPlayer) return this.interaction.followUp(APP_NO_TRACK_PLAYING);
-
-    if (shouldNotifyChannel) {
-      const embed = Embed.getInstance();
-      embed.build(this.interaction, {
-        title: APP_STOP_MUSIC_PLAYBACK_TITLE,
-        description: APP_STOP_MUSIC_PLAYBACK_DESCRIPTION,
-        color: APP_WARNING_COLOR
-      });
+    if (!audioPlayer) {
+      await this.interaction.followUp(APP_NO_TRACK_PLAYING);
+      this.interaction.replied = true;
+      return;
     }
 
-    if (this.audioPlayer instanceof AudioPlayer) this.audioPlayer.stop(true);
+    await ChannelMessagingUtils.makeAudioPlayerTrackSkippedEmbed(
+      this.interaction
+    );
+
+    await this.processQueue(true);
+  }
+
+  async stop(shouldNotifyChannel = false) {
+    const audioPlayer = this.bot.subscriptions.get(this.interaction.guildId!);
+    if (!audioPlayer && shouldNotifyChannel) {
+      await this.interaction.followUp(APP_NO_TRACK_PLAYING);
+      this.interaction.replied = true;
+      return;
+    }
+
+    if (shouldNotifyChannel)
+      await ChannelMessagingUtils.makeAudioPlayerStoppedEmbed(this.interaction);
+
+    if (this.audioPlayer instanceof AudioPlayer) {
+      this.audioPlayer.removeAllListeners();
+      this.audioPlayer.stop(true);
+    }
+
     if (
       this.voiceConnection instanceof VoiceConnection &&
       this.voiceConnection.state.status !== VoiceConnectionStatus.Destroyed
-    )
+    ) {
+      this.voiceConnection.removeAllListeners();
       this.voiceConnection.destroy();
+    }
 
     this.audioPlayer = null as any;
     this.voiceConnection = null as any;

@@ -9,7 +9,7 @@ export const APP_MISSING_REQUIRED_CREDENTIALS =
   '\nMissing required credentials.';
 export const APP_COMMAND_ERROR_TITLE = '❌ Whoops, a wild error appeared!';
 export const APP_COMMAND_ERROR_DESCRIPTION =
-  "Why I'm seeing this?! 🤔\n\nIt's not you, it's me. Sorry... Just kidding, my guess is that you probably have a typo in your command or something went really wrong with my beautiful rings, just try again later in this case.\n";
+  "Why I'm seeing this?! 🤔\n\nIt's not you, it's me! Sorry... Just kidding, my guess is that you probably have a typo in your command or something went wrong while executing your command\n";
 export const APP_RUNTIME_EXCEPTION = 'RUNTIME EXCEPTION';
 export const APP_USER_NOT_IN_VOICE_CHANNEL =
   'You need to be in a voice channel first.';
