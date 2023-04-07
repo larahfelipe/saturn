@@ -54,10 +54,10 @@ export const MAX_VOICE_CONNECTION_JOIN_ATTEMPTS = 5;
 export const BLANK_CHAR = '\u2800';
 
 export const CD_GIF_URL =
-  'https://raw.githubusercontent.com/larafe1/saturn-bot/master/src/assets/cd.gif';
+  'https://raw.githubusercontent.com/larahfelipe/saturn/master/src/assets/cd.gif';
 
-export const PROJECT_AUTHOR_URL = 'https://github.com/larafe1/';
-export const PROJECT_REPOSITORY_URL = 'https://github.com/larafe1/saturn-bot/';
+export const PROJECT_AUTHOR_URL = 'https://github.com/larahfelipe/';
+export const PROJECT_REPOSITORY_URL = 'https://github.com/larahfelipe/saturn/';
 
 export const THUMBS_UP_EMOJI = '👍';
 export const OKAY_EMOJI = '👌';

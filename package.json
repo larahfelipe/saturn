@@ -1,5 +1,5 @@
 {
-  "name": "saturn-bot",
+  "name": "saturn",
   "version": "0.0.0",
   "description": "",
   "main": "index.ts",
@@ -17,11 +17,11 @@
   "license": "GNU GPL v3.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/larafe1/saturn-bot.git"
+    "url": "git+https://github.com/larahfelipe/saturn.git"
   },
   "author": {
-    "name": "larafe1",
-    "url": "https://github.com/larafe1"
+    "name": "larahfelipe",
+    "url": "https://github.com/larahfelipe"
   },
   "dependencies": {
     "@discordjs/opus": "^0.8.0",
