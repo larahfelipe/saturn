@@ -17,5 +17,5 @@ model AppError {
   occurredAt  String
   triggeredBy String
 
-  @@map("appError")
+  @@map("app_errors")
 }
