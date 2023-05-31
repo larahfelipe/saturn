@@ -6,16 +6,16 @@ generator client {
 }
 
 datasource db {
-  provider = "mongodb"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
 model AppError {
-  id          String @id @default(auto()) @map("_id") @db.ObjectId
+  id          String @id @default(uuid())
   name        String
   message     String
   occurredAt  String
   triggeredBy String
 
-  @@map("appError")
+  @@map("app_errors")
 }

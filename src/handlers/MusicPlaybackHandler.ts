@@ -1,16 +1,17 @@
 import {
   AudioPlayer,
   AudioPlayerStatus,
+  VoiceConnection,
+  VoiceConnectionDisconnectReason,
+  VoiceConnectionStatus,
   createAudioPlayer,
   createAudioResource,
   entersState,
   joinVoiceChannel,
-  VoiceConnection,
-  VoiceConnectionDisconnectReason,
-  VoiceConnectionStatus
+  type DiscordGatewayAdapterCreator
 } from '@discordjs/voice';
 import axios, { type AxiosResponse } from 'axios';
-import { GuildMember, type CommandInteraction } from 'discord.js';
+import { GuildMember, type CommandInteraction, type Message } from 'discord.js';
 import yts, {
   type VideoMetadataResult,
   type VideoSearchResult
@@ -22,7 +23,6 @@ import {
   MAX_VOICE_CONNECTION_JOIN_ATTEMPTS,
   PLATFORMS
 } from '@/constants';
-import { GeneralAppError } from '@/errors/GeneralAppError';
 import { InvalidParameterError } from '@/errors/InvalidParameterError';
 import type { VCWebSocketCloseError } from '@/errors/VCWebSocketCloseError';
 import type { Bot } from '@/structures/Bot';
@@ -68,7 +68,9 @@ export class MusicPlaybackHandler {
     return this.INSTANCE;
   }
 
-  private async downloadTrack(tracksUri: string[]) {
+  private async downloadTrack(
+    tracksUri: Array<string>
+  ): Promise<Array<TrackData>> {
     if (!tracksUri.length)
       throw new InvalidParameterError('Tracks URI not provided');
 
@@ -79,26 +81,31 @@ export class MusicPlaybackHandler {
     };
 
     const tracksData = await Promise.all(
-      tracksUri.map(async (trackUri) => {
-        const trackInfo = await this.getTrackInfo(trackUri);
-        if (!trackInfo)
-          throw new Error(`Couldn't fetch "${trackUri}" data on YouTube`);
+      tracksUri
+        .map(async (trackUri) => {
+          const trackInfo = await this.getTrackInfo(trackUri);
 
-        const trackReadableStream = ytdl(trackInfo.url, downloadOptions).on(
-          'error',
-          (e) => {
-            throw e;
-          }
-        );
+          if (!trackInfo)
+            return console.error(
+              `Couldn't get track info for ${trackUri}. Skipping...`
+            );
 
-        return {
-          data: trackInfo,
-          readableStream: trackReadableStream
-        } as TrackData;
-      })
+          const trackReadableStream = ytdl(trackInfo.url, downloadOptions).on(
+            'error',
+            (e) => {
+              throw e;
+            }
+          );
+
+          return {
+            data: trackInfo,
+            readableStream: trackReadableStream
+          };
+        })
+        .filter(Boolean)
     );
 
-    return tracksData;
+    return tracksData as Array<TrackData>;
   }
 
   private async processQueue(skipTrack = false): Promise<unknown> {
@@ -106,7 +113,7 @@ export class MusicPlaybackHandler {
       !this.queue.length &&
       this.audioPlayer.state.status === AudioPlayerStatus.Idle
     )
-      return await this.stop();
+      return this.stop();
 
     if (
       this.queueLock ||
@@ -115,8 +122,8 @@ export class MusicPlaybackHandler {
       return;
 
     this.queueLock = true;
-
     const broadcastData = this.queue.shift()!;
+
     try {
       const audioResource = createAudioResource(
         broadcastData.track.readableStream
@@ -132,15 +139,9 @@ export class MusicPlaybackHandler {
       this.queueLock = false;
     } catch (e) {
       console.error(e);
-      const { message } = e as Error;
       this.queueLock = false;
 
-      new GeneralAppError({
-        bot: this.bot,
-        message
-      });
-
-      return await this.processQueue();
+      return this.processQueue();
     }
   }
 
@@ -154,11 +155,13 @@ export class MusicPlaybackHandler {
           this.audioPlayer = createAudioPlayer();
 
           const voiceChannel = this.interaction.member?.voice.channel;
+          const { guild, id: channelId } = voiceChannel;
 
           this.voiceConnection = joinVoiceChannel({
-            channelId: voiceChannel.id,
-            guildId: voiceChannel.guild.id,
-            adapterCreator: voiceChannel.guild.voiceAdapterCreator
+            channelId,
+            guildId: guild.id,
+            adapterCreator:
+              guild.voiceAdapterCreator as DiscordGatewayAdapterCreator
           });
 
           this.voiceConnection.subscribe(this.audioPlayer);
@@ -172,7 +175,7 @@ export class MusicPlaybackHandler {
 
       await this.enqueue(broadcastData);
 
-      this.voiceConnection.on('stateChange', async (_: any, newState: any) => {
+      this.voiceConnection.on('stateChange', async (_, newState) => {
         const { status, reason, closeCode } =
           newState as VoiceConnectionNewState;
 
@@ -237,10 +240,6 @@ export class MusicPlaybackHandler {
           oldState.status !== AudioPlayerStatus.Idle;
 
         if (onFinishPlaying) await this.processQueue();
-
-        // const onStartPlaying =
-        //   newState.status === AudioPlayerStatus.Playing &&
-        //   oldState.status !== AudioPlayerStatus.Paused;
       });
 
       this.audioPlayer.on('error', (e) => {
@@ -252,10 +251,7 @@ export class MusicPlaybackHandler {
 
       await this.stop();
 
-      new GeneralAppError({
-        bot: this.bot,
-        message
-      });
+      throw message;
     }
   }
 
@@ -264,20 +260,21 @@ export class MusicPlaybackHandler {
     await this.processQueue();
   }
 
-  async getTrackInfo(trackUri: string) {
+  async getTrackInfo(trackUri: string): Promise<Track | undefined> {
     if (!trackUri.length) throw new Error('Track URI not provided');
 
-    let response = {} as VideoMetadataResult | VideoSearchResult;
-    const isValidYouTubeUrl = isValidURL(trackUri, 'YouTube');
+    const isValidYouTubeUrl = isValidURL(trackUri, PLATFORMS.YouTube.name);
+    let response: VideoMetadataResult | VideoSearchResult;
 
-    if (isValidYouTubeUrl) {
-      response = await yts({ videoId: ytdl.getURLVideoID(trackUri) });
-    } else {
+    if (!isValidYouTubeUrl) {
       const { videos } = await yts(trackUri);
       if (!videos.length) return;
 
-      response = videos[0] as VideoSearchResult;
+      response = videos[0];
+    } else {
+      response = await yts({ videoId: ytdl.getURLVideoID(trackUri) });
     }
+
     const { title, thumbnail, url, timestamp } = response;
 
     return {
@@ -285,94 +282,57 @@ export class MusicPlaybackHandler {
       thumbnail,
       url,
       duration: timestamp
-    } as Track;
+    };
   }
 
-  async getTrack(trackUri: string) {
-    let platform: keyof typeof PLATFORMS = 'YouTube';
+  async getTrack(trackUri: string): Promise<GetTrackResult | Message> {
+    let platform: keyof typeof PLATFORMS = PLATFORMS.YouTube.name;
     let parsedData: string | SpotifyPlaylist = trackUri;
 
     try {
-      if (isValidURL(trackUri, 'YouTube')) {
-        const isValidYouTubeUrl = isValidURL(trackUri, 'YouTube');
+      if (isValidURL(trackUri, PLATFORMS.YouTube.name)) {
+        const isValidYouTubeUrl = isValidURL(trackUri, PLATFORMS.YouTube.name);
+
         if (!isValidYouTubeUrl)
           throw new InvalidParameterError(
             'An invalid YouTube URL was provided'
           );
-      } else if (isValidURL(trackUri, 'Spotify')) {
-        platform = 'Spotify';
+      } else if (isValidURL(trackUri, PLATFORMS.Spotify.name)) {
+        platform = PLATFORMS.Spotify.name;
 
         const { data }: AxiosResponse<string> = await axios.get(trackUri);
         if (!data.length) throw new Error('No data returned');
 
         const contentType = trackUri.includes('track') ? 'TRACK' : 'PLAYLIST';
 
-        // Temporary fix for Spotify Playlists
+        if (!contentType)
+          throw new InvalidParameterError(
+            'An invalid Spotify content type was provided'
+          );
+
         if (contentType === 'PLAYLIST')
           return this.interaction.followUp(
             'Spotify playlists are not supported yet.'
           );
 
-        if (contentType) {
-          parsedData = parseSpotifyResponse(
-            contentType,
-            data
-          ) as SpotifyPlaylist;
-        } else
-          throw new InvalidParameterError(
-            'An invalid Spotify content type was provided'
-          );
+        parsedData = parseSpotifyResponse(contentType, data) as SpotifyPlaylist;
       }
 
-      const requestedTrackUri =
+      const requestedTrackUrl =
         typeof parsedData === 'string' ? [parsedData] : parsedData.tracks;
 
-      const trackData = await this.downloadTrack(requestedTrackUri);
-
-      // const isPlaylist = trackData.length > 1;
-      // if (isPlaylist && platform === 'Spotify') {
-      // const spotifyPlaylist = parsedData as SpotifyPlaylist;
-      // const embed = Embed.getInstance();
-      // embed
-      //   .setTitle('')
-      //   .setAuthor({
-      //     name: `"${spotifyPlaylist.name}"\nSpotify playlist by ${spotifyPlaylist.owner}`
-      //   })
-      //   .setThumbnail(spotifyPlaylist.cover)
-      //   .setDescription(
-      //     `\n• Total playlist tracks: \`${
-      //       spotifyPlaylist.tracks.length
-      //     }\`\n• Playlist duration: \`${formatSecondsToStdTime(
-      //       spotifyPlaylist.duration / 1000
-      //     )}\``
-      //   )
-      //   .setFooter({ text: SPOTIFY_PHRASE })
-      //   .setTimestamp({} as Date)
-      //   .setColor(PLATFORMS.Spotify.color as ColorResolvable);
-      // this.interaction.channel?.send({ embeds: [embed] });
-      // embed
-      //   .setTitle('')
-      //   .setAuthor({ name: APP_LOADING_PLAYLIST_TRACKS_TITLE })
-      //   .setThumbnail('')
-      //   .setDescription(APP_LOADING_PLAYLIST_TRACKS_DESCRIPTION)
-      //   .setFooter({ text: '' })
-      //   .setTimestamp({} as Date)
-      //   .setColor(APP_WARNING_COLOR);
-      // this.interaction.channel?.send({ embeds: [embed] });
-      // }
+      const trackData = await this.downloadTrack(requestedTrackUrl);
 
       return {
         platform,
         tracks: trackData
-      } as GetTrackResult;
+      };
     } catch (e) {
-      console.error(e);
       const { message } = e as Error;
 
-      new GeneralAppError({
-        bot: this.bot,
-        message
-      });
+      console.error(e);
+
+      throw message;
     }
   }
 
@@ -383,7 +343,8 @@ export class MusicPlaybackHandler {
       await ChannelMessagingUtils.makeVCConnectionSignallingEmbed(
         this.interaction
       );
-      return await this.setAudioBroadcast(broadcastData);
+
+      return this.setAudioBroadcast(broadcastData);
     }
 
     await this.setAudioBroadcast(broadcastData);
@@ -402,6 +363,7 @@ export class MusicPlaybackHandler {
     if (!audioPlayer) {
       await this.interaction.followUp(APP_NO_TRACK_PLAYING);
       this.interaction.replied = true;
+
       return;
     }
 
@@ -413,6 +375,7 @@ export class MusicPlaybackHandler {
     if (!audioPlayer) {
       await this.interaction.followUp(APP_NO_TRACK_PLAYING);
       this.interaction.replied = true;
+
       return;
     }
 
@@ -424,6 +387,7 @@ export class MusicPlaybackHandler {
     if (!audioPlayer) {
       await this.interaction.followUp(APP_NO_TRACK_PLAYING);
       this.interaction.replied = true;
+
       return;
     }
 
@@ -439,6 +403,7 @@ export class MusicPlaybackHandler {
     if (!audioPlayer && shouldNotifyChannel) {
       await this.interaction.followUp(APP_NO_TRACK_PLAYING);
       this.interaction.replied = true;
+
       return;
     }
 
