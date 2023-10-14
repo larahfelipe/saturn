@@ -48,7 +48,6 @@ export class Bot extends Client {
     this.maybeDatabaseConnection();
     this.onInteractionReady();
     this.onInteractionListening();
-    this.makeDiscordAPIConnection();
   }
 
   static getInstance() {
@@ -84,6 +83,17 @@ export class Bot extends Client {
       console.log(APP_READY);
       this.user?.setActivity(APP_ACTIVITY);
     });
+  }
+
+  private onInteractionListening() {
+    this.on('interactionCreate', async (interaction) => {
+      try {
+        await this.commandsHandler.execute(interaction);
+      } catch (e) {
+        console.error(e);
+        await ChannelMessagingUtils.makeBotCommandErrorEmbed(interaction);
+      }
+    });
 
     process.on(
       'unhandledRejection',
@@ -97,22 +107,8 @@ export class Bot extends Client {
     );
   }
 
-  private onInteractionListening() {
-    this.on('interactionCreate', async (interaction) => {
-      try {
-        await this.commandsHandler.execute(interaction);
-      } catch (e) {
-        console.error(e);
-        await ChannelMessagingUtils.makeBotCommandErrorEmbed(interaction);
-      }
-    });
-  }
-
-  private async makeDiscordAPIConnection() {
-    try {
-      await this.login(config.botToken);
-    } catch (e) {
-      console.error(e);
-    }
+  async makeDiscordAPIConnection() {
+    const token = await this.login(config.botToken);
+    return !!token;
   }
 }

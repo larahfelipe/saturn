@@ -1,9 +1,10 @@
 export const APP_NAME = 'Saturn';
 export const APP_ACTIVITY = 'Orbiting in the Milky Way';
-export const APP_COMMANDS_LOADED = `\n[${APP_NAME}] Commands loaded successfully.`;
-export const APP_READY = `\n[${APP_NAME}] Discord API ready to listen interactions.`;
+export const APP_COMMANDS_LOADED = `\n[${APP_NAME}] Commands loaded successfully`;
+export const APP_READY = `\n[${APP_NAME}] Discord API ready to listen interactions`;
 export const APP_FOUND_DATABASE_ACCESS_URL = `\n[${APP_NAME}] Found database access URL. Trying to establish connection...`;
-export const APP_DATABASE_CONNECTED = `\n[${APP_NAME}] Database connection successfully established.`;
+export const APP_DATABASE_CONNECTED = `\n[${APP_NAME}] Database connection successfully established`;
+export const APP_SERVER_RUNNING = `\n[${APP_NAME}] Server is running on port`;
 
 export const APP_MISSING_REQUIRED_CREDENTIALS =
   '\nMissing required credentials.';
