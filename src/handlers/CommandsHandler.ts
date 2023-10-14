@@ -10,7 +10,7 @@ import glob from 'glob';
 import { join } from 'path';
 
 import config from '@/config';
-import { BLANK_CHAR } from '@/constants';
+import { SATURN_EMOJI } from '@/constants';
 import { InvalidAppCommandError } from '@/errors/InvalidAppCommandError';
 import type { Bot } from '@/structures/Bot';
 import type { Command } from '@/structures/Command';
@@ -26,7 +26,7 @@ type ResolvedCommandObjRelativePath = {
 export class CommandsHandler {
   private static INSTANCE: CommandsHandler;
   protected bot: Bot;
-  private slashCommands: RESTPostAPIApplicationCommandsJSONBody[];
+  private slashCommands: Array<RESTPostAPIApplicationCommandsJSONBody>;
   private modulesLength: ModulesLength;
 
   private constructor(bot: Bot) {
@@ -57,7 +57,9 @@ export class CommandsHandler {
   }
 
   private resolveCommand(relativePath: string) {
-    const resolvedCommandObjRelativePath: ResolvedCommandObjRelativePath = require(`../commands/${relativePath}`);
+    const resolvedCommandObjRelativePath: ResolvedCommandObjRelativePath = require(
+      `../commands/${relativePath}`
+    );
 
     const resolvedCommand = Object.values(resolvedCommandObjRelativePath).map(
       (Command: any) => {
@@ -108,37 +110,38 @@ export class CommandsHandler {
 
         await this.setDiscordSlashCommandsAPI();
       });
+
       isCommandsLoaded = true;
     } catch (e) {
       console.error(e);
-    } finally {
-      // eslint-disable-next-line no-unsafe-finally
-      return isCommandsLoaded;
     }
+
+    return isCommandsLoaded;
   }
 
   async execute(interaction: Interaction<CacheType>) {
     if (!interaction.isCommand()) return;
 
     await interaction.deferReply();
+    const { commandName, user, replied } = interaction;
 
-    const command = this.bot.commands.get(interaction.commandName);
+    const command = this.bot.commands.get(commandName);
+
     if (!command)
       throw new InvalidAppCommandError({
-        message: `${interaction.commandName} is not a valid command.`,
+        message: `${commandName} is not a valid command.`,
         bot: this.bot,
         interaction
       });
 
-    console.log(
-      `\n> @${interaction.user.tag} triggered "${interaction.commandName}" command.`
-    );
+    console.log(`\n> @${user.username} triggered "${commandName}" command.`);
 
     await command.execute(interaction);
-    if (!interaction.replied) await this.signExecution(interaction);
+
+    if (!replied) await this.signExecution(interaction);
   }
 
   private async signExecution(interaction: CommandInteraction) {
-    await interaction.followUp(BLANK_CHAR);
+    await interaction.followUp(SATURN_EMOJI);
   }
 }

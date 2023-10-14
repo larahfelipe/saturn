@@ -1,9 +1,9 @@
-export const APP_COMMANDS_LOADED = '\n[Saturn] Commands loaded successfully.';
-export const APP_READY = '\n[Saturn] Discord API ready to listen interactions.';
-export const APP_FOUND_DATABASE_ACCESS_URL =
-  '\n[Saturn] Found database access URL. Trying to establish connection...';
-export const APP_DATABASE_CONNECTED =
-  '\n[Saturn] Database connection successfully established.';
+export const APP_NAME = 'Saturn';
+export const APP_ACTIVITY = 'Orbiting in the Milky Way';
+export const APP_COMMANDS_LOADED = `\n[${APP_NAME}] Commands loaded successfully.`;
+export const APP_READY = `\n[${APP_NAME}] Discord API ready to listen interactions.`;
+export const APP_FOUND_DATABASE_ACCESS_URL = `\n[${APP_NAME}] Found database access URL. Trying to establish connection...`;
+export const APP_DATABASE_CONNECTED = `\n[${APP_NAME}] Database connection successfully established.`;
 
 export const APP_MISSING_REQUIRED_CREDENTIALS =
   '\nMissing required credentials.';
@@ -14,7 +14,7 @@ export const APP_RUNTIME_EXCEPTION = 'RUNTIME EXCEPTION';
 export const APP_USER_NOT_IN_VOICE_CHANNEL =
   'You need to be in a voice channel first.';
 
-export const APP_MUSIC_PLAYBACK_PHRASE = 'I heard you 💜';
+export const APP_MUSIC_PLAYBACK_PHRASE = 'I got you 💜';
 export const APP_MUSIC_PLAYBACK_TITLE = '🎵  Music Playback';
 export const APP_LOADING_PLAYLIST_TRACKS_TITLE =
   'Gotcha!, loading playlist songs ... ⏳';
@@ -47,11 +47,9 @@ export const PLATFORMS = {
     color: '#FF0000',
     baseUrl: 'https://www.youtube.com/'
   }
-};
+} as const;
 
 export const MAX_VOICE_CONNECTION_JOIN_ATTEMPTS = 5;
-
-export const BLANK_CHAR = '\u2800';
 
 export const CD_GIF_URL =
   'https://raw.githubusercontent.com/larahfelipe/saturn/master/src/assets/cd.gif';
@@ -61,3 +59,4 @@ export const PROJECT_REPOSITORY_URL = 'https://github.com/larahfelipe/saturn/';
 
 export const THUMBS_UP_EMOJI = '👍';
 export const OKAY_EMOJI = '👌';
+export const SATURN_EMOJI = '🪐';
