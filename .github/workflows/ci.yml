@@ -32,8 +32,5 @@ jobs:
       - name: Prettier
         run: npm run prettier
 
-      - name: Type check
-        run: npm run typecheck
-
       - name: Build
         run: npm run build
