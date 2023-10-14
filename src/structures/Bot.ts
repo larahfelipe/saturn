@@ -3,12 +3,12 @@ import {
   Client,
   Collection,
   GatewayIntentBits,
-  type CommandInteraction,
   type Snowflake
 } from 'discord.js';
 
 import config from '@/config';
 import {
+  APP_ACTIVITY,
   APP_COMMANDS_LOADED,
   APP_MISSING_REQUIRED_CREDENTIALS,
   APP_READY
@@ -18,8 +18,8 @@ import { UncaughtExceptionMonitorError } from '@/errors/UncaughtExceptionMonitor
 import { UnhandledPromiseRejectionError } from '@/errors/UnhandledPromiseRejectionError';
 import { AppErrorHandler } from '@/handlers/AppErrorHandler';
 import { CommandsHandler } from '@/handlers/CommandsHandler';
-import { MessageChannelHandler } from '@/handlers/MessageChannelHandler';
-import { MusicPlaybackHandler } from '@/handlers/MusicPlaybackHandler';
+import type { MessageChannelHandler } from '@/handlers/MessageChannelHandler';
+import type { MusicPlaybackHandler } from '@/handlers/MusicPlaybackHandler';
 import { PrismaClient } from '@/infra/PrismaClient';
 import { ChannelMessagingUtils } from '@/utils/ChannelMessagingUtils';
 
@@ -44,10 +44,10 @@ export class Bot extends Client {
         GatewayIntentBits.GuildVoiceStates
       ]
     });
-    this.validateRequiredCredentials();
-    this.maybeMakeDatabaseConnection();
-    this.onCreateInteraction();
-    this.onListeningInteraction();
+    this.validateCredentials();
+    this.maybeDatabaseConnection();
+    this.onInteractionReady();
+    this.onInteractionListening();
     this.makeDiscordAPIConnection();
   }
 
@@ -56,7 +56,7 @@ export class Bot extends Client {
     return this.INSTANCE;
   }
 
-  private validateRequiredCredentials() {
+  private validateCredentials() {
     const { botToken, botAppId, guildId } = config;
 
     if (!botToken || !botAppId || !guildId) {
@@ -66,21 +66,24 @@ export class Bot extends Client {
     }
   }
 
-  private async maybeMakeDatabaseConnection() {
+  private async maybeDatabaseConnection() {
     this.databaseClient = PrismaClient.getInstance();
     await this.databaseClient.createConnection();
 
     this.appErrorHandler = AppErrorHandler.getInstance(this);
   }
 
-  private async onCreateInteraction() {
+  private async onInteractionReady() {
     this.commands = new Collection();
-    this.commandsHandler = CommandsHandler.getInstance(this);
     this.subscriptions = new Map();
+    this.commandsHandler = CommandsHandler.getInstance(this);
     const isCommandsLoaded = await this.commandsHandler.loadCommands();
     if (isCommandsLoaded) console.log(APP_COMMANDS_LOADED);
 
-    this.once('ready', () => console.log(APP_READY));
+    this.once('ready', () => {
+      console.log(APP_READY);
+      this.user?.setActivity(APP_ACTIVITY);
+    });
 
     process.on(
       'unhandledRejection',
@@ -94,22 +97,12 @@ export class Bot extends Client {
     );
   }
 
-  private onListeningInteraction() {
+  private onInteractionListening() {
     this.on('interactionCreate', async (interaction) => {
-      this.musicPlaybackHandler = MusicPlaybackHandler.getInstance(
-        this,
-        interaction as CommandInteraction
-      );
-      this.messageChannelHandler =
-        MessageChannelHandler.getInstance(interaction);
-
-      this.user?.setActivity(`Orbiting in ${interaction.guild?.name}`);
-
       try {
         await this.commandsHandler.execute(interaction);
       } catch (e) {
         console.error(e);
-
         await ChannelMessagingUtils.makeBotCommandErrorEmbed(interaction);
       }
     });

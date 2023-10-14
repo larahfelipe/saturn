@@ -1,7 +1,4 @@
-export type AppError = {
-  id: string;
-  name: string;
-  message: string;
-  occurredAt: string;
-  triggeredBy: string;
-};
+export type AppError = Record<
+  'id' | 'name' | 'message' | 'occurredAt' | 'triggeredBy',
+  string
+>;

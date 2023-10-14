@@ -17,14 +17,9 @@ export type BroadcastData = {
   requesterId: string;
 };
 
-export type Queue = BroadcastData[];
+export type Queue = Array<BroadcastData>;
 
-export type Track = {
-  title: string;
-  url: string;
-  duration: string;
-  thumbnail: string;
-};
+export type Track = Record<'title', 'url' | 'duration' | 'thumbnail', string>;
 
 export type TrackData = {
   data: Track;
@@ -32,7 +27,7 @@ export type TrackData = {
 };
 
 export type GetTrackResult = {
-  tracks: TrackData[];
+  tracks: Array<TrackData>;
   platform: keyof typeof PLATFORMS;
 };
 
@@ -42,7 +37,7 @@ type SpotifyItemTrack = {
   track: {
     name: string;
     duration_ms: number;
-    artists: { name: string }[];
+    artists: Array<{ name: string }>;
   };
 };
 
@@ -52,33 +47,26 @@ type SpotifyItemImage = {
   width: number;
 };
 
-type SpotifyItemOwner = {
-  id: string;
-  display_name: string;
-};
+type SpotifyItemOwner = Record<'id' | 'display_name', string>;
 
 type SpotifyItem = {
   [key: string]: {
     name: string;
-    images: SpotifyItemImage[];
+    images: Array<SpotifyItemImage>;
     owner: SpotifyItemOwner;
-    tracks: {
-      items: SpotifyItemTrack[];
-    };
+    tracks: Record<'items', Array<SpotifyItemTrack>>;
   };
 };
 
 export type SpotifyPlaylistRawResponse = {
-  entities: {
-    items: SpotifyItem;
-  };
+  entities: Record<'items', SpotifyItem>;
 };
 
 export type SpotifyPlaylist = {
   name: string;
   owner: string;
   cover: string;
-  tracks: string[];
+  tracks: Array<string>;
   duration: number;
 };
 

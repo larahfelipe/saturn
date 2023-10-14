@@ -1,4 +1,4 @@
-FROM node:16-alpine AS builder
+FROM node:16-slim AS builder
 
 WORKDIR /usr/src/app
 
@@ -10,7 +10,7 @@ COPY . .
 
 RUN yarn build
 
-FROM node:16-alpine
+FROM node:16-slim
 
 ARG NODE_ENV=production
 
@@ -18,17 +18,17 @@ ENV NODE_ENV=${NODE_ENV}
 
 WORKDIR /usr/src/app
 
-COPY package.json yarn.lock prisma ./
+COPY package.json yarn.lock ./
 
-RUN apk add openssl1.1-compat
-
-RUN apk add ffmpeg
+RUN apt-get update && apt-get install -y openssl ffmpeg && apt-get clean autoclean
 
 RUN yarn install --frozen-lockfile --production
 
-RUN yarn prisma generate
-
 COPY --from=builder /usr/src/app/dist ./dist
+
+COPY --from=builder /usr/src/app/prisma ./prisma
+
+RUN yarn prisma generate
 
 EXPOSE 8080
 
