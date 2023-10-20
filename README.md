@@ -27,29 +27,89 @@
 
 ## Overview
 
-Saturn is a full-modular multipurpose, user and developer-friendly Discord bot. It's perfect for managing your server and providing the best experience for you and your community. All of that and more, together on the most fantastic planet in our solar system!
+Saturn is a comprehensive, fully modular, multipurpose Discord bot that caters to both users and developers. It's an ideal choice for effectively managing your server and enhancing the overall experience for you and your community. All of this and much more, bundled together on the most captivating planet in our solar system!
 
 ## Usage
 
-Saturn is a _self-hosted_ bot, which means you will need to host and maintain your own instance. For that, you can instantiate it on your own machine or use a cloud platform to do that. A great cloud platform that I have used before and recommend is [Heroku](https://www.heroku.com/). It's a nice cloud service that offers great compatibility for apps like this one.
+Saturn is a _self-hosted_ bot, which means you'll be responsible for hosting and maintaining your own instance. You can choose to set it up on your local machine or opt for a cloud platform. One recommended cloud platform is Heroku, known for its seamless compatibility with apps like Saturn.
 
-Please note that you are **NOT** allowed to upload this bot to any service such as "discordbotlist" or "top.gg". You are only allowed to host this bot for your community.
+Please be aware that uploading this bot to services like "discordbotlist" or "top.gg" is strictly prohibited. Saturn is intended for personal community hosting only.
 
-In this step-by-step guide, we will only cover how you can set up Saturn on your own machine. Also, note that each topic in the following sections has a brief description in the title explaining what we're about to do. With that being said, let's move on.
+In this step-by-step guide, we will focus on setting up Saturn on your local machine. Each section's title provides a brief description of the upcoming steps. With that, let's get started.
 
 ### Getting started
 
-First things first, make sure that you have `git`, `node`, and `npm` installed. Then open your terminal or cmd and type the commands below.
+Before we begin, make sure that you have `git`, `node`, and `npm` installed.
+
+Also, I highly recommend using Docker to run this Discord bot because it offers several advantages. Docker provides a standardized environment for your application, ensuring that it runs consistently across different systems. This can greatly simplify deployment and eliminate potential compatibility issues, and I've ensured that everything necessary for the bot to work properly is included in the Dockerfile.
 
 #### Clone this repo and navigate to it
 
 ```
-git clone https://github.com/larahfelipe/saturn.git
-
-cd saturn
+git clone https://github.com/larahfelipe/saturn.git && cd saturn
 ```
 
-#### Setting up
+#### Preparing the environment
+
+Locate the `.env.example` file within the project's folder and open it using your preferred text editor.
+
+Ensure you have your bot token and application ID ready. If you're unsure how to obtain these, visit the [Discord Developers Portal](https://discord.com/developers/), create a new app, copy your application ID, and navigate to the "Bot" section to copy your generated token.
+
+Next, input your credentials and the `GUILD_ID`. Once you've completed this step, rename the `.env.example` file to `.env`.
+
+```bash
+BOT_TOKEN=
+BOT_APP_ID=
+GUILD_ID=
+```
+
+Saturn also offers database integration through Prisma, which is an Object-Relational Mapping (ORM). I have already implemented an integration that stores all the errors encountered by the bot during its runtime. This can be valuable for debugging purposes. To enable this feature, you must set the `DATABASE_URL` environment variable to your database's URL, which is also provided in the `.env.example` file.
+
+```bash
+DATABASE_URL=
+```
+
+##### Setting up automatically via Docker (recommended)
+
+Ensure you have Docker installed on your machine before proceeding. To check if Docker is properly installed, run the following command:
+
+```
+docker -v
+```
+
+If you get an output saying something like the Docker version, then you're good to go. Otherwise, please refer to the Docker documentation for installation instructions.
+
+Once you have Docker installed, run the following command to build the image:
+
+```
+docker build -t saturn .
+```
+
+After the image is built, you can run the container using the following command:
+
+```
+docker run -d --name saturn saturn
+```
+
+Ensure that the container is running by executing the following command:
+
+```
+docker ps -a
+```
+
+If the container is running, you should be able to see it in the list of container with the status "Up".
+
+For the Docker setup, that's it! However, if you prefer to set up the bot manually, please refer to the next section.
+
+##### Setting up manually
+
+If you intend to use the music function, you must install `ffmpeg` on your system. The installation process varies depending on your operating system. For instance, if you are using Ubuntu, you can install it using the following command. Alternatively, refer to the FFmpeg documentation for installation instructions tailored to your specific OS.
+
+```
+sudo apt install ffmpeg -y
+```
+
+Once you have `ffmpeg` installed, you can proceed to install the project dependencies by running the following command:
 
 ```
 -- Using npm:
@@ -59,25 +119,7 @@ npm install
 yarn
 ```
 
-When the installation finishes, find the `.env.example` file inside of the project's folder and open it with some text editor of your choice.
-
-Now, make sure that you have your bot token and app id in hand. In case you don't know how to get these things, go to the [Discord developers portal](https://discord.com/developers/) and create a new app, copy your application id, and then go to the "Bot" section and copy your generated token.
-
-After that, set your credentials and also your `GUILD_ID`. When you're done, rename the `.env.example` file to `.env`.
-
-```bash
-BOT_TOKEN=
-BOT_APP_ID=
-GUILD_ID=
-```
-
-Saturn also provides integration with Prisma, which is an ORM, and already has a built-in error database that stores all the errors that the bot has encountered during its runtime. This can be useful for debugging purposes. To have this feature enabled, you must set the `DATABASE_URL` environment variable to the URL of your database, which is also available in the `.env.example` file.
-
-```bash
-DATABASE_URL=
-```
-
-#### Running
+After the installation is complete, you can start the bot by running the following command:
 
 ```
 -- Using npm:
@@ -89,8 +131,8 @@ yarn dev
 
 ## Final considerations
 
-That's pretty much it! Thank you for using Saturn and have fun!
+That's all there is to it! Thank you for choosing Saturn, and enjoy using it!
 
-Also, in case you want to contribute to this project, pull requests are more than welcome. Feel free to open one.
+Additionally, if you wish to contribute to this project, we welcome pull requests with open arms. Please don't hesitate to open one if you'd like to get involved.
 
 > **This project is licensed under a [GNU General Public License v3.0 License](https://github.com/larahfelipe/saturn/blob/master/LICENSE)**

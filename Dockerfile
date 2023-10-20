@@ -28,6 +28,8 @@ COPY --from=builder /usr/src/app/dist ./dist
 
 COPY --from=builder /usr/src/app/prisma ./prisma
 
+COPY .env ./.env
+
 RUN yarn prisma generate
 
 EXPOSE 8080
