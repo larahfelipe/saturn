@@ -1,6 +1,6 @@
 import type { CommandInteraction, SlashCommandBuilder } from 'discord.js';
 
-export type GeneralAppError = {
+export type GenericApplicationError = {
   name?: string;
   message: string;
   bot: Bot;

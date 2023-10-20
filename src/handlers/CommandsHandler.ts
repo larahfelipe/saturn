@@ -11,7 +11,7 @@ import { join } from 'path';
 
 import config from '@/config';
 import { SATURN_EMOJI } from '@/constants';
-import { InvalidAppCommandError } from '@/errors/InvalidAppCommandError';
+import { InvalidCommandError } from '@/errors/InvalidCommandError';
 import type { Bot } from '@/structures/Bot';
 import type { Command } from '@/structures/Command';
 
@@ -41,7 +41,7 @@ export class CommandsHandler {
     return CommandsHandler.INSTANCE;
   }
 
-  private calculateModulesLength(commandsPartialPath: string[]) {
+  private calculateModulesLength(commandsPartialPath: Array<string>) {
     commandsPartialPath.forEach((commandPartialPath) => {
       let [moduleName] = commandPartialPath.split('/');
       if (moduleName.endsWith('.js') || moduleName.endsWith('.ts'))
@@ -128,7 +128,7 @@ export class CommandsHandler {
     const command = this.bot.commands.get(commandName);
 
     if (!command)
-      throw new InvalidAppCommandError({
+      throw new InvalidCommandError({
         message: `${commandName} is not a valid command.`,
         bot: this.bot,
         interaction

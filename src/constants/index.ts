@@ -1,5 +1,5 @@
 export const APP_NAME = 'Saturn';
-export const APP_ACTIVITY = 'Orbiting in the Milky Way';
+export const APP_ACTIVITY = 'Orbiting in the space';
 export const APP_COMMANDS_LOADED = `\n[${APP_NAME}] Commands loaded successfully.`;
 export const APP_READY = `\n[${APP_NAME}] Discord API ready to listen interactions.`;
 export const APP_FOUND_DATABASE_ACCESS_URL = `\n[${APP_NAME}] Found database access URL. Trying to establish connection...`;
@@ -7,10 +7,12 @@ export const APP_DATABASE_CONNECTED = `\n[${APP_NAME}] Database connection succe
 
 export const APP_MISSING_REQUIRED_CREDENTIALS =
   '\nMissing required credentials.';
-export const APP_COMMAND_ERROR_TITLE = '❌ Whoops, a wild error appeared!';
+export const APP_COMMAND_ERROR_TITLE = '❌ Whoops, a wild error appeared! 😱';
 export const APP_COMMAND_ERROR_DESCRIPTION =
-  "Why I'm seeing this?! 🤔\n\nIt's not you, it's me! Sorry... Just kidding, my guess is that you probably have a typo in your command or something went wrong while executing your command\n";
+  "Rest assured, it's not your fault in the slightest!\n\n🌟 My best guess is that there might be a tiny typo in your command or a little glitch in the execution process, in that case, please try again later.\n";
 export const APP_RUNTIME_EXCEPTION = 'RUNTIME EXCEPTION';
+export const APP_API_CONNECTION_FAILED =
+  "Something went wrong while trying to connect to Discord's API. Please review your credentials and try again later.";
 export const APP_USER_NOT_IN_VOICE_CHANNEL =
   'You need to be in a voice channel first.';
 

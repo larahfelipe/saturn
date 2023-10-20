@@ -1,6 +1,5 @@
-const parseTime = (time: number, timeReference: string) => {
-  return time === 0 ? '' : time.toString().padStart(2, '0') + timeReference;
-};
+const parseTime = (time: number, timeReference: string) =>
+  time === 0 ? '' : time.toString().padStart(2, '0') + timeReference;
 
 export const formatSecondsToStdTime = (seconds: number) => {
   const convertToDays = Math.floor(seconds / (3600 * 24));
