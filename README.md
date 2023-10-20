@@ -43,13 +43,13 @@ Before we begin, make sure that you have `git`, `node`, and `npm` installed.
 
 Also, I highly recommend using Docker to run this Discord bot because it offers several advantages. Docker provides a standardized environment for your application, ensuring that it runs consistently across different systems. This can greatly simplify deployment and eliminate potential compatibility issues, and I've ensured that everything necessary for the bot to work properly is included in the Dockerfile.
 
-#### Clone this repo and navigate to it
+### Clone this repo and navigate to it
 
 ```
 git clone https://github.com/larahfelipe/saturn.git && cd saturn
 ```
 
-#### Preparing the environment
+### Preparing the environment
 
 Locate the `.env.example` file within the project's folder and open it using your preferred text editor.
 
@@ -69,7 +69,7 @@ Saturn also offers database integration through Prisma, which is an Object-Relat
 DATABASE_URL=
 ```
 
-##### Setting up automatically via Docker (recommended)
+### Setting up automatically via Docker (recommended)
 
 Ensure you have Docker installed on your machine before proceeding. To check if Docker is properly installed, run the following command:
 
@@ -101,7 +101,7 @@ If the container is running, you should be able to see it in the list of contain
 
 For the Docker setup, that's it! However, if you prefer to set up the bot manually, please refer to the next section.
 
-##### Setting up manually
+### Setting up manually
 
 If you intend to use the music function, you must install `ffmpeg` on your system. The installation process varies depending on your operating system. For instance, if you are using Ubuntu, you can install it using the following command. Alternatively, refer to the FFmpeg documentation for installation instructions tailored to your specific OS.
 
