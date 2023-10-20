@@ -6,17 +6,10 @@ import {
   type Snowflake
 } from 'discord.js';
 
-import config from '@/config';
-import {
-  APP_ACTIVITY,
-  APP_COMMANDS_LOADED,
-  APP_MISSING_REQUIRED_CREDENTIALS,
-  APP_READY
-} from '@/constants';
-import { MissingRequiredCredentialsError } from '@/errors/MissingRequiredCredentialsError';
+import { APP_ACTIVITY, APP_COMMANDS_LOADED, APP_READY } from '@/constants';
 import { UncaughtExceptionMonitorError } from '@/errors/UncaughtExceptionMonitorError';
 import { UnhandledPromiseRejectionError } from '@/errors/UnhandledPromiseRejectionError';
-import { AppErrorHandler } from '@/handlers/AppErrorHandler';
+import { ApplicationErrorHandler } from '@/handlers/ApplicationErrorHandler';
 import { CommandsHandler } from '@/handlers/CommandsHandler';
 import type { MessageChannelHandler } from '@/handlers/MessageChannelHandler';
 import type { MusicPlaybackHandler } from '@/handlers/MusicPlaybackHandler';
@@ -28,7 +21,7 @@ import type { Command } from './Command';
 export class Bot extends Client {
   private static INSTANCE: Bot;
   databaseClient!: PrismaClient;
-  appErrorHandler!: AppErrorHandler;
+  applicationErrorHandler!: ApplicationErrorHandler;
   commandsHandler!: CommandsHandler;
   musicPlaybackHandler!: MusicPlaybackHandler;
   messageChannelHandler!: MessageChannelHandler;
@@ -44,11 +37,9 @@ export class Bot extends Client {
         GatewayIntentBits.GuildVoiceStates
       ]
     });
-    this.validateCredentials();
     this.maybeDatabaseConnection();
     this.onInteractionReady();
     this.onInteractionListening();
-    this.makeDiscordAPIConnection();
   }
 
   static getInstance() {
@@ -56,21 +47,11 @@ export class Bot extends Client {
     return this.INSTANCE;
   }
 
-  private validateCredentials() {
-    const { botToken, botAppId, guildId } = config;
-
-    if (!botToken || !botAppId || !guildId) {
-      throw new MissingRequiredCredentialsError(
-        APP_MISSING_REQUIRED_CREDENTIALS
-      );
-    }
-  }
-
   private async maybeDatabaseConnection() {
     this.databaseClient = PrismaClient.getInstance();
     await this.databaseClient.createConnection();
 
-    this.appErrorHandler = AppErrorHandler.getInstance(this);
+    this.applicationErrorHandler = ApplicationErrorHandler.getInstance(this);
   }
 
   private async onInteractionReady() {
@@ -84,17 +65,6 @@ export class Bot extends Client {
       console.log(APP_READY);
       this.user?.setActivity(APP_ACTIVITY);
     });
-
-    process.on(
-      'unhandledRejection',
-      ({ message }: Error) =>
-        new UnhandledPromiseRejectionError({ message, bot: this })
-    );
-    process.on(
-      'uncaughtExceptionMonitor',
-      ({ message }: Error) =>
-        new UncaughtExceptionMonitorError({ message, bot: this })
-    );
   }
 
   private onInteractionListening() {
@@ -106,13 +76,22 @@ export class Bot extends Client {
         await ChannelMessagingUtils.makeBotCommandErrorEmbed(interaction);
       }
     });
+
+    process.on(
+      'unhandledRejection',
+      ({ message }: Error) =>
+        new UnhandledPromiseRejectionError({ message, bot: this })
+    );
+
+    process.on(
+      'uncaughtExceptionMonitor',
+      ({ message }: Error) =>
+        new UncaughtExceptionMonitorError({ message, bot: this })
+    );
   }
 
-  private async makeDiscordAPIConnection() {
-    try {
-      await this.login(config.botToken);
-    } catch (e) {
-      console.error(e);
-    }
+  async makeDiscordAPIConnection(token: string) {
+    const authToken = await this.login(token);
+    return !!authToken;
   }
 }

@@ -8,11 +8,11 @@ import {
 
 export class PrismaClient extends DPrismaClient {
   private static INSTANCE: PrismaClient;
-  private isClientConnected: boolean;
+  private connectionEstablished: boolean;
 
   private constructor() {
     super();
-    this.isClientConnected = false;
+    this.connectionEstablished = false;
   }
 
   static getInstance() {
@@ -21,32 +21,25 @@ export class PrismaClient extends DPrismaClient {
   }
 
   isConnected() {
-    return this.isClientConnected;
+    return this.connectionEstablished;
   }
 
   setIsConnected(value: boolean) {
-    this.isClientConnected = value;
+    this.connectionEstablished = value;
   }
 
   async createConnection() {
     if (!config.dbAccessUrl) return;
     console.log(APP_FOUND_DATABASE_ACCESS_URL);
 
-    try {
-      await this.$connect();
-      this.setIsConnected(true);
-      console.log(APP_DATABASE_CONNECTED);
-    } catch (e) {
-      console.error(e);
-    }
+    await this.$connect();
+
+    this.setIsConnected(true);
+    console.log(APP_DATABASE_CONNECTED);
   }
 
   async closeConnection() {
-    try {
-      await this.$disconnect();
-      this.setIsConnected(false);
-    } catch (e) {
-      console.error(e);
-    }
+    await this.$disconnect();
+    this.setIsConnected(false);
   }
 }

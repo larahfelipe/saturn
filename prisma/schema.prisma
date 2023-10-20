@@ -10,12 +10,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model AppError {
+model ApplicationError {
   id          String @id @default(uuid())
   name        String
   message     String
   occurredAt  String
   triggeredBy String
 
-  @@map("app_errors")
+  @@map("errors")
 }

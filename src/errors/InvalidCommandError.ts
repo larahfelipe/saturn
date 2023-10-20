@@ -2,9 +2,9 @@ import type { GenericApplicationError as TGenericApplicationError } from '@/type
 
 import { GenericApplicationError } from './GenericApplicationError';
 
-export class VCWebSocketCloseError extends GenericApplicationError {
+export class InvalidCommandError extends GenericApplicationError {
   constructor(props: TGenericApplicationError) {
-    props.name = 'VoiceChannelWebSocketCloseError';
     super(props);
+    props.name = 'InvalidCommandError';
   }
 }

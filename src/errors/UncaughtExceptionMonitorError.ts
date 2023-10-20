@@ -1,9 +1,9 @@
-import type { GeneralAppError as TGeneralAppError } from '@/types';
+import type { GenericApplicationError as TGenericApplicationError } from '@/types';
 
-import { GeneralAppError } from './GeneralAppError';
+import { GenericApplicationError } from './GenericApplicationError';
 
-export class UncaughtExceptionMonitorError extends GeneralAppError {
-  constructor(props: TGeneralAppError) {
+export class UncaughtExceptionMonitorError extends GenericApplicationError {
+  constructor(props: TGenericApplicationError) {
     props.name = 'UncaughtExceptionMonitorError';
     super(props);
   }

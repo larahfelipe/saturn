@@ -21,37 +21,29 @@ export class MessageChannelHandler {
   }
 
   async getFirstHundredSent() {
-    const firstHundredMsgs = await this.msg.channel?.messages.fetch({
+    return this.msg.channel?.messages.fetch({
       limit: 100
     });
-
-    return firstHundredMsgs;
   }
 
   async getLastSent() {
-    const lastSentMsg = await this.msg.channel?.messages.fetch({ limit: 1 });
-
-    return lastSentMsg;
+    return this.msg.channel?.messages.fetch({ limit: 1 });
   }
 
   async getFirstHundredBotSent() {
-    const firstHundredBotMsgs = await this.msg.channel?.messages
+    return this.msg.channel?.messages
       .fetch({ limit: 100 })
       .then((msgs: Collection<string, Message>) => {
         return msgs.filter((msg) => msg.author.bot);
       });
-
-    return firstHundredBotMsgs;
   }
 
   async getLastBotSent() {
-    const lastMsgBotSent = await this.msg.channel?.messages
+    return this.msg.channel?.messages
       .fetch({ limit: 100 })
       .then((msgs: Collection<string, Message>) => {
         return msgs.filter((msg) => msg.author.bot).first();
       });
-
-    return lastMsgBotSent;
   }
 
   async bulkDelete(targetMsgs: typeof this.msg) {
