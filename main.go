@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
+	"os/exec"
 	"os/signal"
 	"reflect"
 	"regexp"
@@ -17,6 +17,16 @@ import (
 	env "github.com/joho/godotenv"
 	"github.com/jonas747/dca"
 	"github.com/kkdai/youtube/v2"
+	"go.uber.org/zap"
+)
+
+type Status int
+
+const (
+	IDLE     Status = 0
+	PLAYING  Status = 1
+	PAUSING  Status = 2
+	SKIPPING Status = 3
 )
 
 type Stream struct {
@@ -38,7 +48,7 @@ type Song struct {
 }
 
 type Queue struct {
-	Status string
+	Status chan Status
 	Mutex  *sync.Mutex
 	Songs  []Song
 }
@@ -69,17 +79,11 @@ type Bot struct {
 	Features *Features
 }
 
-const (
-	Idle    = "IDLE"
-	Playing = "PLAYING"
-	Paused  = "PAUSED"
-)
-
 func printObject(obj interface{}) {
 	valueOfObj := reflect.ValueOf(obj)
 
 	if valueOfObj.Kind() != reflect.Struct {
-		log.Println("input object is not a struct")
+		fmt.Println("input object is not a struct")
 		return
 	}
 
@@ -157,12 +161,12 @@ func (song *Song) stream(s *discordgo.Session, m *discordgo.MessageCreate) {
 				vc, err := s.ChannelVoiceJoin(guild.ID, voiceState.ChannelID, false, true)
 				if err != nil {
 					s.ChannelMessageSend(m.ChannelID, "Oops! It seems that I'm not in the mood for singing right now. Please try again later.")
-					log.Println("[exception] Voice connection join event error:", err)
+					zap.L().Error(fmt.Sprintf("voice connection join event error: %s", err))
 					return
 				}
 
 				if err := vc.Speaking(true); err != nil {
-					log.Println("[exception] Voice connection speak event error:", err)
+					zap.L().Error(fmt.Sprintf("voice connection speak event error: %s", err))
 					return
 				}
 
@@ -176,11 +180,15 @@ func (song *Song) stream(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 				sfp, err := song.download()
 				if err != nil {
-					log.Println("[exception] Stream download error:", err)
+					zap.L().Error(fmt.Sprintf("stream download error: %s", err))
 					return
 				}
 
-				defer os.Remove(sfp)
+				defer func() {
+					if err := os.Remove(sfp); err != nil {
+						zap.L().Error(fmt.Sprintf("stream file removal error: %s", err))
+					}
+				}()
 
 				// TODO: check the bitrate of the voice channel and set the bitrate of the song accordingly
 
@@ -190,7 +198,7 @@ func (song *Song) stream(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 				es, err := dca.EncodeFile(sfp, options)
 				if err != nil {
-					log.Println("[exception] Stream encode error:", err)
+					zap.L().Error(fmt.Sprintf("stream encode error: %s", err))
 					return
 				}
 
@@ -201,7 +209,7 @@ func (song *Song) stream(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 				se := <-done
 				if se != nil && se != io.EOF {
-					log.Println("[exception] Stream broadcast error:", se)
+					zap.L().Error(fmt.Sprintf("stream broadcast error: %s", se))
 					return
 				}
 			}
@@ -220,10 +228,12 @@ func (queue *Queue) shift() Song {
 	return s
 }
 
-func (queue *Queue) add(song *Song) Song {
+func (queue *Queue) add(song *Song) {
 	queue.Songs = append(queue.Songs, *song)
+}
 
-	return *song
+func (queue *Queue) clear() {
+	queue.Songs = []Song{}
 }
 
 func (queue *Queue) process(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -231,23 +241,44 @@ func (queue *Queue) process(s *discordgo.Session, m *discordgo.MessageCreate) {
 	defer queue.Mutex.Unlock()
 
 	if len(queue.Songs) == 0 {
-		queue.Status = Idle
+		queue.Status <- IDLE
 		return
 	}
 
-	queue.Status = Playing
+	switch <-queue.Status {
+	case PLAYING:
+		queue.Status <- PLAYING
+		song := queue.shift()
+		song.stream(s, m)
 
-	song := queue.shift()
-	song.stream(s, m)
+	case PAUSING:
+		fmt.Println("Pausing song")
+		queue.Status <- PAUSING
+
+	case SKIPPING:
+		fmt.Println("Skipping song")
+		queue.Status <- PLAYING
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Skipping [%s](%s)", queue.Songs[0].Title, queue.Songs[0].Url))
+		queue.Songs = queue.Songs[1:]
+
+	default:
+		queue.Status <- IDLE
+		return
+	}
 
 	go queue.process(s, m)
 }
 
 func playSongCommand(bot *Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
-	// TODO: check if the host pc has required dependencies installed - ffmpeg
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		s.ChannelMessageSendReply(m.ChannelID, "Oops! It seems that this command is not available at the moment. Please try again later", m.Reference())
+		zap.L().Error(fmt.Sprintf("ffmpeg path lookup error: %s", err))
+		return
+	}
 
 	if len(args) == 0 {
 		s.ChannelMessageSendReply(m.ChannelID, "Guess you forgot to provide a song url", m.Reference())
+		zap.L().Info(fmt.Sprintf("%s didn't provide a song url", m.Author.Username))
 		return
 	}
 
@@ -256,7 +287,7 @@ func playSongCommand(bot *Bot, s *discordgo.Session, m *discordgo.MessageCreate,
 	v, err := bot.Features.Integrations.Youtube.GetVideo(songUrl)
 	if err != nil {
 		s.ChannelMessageSendReply(m.ChannelID, "Oops! It seems something went wrong while searching for your song. Please try again later", m.Reference())
-		log.Println("[exception] Youtube video request error:", err)
+		zap.L().Error(fmt.Sprintf("youtube video request error: %s", err))
 		return
 	}
 
@@ -264,11 +295,11 @@ func playSongCommand(bot *Bot, s *discordgo.Session, m *discordgo.MessageCreate,
 	rs, _, err := bot.Features.Integrations.Youtube.GetStream(v, &av)
 	if err != nil {
 		s.ChannelMessageSendReply(m.ChannelID, "Oops! It seems something went wrong while searching for your song. Please try again later", m.Reference())
-		log.Println("[exception] Youtube stream request error:", err)
+		zap.L().Error(fmt.Sprintf("youtube stream request error: %s", err))
 		return
 	}
 
-	song := bot.Features.Queue.add(&Song{
+	song := &Song{
 		Title:       v.Title,
 		Url:         songUrl,
 		ArtworkUrl:  v.Thumbnails[0].URL,
@@ -282,13 +313,44 @@ func playSongCommand(bot *Bot, s *discordgo.Session, m *discordgo.MessageCreate,
 			Bitrate:      av.Bitrate,
 			Readable:     rs,
 		},
-	})
+	}
 
-	if bot.Features.Queue.Status == Playing {
+	if <-bot.Features.Queue.Status == PLAYING {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Got it! [%s](%s) has been queued at position %d", song.Title, song.Url, song.Position))
 	}
 
+	bot.Features.Queue.Status <- PLAYING
+	bot.Features.Queue.add(song)
 	bot.Features.Queue.process(s, m)
+}
+
+func skipSongCommand(bot *Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
+	// bot.Features.Queue.Mutex.Lock()
+	// defer bot.Features.Queue.Mutex.Unlock()
+
+	// if <-bot.Features.Queue.Status != PLAYING || len(bot.Features.Queue.Songs) == 0 {
+	// 	s.ChannelMessageSendReply(m.ChannelID, "Oops! It seems that there's nothing to skip at the moment", m.Reference())
+	// 	return
+	// }
+
+	bot.Features.Queue.Status <- SKIPPING
+
+	s.MessageReactionAdd(m.ChannelID, m.ID, "⏭️")
+}
+
+func stopSongCommand(bot *Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
+	// bot.Features.Queue.Mutex.Lock()
+	// defer bot.Features.Queue.Mutex.Unlock()
+
+	// if <-bot.Features.Queue.Status != PLAYING {
+	// 	s.ChannelMessageSendReply(m.ChannelID, "Oops! It seems that there's nothing to stop at the moment", m.Reference())
+	// 	return
+	// }
+
+	bot.Features.Queue.clear()
+	bot.Features.Queue.Status <- IDLE
+
+	s.MessageReactionAdd(m.ChannelID, m.ID, "🛑")
 }
 
 func pingCommand(bot *Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
@@ -302,7 +364,8 @@ func (bot *Bot) onMessageInteractionCreate(s *discordgo.Session, m *discordgo.Me
 
 	maybeCommand := strings.TrimLeft(m.Content, bot.Command.Prefix)
 	if len(maybeCommand) == 0 {
-		s.ChannelMessageSend(m.ChannelID, "Hmm... It seems that you forgot to provide a command")
+		s.ChannelMessageSendReply(m.ChannelID, "Hmm... It seems that you forgot to provide a command", m.Reference())
+		zap.L().Info(fmt.Sprintf("%s triggered an interaction without providing a command", m.Author.Username))
 		return
 	}
 
@@ -313,20 +376,32 @@ func (bot *Bot) onMessageInteractionCreate(s *discordgo.Session, m *discordgo.Me
 	for _, command := range bot.Command.All {
 		if commandRef == command.Name {
 			command.Execute(bot, s, m, commandArgs)
+			zap.L().Info(fmt.Sprintf("%s triggered an interaction for command %s with args %v", m.Author.Username, commandRef, commandArgs))
 			return
 		}
 	}
+
+	s.ChannelMessageSendReply(m.ChannelID, "Hmm... I'm not sure if I know that command, can you check if you typed it correctly?", m.Reference())
+	zap.L().Info(fmt.Sprintf("%s tried to trigger an interaction for an unknown command %s with args %v", m.Author.Username, commandRef, commandArgs))
 }
 
 func main() {
 	if err := env.Load(); err != nil {
-		panic(fmt.Sprintf("[fatal] Environment variables load error: %s", err))
+		panic(fmt.Sprintf("environment variables load error: %s", err))
 	}
+
+	zl := zap.Must(zap.NewProduction())
+	appEnv := os.Getenv("APP_ENV")
+	if appEnv == "development" {
+		zl = zap.Must(zap.NewDevelopment())
+	}
+
+	zap.ReplaceGlobals(zl)
 
 	botToken := os.Getenv("BOT_TOKEN")
 	botPrefix := os.Getenv("BOT_PREFIX")
 	if len(botToken) == 0 || len(botPrefix) == 0 {
-		panic("[fatal] Missing required environment variables error")
+		zap.L().Fatal("missing required environment variables error")
 	}
 
 	bot := Bot{
@@ -343,11 +418,19 @@ func main() {
 					Name:    "play",
 					Execute: playSongCommand,
 				},
+				// {
+				// 	Name:    "skip",
+				// 	Execute: skipSongCommand,
+				// },
+				// {
+				// 	Name:    "stop",
+				// 	Execute: stopSongCommand,
+				// },
 			},
 		},
 		Features: &Features{
 			Queue: &Queue{
-				Status: Idle,
+				Status: make(chan Status, 1),
 				Mutex:  &sync.Mutex{},
 				Songs:  []Song{},
 			},
@@ -359,26 +442,30 @@ func main() {
 
 	ds, err := discordgo.New("Bot " + bot.Token)
 	if err != nil {
-		panic(fmt.Sprintf("[fatal] Discord session creation error: %s", err))
+		zap.L().Fatal(fmt.Sprintf("discord session creation error: %s", err))
 	}
+
+	go func() {
+		bot.Features.Queue.Status <- IDLE
+	}()
 
 	bot.Session = ds
 	bot.Session.AddHandler(bot.onMessageInteractionCreate)
 
 	err = bot.Session.Open()
 	if err != nil {
-		panic(fmt.Sprintf("[fatal] Discord websocket open connection error: %s", err))
+		zap.L().Fatal(fmt.Sprintf("discord websocket open connection error: %s", err))
 	}
 
-	log.Println(strings.Repeat("-", 20))
-	log.Println("[info] Bot is connected and ready to listen for interactions")
-	log.Println("[info] Press CTRL-C to kill the process and exit")
+	fmt.Println("")
+	zap.L().Info(fmt.Sprintf("bot is now connected as %s and it's ready to listen for interactions", bot.Session.State.User.Username))
+	zap.L().Info("press CTRL-C to kill the process and exit")
 
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
 
 	if err := bot.Session.Close(); err != nil {
-		panic(fmt.Sprintf("[fatal] Discord websocket close connection error: %s", err))
+		zap.L().Fatal(fmt.Sprintf("discord websocket close connection error: %s", err))
 	}
 }
