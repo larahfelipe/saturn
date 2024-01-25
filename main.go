@@ -54,7 +54,7 @@ type Song struct {
 	Title       string
 	Url         string
 	ArtworkUrl  string
-	Duration    float64
+	Duration    string
 	RequestedBy string
 	Position    int
 	StreamData  *StreamData
@@ -83,6 +83,7 @@ type Message struct {
 }
 
 type CallableCommand struct {
+	Active  bool
 	Name    string
 	Execute func(bot *Bot, message *Message)
 }
@@ -99,7 +100,7 @@ type Bot struct {
 	Feature *Feature
 }
 
-func printObject(obj interface{}) {
+func PrintObject(obj interface{}) {
 	valueOfObj := reflect.ValueOf(obj)
 
 	if valueOfObj.Kind() != reflect.Struct {
@@ -127,6 +128,30 @@ func getFileExtFromMime(mimeType string) string {
 	return sm[1]
 }
 
+func deleteDir(dirPath string) error {
+	if _, err := os.Stat(dirPath); err != nil {
+		return err
+	}
+
+	if err := os.RemoveAll(dirPath); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func deleteFile(filePath string) error {
+	if _, err := os.Stat(filePath); err != nil {
+		return err
+	}
+
+	if err := os.Remove(filePath); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func writeFile(readable io.ReadCloser, fileName string) error {
 	f, err := os.Create(fileName)
 	if err != nil {
@@ -140,6 +165,74 @@ func writeFile(readable io.ReadCloser, fileName string) error {
 	}
 
 	return nil
+}
+
+func (bot *Bot) buildErrorMessageEmbed(message string) *discordgo.MessageEmbed {
+	return &discordgo.MessageEmbed{
+		Author: &discordgo.MessageEmbedAuthor{
+			Name:    "❌ Oops, a wild error appeared! 😱",
+			IconURL: bot.Session.State.User.AvatarURL("256"),
+		},
+		Description: message,
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: "Please try again later",
+		},
+		Timestamp: time.Now().Format(time.RFC3339),
+		Color:     0xFB3640,
+	}
+}
+
+func (bot *Bot) buildMessageEmbed(message string) *discordgo.MessageEmbed {
+	return &discordgo.MessageEmbed{
+		Author: &discordgo.MessageEmbedAuthor{
+			Name:    bot.Session.State.User.Username,
+			IconURL: bot.Session.State.User.AvatarURL("256"),
+		},
+		Description: message,
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: "From space",
+		},
+		Timestamp: time.Now().Format(time.RFC3339),
+		Color:     0x6E76E5,
+	}
+}
+
+func (song *Song) buildMessageEmbed(queued bool) *discordgo.MessageEmbed {
+	if queued {
+		return &discordgo.MessageEmbed{
+			Author: &discordgo.MessageEmbedAuthor{
+				Name: "Queued",
+			},
+			Title:       song.Title,
+			URL:         song.Url,
+			Description: fmt.Sprintf("Added to the queue by <@%s> at position %d", song.RequestedBy, song.Position),
+			Thumbnail: &discordgo.MessageEmbedThumbnail{
+				URL: song.ArtworkUrl,
+			},
+			Footer: &discordgo.MessageEmbedFooter{
+				Text: fmt.Sprintf("Duration: %s", song.Duration),
+			},
+			Timestamp: time.Now().Format(time.RFC3339),
+			Color:     0xFFB319,
+		}
+	}
+
+	return &discordgo.MessageEmbed{
+		Author: &discordgo.MessageEmbedAuthor{
+			Name:    "Now playing",
+			IconURL: "https://github.com/larahfelipe/saturn/blob/stale-master/src/assets/cd.gif?raw=true",
+		},
+		Title:       song.Title,
+		URL:         song.Url,
+		Description: fmt.Sprintf("Requested by <@%s> Enjoy!", song.RequestedBy),
+		Thumbnail: &discordgo.MessageEmbedThumbnail{
+			URL: song.ArtworkUrl,
+		},
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: fmt.Sprintf("Duration: %s", song.Duration),
+		},
+		Color: 0x1ED760,
+	}
 }
 
 func (song *Song) download() (string, error) {
@@ -183,7 +276,7 @@ func (stream *Stream) stream(ctx context.Context, resultChan chan<- StreamResult
 	}
 
 	defer func() {
-		if err := os.Remove(sfp); err != nil {
+		if err := deleteFile(sfp); err != nil {
 			resultChan <- StreamResult{Error: fmt.Errorf("stream file removal error: %s", err)}
 		}
 	}()
@@ -231,6 +324,28 @@ func (mq *MusicQueue) shift() *Song {
 	return &s
 }
 
+func (mq *MusicQueue) cleanup(closeChan bool) {
+	if mq.VoiceConnection != nil {
+		if err := mq.VoiceConnection.Disconnect(); err != nil {
+			zap.L().Error(fmt.Sprintf("voice connection disconnect error: %s", err))
+		}
+
+		mq.VoiceConnection.Close()
+		mq.VoiceConnection = nil
+	}
+
+	mq.isPlaying = false
+	mq.Songs = []Song{}
+
+	if err := deleteDir("temp"); err != nil {
+		zap.L().Info("temp directory not found, ignoring removal")
+	}
+
+	if closeChan {
+		close(mq.PlaybackState)
+	}
+}
+
 func (mq *MusicQueue) add(song *Song) {
 	mq.Songs = append(mq.Songs, *song)
 }
@@ -248,9 +363,7 @@ func (mq *MusicQueue) process() {
 			switch ps {
 			case IDLE:
 				if len(mq.Songs) == 0 && mq.VoiceConnection != nil {
-					mq.VoiceConnection.Disconnect()
-					mq.VoiceConnection.Close()
-					mq.VoiceConnection = nil
+					mq.cleanup(false)
 				}
 
 			case PLAY:
@@ -283,8 +396,8 @@ func (mq *MusicQueue) process() {
 		case result := <-resChan:
 			mq.Mutex.Lock()
 			if result.Error != nil {
-				mq.isPlaying = false
 				zap.L().Error(result.Error.Error())
+				mq.cleanup(false)
 			}
 
 			if result.State == SIGNAL {
@@ -304,15 +417,13 @@ func (bot *Bot) makeVoiceConnection(m *Message) (*discordgo.VoiceConnection, err
 	for _, guild := range bot.Session.State.Guilds {
 		for _, vs := range guild.VoiceStates {
 			if vs.UserID == m.Author.ID {
-				// TODO: check if the bot is already in the same voice channel as the user who requested the song
-
 				if vs.UserID != bot.Session.State.User.ID {
-					bot.Session.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Yay! Joining the party on <#%s>", vs.ChannelID))
+					bot.Session.ChannelMessageSendEmbed(m.ChannelID, bot.buildMessageEmbed(fmt.Sprintf("Yay! Joining the party on <#%s>", vs.ChannelID)))
 				}
 
 				vc, err := bot.Session.ChannelVoiceJoin(guild.ID, vs.ChannelID, false, true)
 				if err != nil {
-					bot.Session.ChannelMessageSend(m.ChannelID, "Oops! It seems that I'm not in the mood for partying right now. Maybe later?")
+					bot.Session.ChannelMessageSendEmbed(m.ChannelID, bot.buildErrorMessageEmbed("It seems that I'm not in the mood for partying right now. Maybe later?"))
 					return nil, err
 				}
 
@@ -326,7 +437,7 @@ func (bot *Bot) makeVoiceConnection(m *Message) (*discordgo.VoiceConnection, err
 
 func playSongCommand(bot *Bot, m *Message) {
 	if len(m.args) == 0 {
-		bot.Session.ChannelMessageSendReply(m.ChannelID, "Guess you forgot to provide a song url", m.Reference())
+		bot.Session.ChannelMessageSendEmbedReply(m.ChannelID, bot.buildErrorMessageEmbed("Guess you forgot to provide a song url"), m.Reference())
 		zap.L().Info(fmt.Sprintf("%s didn't provide a song url", m.Author.Username))
 		return
 	}
@@ -335,7 +446,7 @@ func playSongCommand(bot *Bot, m *Message) {
 
 	v, err := bot.Feature.External.Youtube.GetVideo(songUrl)
 	if err != nil {
-		bot.Session.ChannelMessageSendReply(m.ChannelID, "Oops! It seems something went wrong while searching for your song. Please try again later", m.Reference())
+		bot.Session.ChannelMessageSendEmbedReply(m.ChannelID, bot.buildErrorMessageEmbed("It seems something went wrong while searching for your song"), m.Reference())
 		zap.L().Error(fmt.Sprintf("youtube video request error: %s", err))
 		return
 	}
@@ -343,7 +454,7 @@ func playSongCommand(bot *Bot, m *Message) {
 	av := v.Formats.WithAudioChannels()[0]
 	rs, _, err := bot.Feature.External.Youtube.GetStream(v, &av)
 	if err != nil {
-		bot.Session.ChannelMessageSendReply(m.ChannelID, "Oops! It seems something went wrong while searching for your song. Please try again later", m.Reference())
+		bot.Session.ChannelMessageSendEmbedReply(m.ChannelID, bot.buildErrorMessageEmbed("It seems something went wrong while searching for your song"), m.Reference())
 		zap.L().Error(fmt.Sprintf("youtube stream request error: %s", err))
 		return
 	}
@@ -357,7 +468,7 @@ func playSongCommand(bot *Bot, m *Message) {
 		Title:       v.Title,
 		Url:         songUrl,
 		ArtworkUrl:  v.Thumbnails[0].URL,
-		Duration:    v.Duration.Minutes(),
+		Duration:    v.Duration.String(),
 		RequestedBy: m.Author.ID,
 		Position:    len(mq.Songs) + 1,
 		StreamData: &StreamData{
@@ -371,11 +482,13 @@ func playSongCommand(bot *Bot, m *Message) {
 
 	mq.add(song)
 
+	sme := song.buildMessageEmbed(mq.isPlaying)
+
 	if !mq.isPlaying {
 		if mq.VoiceConnection == nil {
 			vc, err := bot.makeVoiceConnection(m)
 			if err != nil {
-				bot.Session.ChannelMessageSend(m.ChannelID, "Oops! It seems that I'm not in the mood for partying right now. Maybe later?")
+				bot.Session.ChannelMessageSendEmbed(m.ChannelID, bot.buildErrorMessageEmbed("It seems that I'm not in the mood for partying right now. Maybe later?"))
 				zap.L().Error(fmt.Sprintf("voice connection error: %s", err))
 				return
 			}
@@ -384,11 +497,10 @@ func playSongCommand(bot *Bot, m *Message) {
 		}
 
 		mq.isPlaying = true
-		bot.Session.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Now playing [%s](%s)", song.Title, song.Url))
 		mq.PlaybackState <- PLAY
-	} else {
-		bot.Session.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Got it! [%s](%s) has been queued at position %d", song.Title, song.Url, song.Position))
 	}
+
+	bot.Session.ChannelMessageSendEmbed(m.ChannelID, sme)
 }
 
 func skipSongCommand(bot *Bot, m *Message) {
@@ -423,7 +535,7 @@ func stopSongCommand(bot *Bot, m *Message) {
 
 func healthCommand(bot *Bot, m *Message) {
 	latencyMs := bot.Session.HeartbeatLatency().Milliseconds()
-	bot.Session.ChannelMessageSendReply(m.ChannelID, fmt.Sprintf("Heartbeat latency: %dms", latencyMs), m.Reference())
+	bot.Session.ChannelMessageSendEmbed(m.ChannelID, bot.buildMessageEmbed(fmt.Sprintf("Heartbeat latency: %dms", latencyMs)))
 }
 
 func pingCommand(bot *Bot, m *Message) {
@@ -437,7 +549,7 @@ func (bot *Bot) onMessageInteractionCreate(_ *discordgo.Session, m *discordgo.Me
 
 	maybeCommand := strings.TrimLeft(m.Content, bot.Command.Prefix)
 	if len(maybeCommand) == 0 {
-		bot.Session.ChannelMessageSendReply(m.ChannelID, "Hmm... It seems that you forgot to provide a command", m.Reference())
+		bot.Session.ChannelMessageSendEmbedReply(m.ChannelID, bot.buildErrorMessageEmbed("It seems that you forgot to provide a command"), m.Reference())
 		zap.L().Info(fmt.Sprintf("%s triggered an interaction without providing a command", m.Author.Username))
 		return
 	}
@@ -447,15 +559,16 @@ func (bot *Bot) onMessageInteractionCreate(_ *discordgo.Session, m *discordgo.Me
 	commandArgs := c[1:]
 
 	for _, command := range bot.Command.Callable {
-		if commandRef == command.Name {
+		if commandRef == command.Name && command.Active {
 			command.Execute(bot, &Message{m, commandArgs})
 			zap.L().Info(fmt.Sprintf("%s triggered an interaction for command %s with args %v", m.Author.Username, commandRef, commandArgs))
 			return
 		}
 	}
 
-	bot.Session.ChannelMessageSendReply(m.ChannelID, "Hmm... I'm not sure if I know that command, can you check if you typed it correctly?", m.Reference())
-	zap.L().Info(fmt.Sprintf("%s tried to trigger an interaction for an unknown command %s with args %v", m.Author.Username, commandRef, commandArgs))
+	bot.Session.ChannelMessageSendEmbedReply(m.ChannelID, bot.buildErrorMessageEmbed(
+		"Hmm... something isn't right, maybe you misspelled the command or it's currently unavailable"), m.Reference())
+	zap.L().Info(fmt.Sprintf("%s tried to trigger an interaction for an unknown or unavailable command %s with args %v", m.Author.Username, commandRef, commandArgs))
 }
 
 func setupDiscordBot(token, prefix string) (*Bot, error) {
@@ -470,26 +583,32 @@ func setupDiscordBot(token, prefix string) (*Bot, error) {
 			Prefix: prefix,
 			Callable: []CallableCommand{
 				{
+					Active:  true,
 					Name:    "ping",
 					Execute: pingCommand,
 				},
 				{
+					Active:  true,
 					Name:    "health",
 					Execute: healthCommand,
 				},
 				{
+					Active:  true,
 					Name:    "play",
 					Execute: playSongCommand,
 				},
 				{
+					Active:  false,
 					Name:    "skip",
 					Execute: skipSongCommand,
 				},
 				{
+					Active:  false,
 					Name:    "pause",
 					Execute: pauseSongCommand,
 				},
 				{
+					Active:  true,
 					Name:    "stop",
 					Execute: stopSongCommand,
 				},
@@ -547,7 +666,7 @@ func main() {
 
 	go bot.Feature.MusicQueue.process()
 
-	defer close(bot.Feature.MusicQueue.PlaybackState)
+	defer bot.Feature.MusicQueue.cleanup(true)
 
 	fmt.Println("")
 	zap.L().Info(fmt.Sprintf("bot is now connected as %s and it's ready to listen for interactions", bot.Session.State.User.Username))
