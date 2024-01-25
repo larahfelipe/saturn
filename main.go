@@ -203,6 +203,7 @@ func (stream *Stream) stream(ctx context.Context, resultChan chan<- StreamResult
 	doneChan := make(chan error)
 	streamingSession := dca.NewStream(es, stream.VoiceConnection, doneChan)
 
+	// dca signals the end of a stream session by sending an io.EOF error, therefore we need to exclude it as an error
 	go func() {
 		if err := <-doneChan; err != nil && err != io.EOF {
 			resultChan <- StreamResult{Error: fmt.Errorf("stream session error: %v", err)}
@@ -248,6 +249,7 @@ func (mq *MusicQueue) process() {
 			case IDLE:
 				if len(mq.Songs) == 0 && mq.VoiceConnection != nil {
 					mq.VoiceConnection.Disconnect()
+					mq.VoiceConnection.Close()
 					mq.VoiceConnection = nil
 				}
 
@@ -256,13 +258,16 @@ func (mq *MusicQueue) process() {
 					mq.isPlaying = false
 					mq.PlaybackState <- IDLE
 				}
-
 				ctx, cancel = context.WithCancel(context.Background())
-				s := &Stream{
-					Song:            mq.shift(),
-					VoiceConnection: mq.VoiceConnection,
+
+				song := mq.shift()
+				if song != nil {
+					s := &Stream{
+						Song:            song,
+						VoiceConnection: mq.VoiceConnection,
+					}
+					go s.stream(ctx, resChan)
 				}
-				go s.stream(ctx, resChan)
 
 			case PAUSE:
 				if cancel != nil {
