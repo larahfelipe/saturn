@@ -297,13 +297,6 @@ func (stream *Stream) stream(streamSessionChan chan StreamSession) {
 	doneChan := make(chan error)
 	streamSession := dca.NewStream(es, stream.VoiceConnection, doneChan)
 
-	// dca signals the end of a stream session by sending an io.EOF error, therefore we need to exclude it as an error
-	go func() {
-		if err := <-doneChan; err != nil && err != io.EOF {
-			streamSessionChan <- StreamSession{Error: fmt.Errorf("stream session error: %v", err)}
-		}
-	}()
-
 	for {
 		select {
 		case ssr := <-streamSessionChan:
@@ -319,9 +312,13 @@ func (stream *Stream) stream(streamSessionChan chan StreamSession) {
 				return
 			}
 
-		case <-doneChan:
-			// signals the end of a stream session
-			streamSessionChan <- StreamSession{State: SIGNAL}
+		case err := <-doneChan:
+			// dca signals the end of a stream session by sending an io.EOF error, therefore we need to exclude it as an error
+			if err != nil && err != io.EOF {
+				streamSessionChan <- StreamSession{Error: fmt.Errorf("stream session error: %v", err)}
+			} else {
+				streamSessionChan <- StreamSession{State: SIGNAL}
+			}
 			return
 		}
 	}
@@ -670,7 +667,7 @@ func setupDiscordBot(token, prefix string) (*Bot, error) {
 				Youtube: &youtube.Client{},
 			},
 			MusicQueue: &MusicQueue{
-				PlaybackState: make(chan PlaybackState, 1),
+				PlaybackState: make(chan PlaybackState, 5),
 				Songs:         []Song{},
 			},
 		},
