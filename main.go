@@ -27,7 +27,7 @@ const (
 	IDLE PlaybackState = iota
 	PLAY
 	PAUSE
-	RESUME
+	UNPAUSE
 	SKIP
 	SIGNAL // used to signal the end of a stream session
 )
@@ -308,7 +308,7 @@ func (stream *Stream) stream(streamSessionChan chan StreamSession) {
 		select {
 		case ssr := <-streamSessionChan:
 			switch ssr.State {
-			case RESUME:
+			case UNPAUSE:
 				streamSession.SetPaused(false)
 
 			case PAUSE, SKIP:
@@ -319,13 +319,9 @@ func (stream *Stream) stream(streamSessionChan chan StreamSession) {
 				return
 			}
 
-		case err := <-doneChan:
-			if err != nil && err != io.EOF {
-				streamSessionChan <- StreamSession{Error: fmt.Errorf("stream session error: %v", err)}
-			} else {
-				// signals the end of a stream session
-				streamSessionChan <- StreamSession{State: SIGNAL}
-			}
+		case <-doneChan:
+			// signals the end of a stream session
+			streamSessionChan <- StreamSession{State: SIGNAL}
 			return
 		}
 	}
@@ -386,7 +382,6 @@ func (mq *MusicQueue) process() {
 					mq.IsPlaying = false
 					mq.PlaybackState <- IDLE
 				}
-
 				song := mq.shift()
 				if song != nil {
 					s := &Stream{
@@ -396,7 +391,7 @@ func (mq *MusicQueue) process() {
 					go s.stream(ssChan)
 				}
 
-			case PAUSE, RESUME:
+			case PAUSE, UNPAUSE:
 				ssChan <- StreamSession{State: ps}
 
 			case SKIP:
@@ -442,16 +437,6 @@ func (bot *Bot) makeVoiceConnection(m *Message) (*discordgo.VoiceConnection, err
 	}
 
 	return nil, errors.New("unable to find a voice channel for the user who requested the song")
-}
-
-func resumeSongCommand(bot *Bot, m *Message) {
-	mq := bot.Feature.MusicQueue
-	mq.Mutex.Lock()
-	defer mq.Mutex.Unlock()
-
-	mq.PlaybackState <- RESUME
-
-	bot.Session.MessageReactionAdd(m.ChannelID, m.ID, "▶️")
 }
 
 func playSongCommand(bot *Bot, m *Message) {
@@ -522,6 +507,34 @@ func playSongCommand(bot *Bot, m *Message) {
 	bot.Session.ChannelMessageSendEmbed(m.ChannelID, sme)
 }
 
+func unpauseSongCommand(bot *Bot, m *Message) {
+	mq := bot.Feature.MusicQueue
+	if !mq.IsPlaying {
+		bot.Session.ChannelMessageSendReply(m.ChannelID, "There's nothing to sing along right now", m.Reference())
+	}
+
+	mq.Mutex.Lock()
+	defer mq.Mutex.Unlock()
+
+	mq.PlaybackState <- UNPAUSE
+
+	bot.Session.MessageReactionAdd(m.ChannelID, m.ID, "▶️")
+}
+
+func pauseSongCommand(bot *Bot, m *Message) {
+	mq := bot.Feature.MusicQueue
+	if !mq.IsPlaying {
+		bot.Session.ChannelMessageSendReply(m.ChannelID, "There's nothing to sing along right now", m.Reference())
+	}
+
+	mq.Mutex.Lock()
+	defer mq.Mutex.Unlock()
+
+	mq.PlaybackState <- PAUSE
+
+	bot.Session.MessageReactionAdd(m.ChannelID, m.ID, "⏸️")
+}
+
 func skipSongCommand(bot *Bot, m *Message) {
 	mq := bot.Feature.MusicQueue
 	mq.Mutex.Lock()
@@ -530,16 +543,6 @@ func skipSongCommand(bot *Bot, m *Message) {
 	mq.PlaybackState <- SKIP
 
 	bot.Session.MessageReactionAdd(m.ChannelID, m.ID, "⏭️")
-}
-
-func pauseSongCommand(bot *Bot, m *Message) {
-	mq := bot.Feature.MusicQueue
-	mq.Mutex.Lock()
-	defer mq.Mutex.Unlock()
-
-	mq.PlaybackState <- PAUSE
-
-	bot.Session.MessageReactionAdd(m.ChannelID, m.ID, "⏸️")
 }
 
 func stopSongCommand(bot *Bot, m *Message) {
@@ -650,9 +653,9 @@ func setupDiscordBot(token, prefix string) (*Bot, error) {
 				},
 				{
 					Active:  true,
-					Name:    "resume",
-					Help:    "Resume the current song",
-					Execute: resumeSongCommand,
+					Name:    "unpause",
+					Help:    "Unpause the current song",
+					Execute: unpauseSongCommand,
 				},
 				{
 					Active:  true,
