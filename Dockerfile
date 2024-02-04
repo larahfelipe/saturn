@@ -8,7 +8,7 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o /go/bin/app
+RUN go build -o /go/bin/app ./cmd
 
 FROM golang:1.21
 

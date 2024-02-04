@@ -8,7 +8,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"go.uber.org/zap"
 
-	"github.com/larahfelipe/saturn/internal/utils"
+	"github.com/larahfelipe/saturn/internal/util"
 )
 
 type PlaybackState int
@@ -22,7 +22,7 @@ const (
 	SIGNAL // used to signal the end of a stream session
 )
 
-type MusicQueue struct {
+type Queue struct {
 	IsPlaying       bool
 	Mutex           sync.RWMutex
 	PlaybackState   chan PlaybackState
@@ -30,66 +30,73 @@ type MusicQueue struct {
 	Songs           []Song
 }
 
-func (mq *MusicQueue) Shift() *Song {
-	if len(mq.Songs) == 0 {
+func New() *Queue {
+	return &Queue{
+		PlaybackState: make(chan PlaybackState, 5),
+		Songs:         []Song{},
+	}
+}
+
+func (q *Queue) Shift() *Song {
+	if len(q.Songs) == 0 {
 		return nil
 	}
 
-	s := mq.Songs[0]
-	mq.Songs = mq.Songs[1:]
+	s := q.Songs[0]
+	q.Songs = q.Songs[1:]
 
 	return &s
 }
 
-func (mq *MusicQueue) Cleanup(closeChan bool) {
-	if mq.VoiceConnection != nil {
-		if err := mq.VoiceConnection.Disconnect(); err != nil {
+func (q *Queue) Cleanup(closeChan bool) {
+	if q.VoiceConnection != nil {
+		if err := q.VoiceConnection.Disconnect(); err != nil {
 			zap.L().Error(fmt.Sprintf("voice connection disconnect error: %s", err))
 		}
 
-		mq.VoiceConnection.Close()
-		mq.VoiceConnection = nil
+		q.VoiceConnection.Close()
+		q.VoiceConnection = nil
 	}
 
-	mq.IsPlaying = false
-	mq.Songs = []Song{}
+	q.IsPlaying = false
+	q.Songs = []Song{}
 
-	if err := utils.DeleteDir("temp"); err != nil {
+	if err := util.DeleteDir("temp"); err != nil {
 		zap.L().Info("temp directory not found, ignoring removal")
 	}
 
 	if closeChan {
-		close(mq.PlaybackState)
+		close(q.PlaybackState)
 	}
 }
 
-func (mq *MusicQueue) Add(song *Song) {
-	mq.Songs = append(mq.Songs, *song)
+func (q *Queue) Add(song *Song) {
+	q.Songs = append(q.Songs, *song)
 }
 
-func (mq *MusicQueue) Process() {
+func (q *Queue) Process() {
 	ssChan := make(chan StreamSession)
 	defer close(ssChan)
 
 	for {
 		select {
-		case ps := <-mq.PlaybackState:
+		case ps := <-q.PlaybackState:
 			switch ps {
 			case IDLE:
-				if len(mq.Songs) == 0 && mq.VoiceConnection != nil {
-					mq.Cleanup(false)
+				if len(q.Songs) == 0 && q.VoiceConnection != nil {
+					q.Cleanup(false)
 				}
 
 			case PLAY:
-				if len(mq.Songs) == 0 {
-					mq.IsPlaying = false
-					mq.PlaybackState <- IDLE
+				if len(q.Songs) == 0 {
+					q.IsPlaying = false
+					q.PlaybackState <- IDLE
 				}
-				song := mq.Shift()
+				song := q.Shift()
 				if song != nil {
 					s := &Stream{
 						Song:            song,
-						VoiceConnection: mq.VoiceConnection,
+						VoiceConnection: q.VoiceConnection,
 					}
 					go s.Stream(ssChan)
 				}
@@ -99,19 +106,19 @@ func (mq *MusicQueue) Process() {
 
 			case SKIP:
 				ssChan <- StreamSession{State: SKIP}
-				mq.PlaybackState <- PLAY
+				q.PlaybackState <- PLAY
 			}
 
 		case ssr := <-ssChan:
-			mq.Mutex.Lock()
+			q.Mutex.Lock()
 			if ssr.Error != nil {
 				zap.L().Error(ssr.Error.Error())
-				mq.Cleanup(false)
+				q.Cleanup(false)
 			}
 			if ssr.State == SIGNAL {
-				mq.PlaybackState <- PLAY
+				q.PlaybackState <- PLAY
 			}
-			mq.Mutex.Unlock()
+			q.Mutex.Unlock()
 
 		default:
 			// avoids blocking if there are no messages, allows continuous listening, prevents CPU spinning

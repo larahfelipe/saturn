@@ -5,47 +5,46 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/kkdai/youtube/v2"
 
-	"github.com/larahfelipe/saturn/internal/command"
+	"github.com/larahfelipe/saturn/internal/music"
 	"github.com/larahfelipe/saturn/pkg/discord"
 )
 
+type Internal struct {
+	Queue *music.Queue
+}
+
+type External struct {
+	Youtube *youtube.Client
+}
+
+type Module struct {
+	*Internal
+	*External
+}
+
 type Bot struct {
-	Token   string
-	Command *command.Command
+	Token  string
+	Module *Module
 	*discord.DiscordService
 }
 
-func New(token string, command *command.Command) (*Bot, error) {
+func New(token string, module *Module) (*Bot, error) {
 	if len(token) == 0 {
 		return nil, fmt.Errorf("token cannot be empty")
 	}
-
-	// ft := &Feature{
-	// 	External: &External{
-	// 		Youtube: &youtube.Client{},
-	// 	},
-	// }
-
-	// mq := &music.MusicQueue{
-	// 	PlaybackState: make(chan music.PlaybackState, 5),
-	// 	Songs:         []music.Song{},
-	// }
 
 	ds, err := discord.NewService(token)
 	if err != nil {
 		return nil, err
 	}
 
-	bot := &Bot{
+	return &Bot{
 		Token:          token,
-		Command:        command,
+		Module:         module,
 		DiscordService: ds,
-	}
-
-	bot.CommandMessageCreateHandler(command.Handle, command.Prefix)
-
-	return bot, nil
+	}, nil
 }
 
 func (bot *Bot) BuildErrorMessageEmbed(message string) *discordgo.MessageEmbed {
@@ -78,7 +77,7 @@ func (bot *Bot) BuildMessageEmbed(message string) *discordgo.MessageEmbed {
 	}
 }
 
-func (bot *Bot) MakeVoiceConnection(m *command.Message) (*discordgo.VoiceConnection, error) {
+func (bot *Bot) MakeVoiceConnection(m *discordgo.MessageCreate) (*discordgo.VoiceConnection, error) {
 	for _, guild := range bot.Session.State.Guilds {
 		for _, vs := range guild.VoiceStates {
 			if vs.UserID == m.Author.ID {

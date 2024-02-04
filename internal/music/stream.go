@@ -8,7 +8,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/jonas747/dca"
 
-	"github.com/larahfelipe/saturn/internal/utils"
+	"github.com/larahfelipe/saturn/internal/util"
 )
 
 type StreamSession struct {
@@ -46,7 +46,7 @@ func (stream *Stream) Stream(streamSessionChan chan StreamSession) {
 	}
 
 	defer func() {
-		if err := utils.DeleteFile(sfp); err != nil {
+		if err := util.DeleteFile(sfp); err != nil {
 			streamSessionChan <- StreamSession{Error: fmt.Errorf("stream file removal error: %s", err)}
 		}
 	}()

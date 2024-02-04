@@ -1,14 +1,13 @@
 package music
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
 
-	"github.com/larahfelipe/saturn/internal/utils"
+	"github.com/larahfelipe/saturn/internal/util"
 )
 
 type Song struct {
@@ -62,9 +61,9 @@ func (song *Song) BuildMessageEmbed(queued bool) *discordgo.MessageEmbed {
 func (song *Song) Download() (string, error) {
 	defer song.StreamData.Readable.Close()
 
-	fe := utils.GetFileExtFromMime(song.StreamData.MimeType)
+	fe := util.GetFileExtFromMime(song.StreamData.MimeType)
 	if len(fe) == 0 {
-		return "", errors.New("unable to determine file extension from mime type")
+		return "", fmt.Errorf("unable to determine file extension from mime type")
 	}
 
 	tn := "temp"
@@ -76,7 +75,7 @@ func (song *Song) Download() (string, error) {
 
 	fn := fmt.Sprintf("song-%d.%s", time.Now().Unix(), fe)
 	fp := fmt.Sprintf("%s/%s", tn, fn)
-	if err := utils.WriteFile(song.StreamData.Readable, fp); err != nil {
+	if err := util.WriteFile(song.StreamData.Readable, fp); err != nil {
 		return "", err
 	}
 
