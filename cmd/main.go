@@ -57,7 +57,7 @@ func main() {
 	bot.CommandMessageCreateHandler(c.Process, c.Prefix)
 
 	if err := bot.Connect(); err != nil {
-		zap.L().Fatal(fmt.Sprintf("discord websocket open connection error: %s", err))
+		zap.L().Fatal(fmt.Sprintf("discord ws connection opening error: %s", err))
 	}
 
 	bot.Session.UpdateWatchStatus(0, "the stars")
@@ -72,6 +72,6 @@ func main() {
 	util.Shutdown()
 
 	if err := bot.Disconnect(); err != nil {
-		zap.L().Fatal(fmt.Sprintf("discord websocket close connection error: %s", err))
+		zap.L().Fatal(fmt.Sprintf("discord ws connection closing error: %s", err))
 	}
 }

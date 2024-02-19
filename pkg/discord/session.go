@@ -30,14 +30,14 @@ func (ds *DiscordService) CommandMessageCreateHandler(callback CallbackHandler, 
 
 		maybeCommand := strings.TrimLeft(m.Content, prefix)
 		if len(maybeCommand) == 0 {
-			zap.L().Error("missing command reference", zap.String("requestedBy", m.Author.Username))
+			zap.L().Error("missing command reference", zap.String("author", m.Author.Username))
 			return
 		}
 
 		m.Content = maybeCommand
 
 		if err := callback(s, m); err != nil {
-			zap.L().Error("command execution failed", zap.Error(err), zap.String("requestedBy", m.Author.Username))
+			zap.L().Error("command execution failed", zap.Error(err), zap.String("author", m.Author.Username))
 		}
 	})
 }
