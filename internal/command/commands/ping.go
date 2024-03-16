@@ -27,6 +27,8 @@ func (pc *PingCommand) Help() string {
 	return pc.BaseCommand.Help
 }
 
-func (pc *PingCommand) Execute(bot *bot.Bot, m *command.Message) {
+func (pc *PingCommand) Execute(bot *bot.Bot, m *command.Message) error {
 	bot.Session.ChannelMessageSendReply(m.ChannelID, "Pong!", m.Reference())
+
+	return nil
 }

@@ -17,7 +17,7 @@ type ICommand interface {
 	Active() bool
 	Name() string
 	Help() string
-	Execute(bot *bot.Bot, m *Message)
+	Execute(bot *bot.Bot, m *Message) error
 }
 
 type BaseCommand struct {
@@ -67,7 +67,9 @@ func (c *Command) Process(s *discordgo.Session, m *discordgo.MessageCreate) erro
 		return fmt.Errorf("unknown or unavailable command `%s` triggered with args `%v`", maybeCommandName, maybeCommandArgs)
 	}
 
-	command.Execute(c.Bot, &Message{m, maybeCommandArgs})
+	if err := command.Execute(c.Bot, &Message{m, maybeCommandArgs}); err != nil {
+		return err
+	}
 
 	return nil
 }

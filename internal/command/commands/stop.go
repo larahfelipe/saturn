@@ -28,7 +28,7 @@ func (ssc *StopSongCommand) Help() string {
 	return ssc.BaseCommand.Help
 }
 
-func (ssc *StopSongCommand) Execute(bot *bot.Bot, m *command.Message) {
+func (ssc *StopSongCommand) Execute(bot *bot.Bot, m *command.Message) error {
 	queue := bot.Module.Queue
 	queue.Mutex.Lock()
 	defer queue.Mutex.Unlock()
@@ -36,4 +36,6 @@ func (ssc *StopSongCommand) Execute(bot *bot.Bot, m *command.Message) {
 	queue.PlaybackState <- music.IDLE
 
 	bot.Session.MessageReactionAdd(m.ChannelID, m.ID, "🛑")
+
+	return nil
 }

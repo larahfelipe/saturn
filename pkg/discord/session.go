@@ -37,7 +37,7 @@ func (ds *DiscordService) CommandMessageCreateHandler(callback CallbackHandler, 
 		m.Content = maybeCommand
 
 		if err := callback(s, m); err != nil {
-			zap.L().Error("command execution failed", zap.Error(err), zap.String("author", m.Author.Username))
+			zap.L().Error("command runtime exception", zap.Error(err), zap.String("interaction", m.Content), zap.String("author", m.Author.Username))
 		}
 	})
 }

@@ -7,7 +7,6 @@ import (
 	"github.com/larahfelipe/saturn/internal/bot"
 	"github.com/larahfelipe/saturn/internal/command"
 	"github.com/larahfelipe/saturn/internal/music"
-	"go.uber.org/zap"
 )
 
 type PlaySongCommand struct {
@@ -32,11 +31,10 @@ func (psc *PlaySongCommand) Help() string {
 	return psc.BaseCommand.Help
 }
 
-func (psc *PlaySongCommand) Execute(bot *bot.Bot, m *command.Message) {
+func (psc *PlaySongCommand) Execute(bot *bot.Bot, m *command.Message) error {
 	if len(m.Args) == 0 {
 		bot.Session.ChannelMessageSendEmbedReply(m.ChannelID, bot.BuildErrorMessageEmbed("Guess you forgot to provide a song url"), m.Reference())
-		zap.L().Info(fmt.Sprintf("%s didn't provide a song url", m.Author.Username))
-		return
+		return fmt.Errorf("youtube song url not provided")
 	}
 
 	songUrl := m.Args[0]
@@ -44,16 +42,14 @@ func (psc *PlaySongCommand) Execute(bot *bot.Bot, m *command.Message) {
 	v, err := bot.Module.External.Youtube.GetVideo(songUrl)
 	if err != nil {
 		bot.Session.ChannelMessageSendEmbedReply(m.ChannelID, bot.BuildErrorMessageEmbed("It seems something went wrong while searching for your song"), m.Reference())
-		zap.L().Error(fmt.Sprintf("youtube video request error: %s", err))
-		return
+		return fmt.Errorf("youtube video request error: %s", err)
 	}
 
 	av := v.Formats.WithAudioChannels()[0]
 	rs, _, err := bot.Module.External.Youtube.GetStream(v, &av)
 	if err != nil {
 		bot.Session.ChannelMessageSendEmbedReply(m.ChannelID, bot.BuildErrorMessageEmbed("It seems something went wrong while searching for your song"), m.Reference())
-		zap.L().Error(fmt.Sprintf("youtube stream request error: %s", err))
-		return
+		return fmt.Errorf("youtube stream request error: %s", err)
 	}
 
 	queue := bot.Module.Queue
@@ -86,8 +82,7 @@ func (psc *PlaySongCommand) Execute(bot *bot.Bot, m *command.Message) {
 			vc, err := bot.MakeVoiceConnection(&discordgo.MessageCreate{Message: m.Message})
 			if err != nil {
 				bot.Session.ChannelMessageSendEmbed(m.ChannelID, bot.BuildErrorMessageEmbed("It seems that I'm not in the mood for partying right now. Maybe later?"))
-				zap.L().Error(fmt.Sprintf("voice connection error: %s", err))
-				return
+				return fmt.Errorf("voice connection error: %s", err)
 			}
 
 			queue.VoiceConnection = vc
@@ -98,4 +93,6 @@ func (psc *PlaySongCommand) Execute(bot *bot.Bot, m *command.Message) {
 	}
 
 	bot.Session.ChannelMessageSendEmbed(m.ChannelID, sme)
+
+	return nil
 }

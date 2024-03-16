@@ -29,7 +29,9 @@ func (hc *HealthCommand) Help() string {
 	return hc.BaseCommand.Help
 }
 
-func (hc *HealthCommand) Execute(bot *bot.Bot, m *command.Message) {
+func (hc *HealthCommand) Execute(bot *bot.Bot, m *command.Message) error {
 	latencyMs := bot.Session.HeartbeatLatency().Milliseconds()
 	bot.Session.ChannelMessageSendEmbed(m.ChannelID, bot.BuildMessageEmbed(fmt.Sprintf("Heartbeat latency: %dms", latencyMs)))
+
+	return nil
 }

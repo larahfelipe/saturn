@@ -28,7 +28,7 @@ func (psc *PauseSongCommand) Help() string {
 	return psc.BaseCommand.Help
 }
 
-func (psc *PauseSongCommand) Execute(bot *bot.Bot, m *command.Message) {
+func (psc *PauseSongCommand) Execute(bot *bot.Bot, m *command.Message) error {
 	queue := bot.Module.Queue
 	if !queue.IsPlaying {
 		bot.Session.ChannelMessageSendReply(m.ChannelID, "There's nothing to sing along right now", m.Reference())
@@ -40,4 +40,6 @@ func (psc *PauseSongCommand) Execute(bot *bot.Bot, m *command.Message) {
 	queue.PlaybackState <- music.PAUSE
 
 	bot.Session.MessageReactionAdd(m.ChannelID, m.ID, "⏸️")
+
+	return nil
 }

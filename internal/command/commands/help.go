@@ -27,7 +27,7 @@ func (hc *HelpCommand) Help() string {
 	return hc.BaseCommand.Help
 }
 
-func (hc *HelpCommand) Execute(bot *bot.Bot, m *command.Message) {
+func (hc *HelpCommand) Execute(bot *bot.Bot, m *command.Message) error {
 	bot.Session.ChannelMessageSendEmbed(m.ChannelID, bot.BuildMessageEmbed("Help command"))
 	// activeCommands := []string{}
 	// for _, command := range hc.GetAll() {
@@ -37,4 +37,6 @@ func (hc *HelpCommand) Execute(bot *bot.Bot, m *command.Message) {
 	// }
 
 	// bot.Session.ChannelMessageSendEmbedReply(m.ChannelID, bot.BuildMessageEmbed(strings.Join(activeCommands, "\n")), m.Reference())
+
+	return nil
 }
