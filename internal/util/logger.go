@@ -6,6 +6,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// NewLogger creates a new logger instance.
 func NewLogger() {
 	zl := zap.Must(zap.NewProduction())
 

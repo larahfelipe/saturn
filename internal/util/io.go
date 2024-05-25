@@ -6,13 +6,16 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+
+	"github.com/larahfelipe/saturn/internal/common"
 )
 
+// PrintObject logs the given object in the terminal.
 func PrintObject(obj interface{}) {
 	valueOfObj := reflect.ValueOf(obj)
 
 	if valueOfObj.Kind() != reflect.Struct {
-		fmt.Println("input object is not a struct")
+		fmt.Println(common.ErrInvalidPrintDataType)
 		return
 	}
 
@@ -24,6 +27,7 @@ func PrintObject(obj interface{}) {
 	}
 }
 
+// GetFileExtFromMime extracts the file format or extension from the given mime type.
 func GetFileExtFromMime(mimeType string) string {
 	pattern := `\/([^;\s]+)`
 	re := regexp.MustCompile(pattern)
@@ -36,6 +40,7 @@ func GetFileExtFromMime(mimeType string) string {
 	return sm[1]
 }
 
+// DeleteDir deletes a directory by the given path.
 func DeleteDir(dirPath string) error {
 	if _, err := os.Stat(dirPath); err != nil {
 		return err
@@ -48,6 +53,7 @@ func DeleteDir(dirPath string) error {
 	return nil
 }
 
+// DeleteFile deletes a file by the given path.
 func DeleteFile(filePath string) error {
 	if _, err := os.Stat(filePath); err != nil {
 		return err
@@ -60,6 +66,7 @@ func DeleteFile(filePath string) error {
 	return nil
 }
 
+// WriteFile creates a new file based on a readable and a file name.
 func WriteFile(readable io.ReadCloser, fileName string) error {
 	f, err := os.Create(fileName)
 	if err != nil {

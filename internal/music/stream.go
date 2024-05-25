@@ -3,6 +3,7 @@ package music
 import (
 	"fmt"
 	"io"
+	"math"
 	"os/exec"
 
 	"github.com/bwmarrin/discordgo"
@@ -16,9 +17,14 @@ type StreamSession struct {
 	State PlaybackState
 }
 
+type VoiceChannel struct {
+	Bitrate    int
+	Connection *discordgo.VoiceConnection
+}
+
 type Stream struct {
-	Song            *Song
-	VoiceConnection *discordgo.VoiceConnection
+	Song         *Song
+	VoiceChannel *VoiceChannel
 }
 
 type StreamData struct {
@@ -29,22 +35,18 @@ type StreamData struct {
 	Readable     io.ReadCloser
 }
 
+// Stream streams a song on a voice channel.
 func (stream *Stream) Stream(streamSessionChan chan StreamSession) {
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		streamSessionChan <- StreamSession{Error: fmt.Errorf("ffmpeg path lookup error: %s", err)}
 		return
 	}
 
-	// NOTE: temporarily downloading the song to prevent unexpected streaming behavior.
-	// It appears that dca is either unable to encode the stream URL properly or the stream URL provided by youtube-dl is not fully compatible with dca.
-	// This is causing playback to stop before the song actually ends.
-
 	sfp, err := stream.Song.Download()
 	if err != nil {
 		streamSessionChan <- StreamSession{Error: fmt.Errorf("stream download error: %s", err)}
 		return
 	}
-
 	defer func() {
 		if err := util.DeleteFile(sfp); err != nil {
 			streamSessionChan <- StreamSession{Error: fmt.Errorf("stream file removal error: %s", err)}
@@ -53,18 +55,21 @@ func (stream *Stream) Stream(streamSessionChan chan StreamSession) {
 
 	options := dca.StdEncodeOptions
 	options.RawOutput = true
-	options.Bitrate = 96
+	options.Bitrate = stream.VoiceChannel.Bitrate / int(math.Pow10(3))
+	if stream.VoiceChannel.Bitrate > 128 {
+		// dca only supports bitrate values between 8 and 128
+		options.Bitrate = 128
+	}
 
 	es, err := dca.EncodeFile(sfp, options)
 	if err != nil {
 		streamSessionChan <- StreamSession{Error: fmt.Errorf("stream encode error: %s", err)}
 		return
 	}
-
 	defer es.Cleanup()
 
 	doneChan := make(chan error)
-	streamSession := dca.NewStream(es, stream.VoiceConnection, doneChan)
+	streamSession := dca.NewStream(es, stream.VoiceChannel.Connection, doneChan)
 
 	for {
 		select {
@@ -72,12 +77,9 @@ func (stream *Stream) Stream(streamSessionChan chan StreamSession) {
 			switch ssr.State {
 			case UNPAUSE:
 				streamSession.SetPaused(false)
-
 			case PAUSE, SKIP:
 				streamSession.SetPaused(true)
-
 			case SIGNAL:
-				// exits the stream session
 				return
 			}
 

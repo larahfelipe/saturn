@@ -3,10 +3,12 @@ package music
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
 
+	"github.com/larahfelipe/saturn/internal/common"
 	"github.com/larahfelipe/saturn/internal/util"
 )
 
@@ -20,6 +22,7 @@ type Song struct {
 	StreamData  *StreamData
 }
 
+// BuildMessageEmbed builds an embed message for the song.
 func (song *Song) BuildMessageEmbed(queued bool) *discordgo.MessageEmbed {
 	if queued {
 		return &discordgo.MessageEmbed{
@@ -58,23 +61,22 @@ func (song *Song) BuildMessageEmbed(queued bool) *discordgo.MessageEmbed {
 	}
 }
 
+// Download downloads the song.
 func (song *Song) Download() (string, error) {
 	defer song.StreamData.Readable.Close()
 
 	fe := util.GetFileExtFromMime(song.StreamData.MimeType)
 	if len(fe) == 0 {
-		return "", fmt.Errorf("unable to determine file extension from mime type")
+		return "", common.ErrUnknownSongFileMimeType
 	}
 
 	tn := "temp"
-	if _, err := os.Stat(tn); os.IsNotExist(err) {
-		if err := os.Mkdir(tn, 0755); err != nil {
-			return "", err
-		}
+	if err := os.MkdirAll(tn, 0755); err != nil {
+		return "", err
 	}
 
 	fn := fmt.Sprintf("song-%d.%s", time.Now().Unix(), fe)
-	fp := fmt.Sprintf("%s/%s", tn, fn)
+	fp := filepath.Join(tn, fn)
 	if err := util.WriteFile(song.StreamData.Readable, fp); err != nil {
 		return "", err
 	}

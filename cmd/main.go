@@ -25,10 +25,10 @@ func main() {
 	util.NewLogger()
 
 	module := &bot.Module{
-		Internal: &bot.Internal{
+		Core: &bot.Core{
 			Queue: music.New(),
 		},
-		External: &bot.External{
+		Extension: &bot.Extension{
 			Youtube: youtube.New(),
 		},
 	}
@@ -63,7 +63,6 @@ func main() {
 	bot.Session.UpdateWatchStatus(0, "the stars")
 
 	go bot.Module.Queue.Process()
-
 	defer bot.Module.Queue.Cleanup(true)
 
 	fmt.Println("")

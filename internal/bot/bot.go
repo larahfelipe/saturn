@@ -1,27 +1,27 @@
 package bot
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/kkdai/youtube/v2"
 
+	"github.com/larahfelipe/saturn/internal/common"
 	"github.com/larahfelipe/saturn/internal/music"
 	"github.com/larahfelipe/saturn/pkg/discord"
 )
 
-type Internal struct {
+type Core struct {
 	Queue *music.Queue
 }
 
-type External struct {
+type Extension struct {
 	Youtube *youtube.Client
 }
 
 type Module struct {
-	*Internal
-	*External
+	*Core
+	*Extension
 }
 
 type Bot struct {
@@ -30,9 +30,10 @@ type Bot struct {
 	*discord.DiscordService
 }
 
+// New creates a new discord bot instance.
 func New(token string, module *Module) (*Bot, error) {
 	if len(token) == 0 {
-		return nil, fmt.Errorf("token cannot be empty")
+		return nil, common.ErrMissingDiscordBotToken
 	}
 
 	ds, err := discord.NewService(token)
@@ -47,6 +48,7 @@ func New(token string, module *Module) (*Bot, error) {
 	}, nil
 }
 
+// BuildErrorMessageEmbed builds an embed error message with the given message.
 func (bot *Bot) BuildErrorMessageEmbed(message string) *discordgo.MessageEmbed {
 	return &discordgo.MessageEmbed{
 		Author: &discordgo.MessageEmbedAuthor{
@@ -62,6 +64,7 @@ func (bot *Bot) BuildErrorMessageEmbed(message string) *discordgo.MessageEmbed {
 	}
 }
 
+// BuildMessageEmbed builds an embed message with the given message.
 func (bot *Bot) BuildMessageEmbed(message string) *discordgo.MessageEmbed {
 	return &discordgo.MessageEmbed{
 		Author: &discordgo.MessageEmbedAuthor{
@@ -77,24 +80,28 @@ func (bot *Bot) BuildMessageEmbed(message string) *discordgo.MessageEmbed {
 	}
 }
 
-func (bot *Bot) MakeVoiceConnection(m *discordgo.MessageCreate) (*discordgo.VoiceConnection, error) {
+// MakeVoiceConnection makes a voice connection based on the channel where the message's author is.
+func (bot *Bot) MakeVoiceConnection(m *discordgo.MessageCreate) (*music.Voice, error) {
 	for _, guild := range bot.Session.State.Guilds {
 		for _, vs := range guild.VoiceStates {
 			if vs.UserID == m.Author.ID {
-				if vs.UserID != bot.Session.State.User.ID {
-					bot.Session.ChannelMessageSendEmbed(m.ChannelID, bot.BuildMessageEmbed(fmt.Sprintf("Yay! Joining the party on <#%s>", vs.ChannelID)))
-				}
+				var err error
+				mv := &music.Voice{}
 
-				vc, err := bot.Session.ChannelVoiceJoin(guild.ID, vs.ChannelID, false, true)
+				mv.Connection, err = bot.Session.ChannelVoiceJoin(guild.ID, vs.ChannelID, false, true)
 				if err != nil {
-					bot.Session.ChannelMessageSendEmbed(m.ChannelID, bot.BuildErrorMessageEmbed("It seems that I'm not in the mood for partying right now. Maybe later?"))
 					return nil, err
 				}
 
-				return vc, nil
+				mv.Channel, err = bot.Session.Channel(vs.ChannelID)
+				if err != nil {
+					return nil, err
+				}
+
+				return mv, nil
 			}
 		}
 	}
 
-	return nil, fmt.Errorf("unable to find a voice channel for the user who requested the song")
+	return nil, common.ErrUnknownVoiceChannel
 }

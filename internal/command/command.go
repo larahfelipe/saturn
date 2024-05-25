@@ -6,6 +6,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/larahfelipe/saturn/internal/bot"
+	"github.com/larahfelipe/saturn/internal/common"
 )
 
 type Message struct {
@@ -32,9 +33,10 @@ type Command struct {
 	Commands map[string]ICommand
 }
 
+// New creates a new bot command instance.
 func New(prefix string, bot *bot.Bot) (*Command, error) {
 	if len(prefix) == 0 {
-		return nil, fmt.Errorf("prefix cannot be empty")
+		return nil, common.ErrMissingDiscordBotPrefix
 	}
 
 	return &Command{
@@ -44,6 +46,7 @@ func New(prefix string, bot *bot.Bot) (*Command, error) {
 	}, nil
 }
 
+// NewBaseCommand creates a new bot base command instance.
 func NewBaseCommand(name, help string, active bool) *BaseCommand {
 	return &BaseCommand{
 		Active: active,
@@ -52,12 +55,14 @@ func NewBaseCommand(name, help string, active bool) *BaseCommand {
 	}
 }
 
+// Load loads the given bot commands.
 func (c *Command) Load(commands ...ICommand) {
 	for _, command := range commands {
 		c.Commands[command.Name()] = command
 	}
 }
 
+// Process handles the command execution.
 func (c *Command) Process(s *discordgo.Session, m *discordgo.MessageCreate) error {
 	mc := strings.Split(m.Content, " ")
 	maybeCommandName, maybeCommandArgs := mc[0], mc[1:]

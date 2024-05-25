@@ -13,6 +13,7 @@ type DiscordService struct {
 
 type CallbackHandler func(s *discordgo.Session, m *discordgo.MessageCreate) error
 
+// NewService creates a new discord service instance.
 func NewService(token string) (*DiscordService, error) {
 	ds, err := discordgo.New("Bot " + token)
 	if err != nil {
@@ -22,19 +23,20 @@ func NewService(token string) (*DiscordService, error) {
 	return &DiscordService{Session: ds}, nil
 }
 
+// CommandMessageCreateHandler handles the message interaction.
 func (ds *DiscordService) CommandMessageCreateHandler(callback CallbackHandler, prefix string) {
 	ds.Session.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if m.Author.Bot || !strings.HasPrefix(m.Content, prefix) {
 			return
 		}
 
-		maybeCommand := strings.TrimLeft(m.Content, prefix)
-		if len(maybeCommand) == 0 {
+		command := strings.TrimPrefix(m.Content, prefix)
+		if len(command) == 0 {
 			zap.L().Error("missing command reference", zap.String("author", m.Author.Username))
 			return
 		}
 
-		m.Content = maybeCommand
+		m.Content = command
 
 		if err := callback(s, m); err != nil {
 			zap.L().Error("command runtime exception", zap.Error(err), zap.String("interaction", m.Content), zap.String("author", m.Author.Username))
@@ -42,6 +44,7 @@ func (ds *DiscordService) CommandMessageCreateHandler(callback CallbackHandler, 
 	})
 }
 
+// Connect creates a websocket connection to Discord.
 func (ds *DiscordService) Connect() error {
 	if err := ds.Session.Open(); err != nil {
 		return err
@@ -50,6 +53,7 @@ func (ds *DiscordService) Connect() error {
 	return nil
 }
 
+// Disconnect closes a websocket connection to Discord.
 func (ds *DiscordService) Disconnect() error {
 	if err := ds.Session.Close(); err != nil {
 		return err

@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"go.uber.org/zap"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/larahfelipe/saturn/internal/util"
 )
 
@@ -19,24 +19,32 @@ const (
 	PAUSE
 	UNPAUSE
 	SKIP
-	SIGNAL // used to signal the end of a stream session
+	SIGNAL // indicates the end of a stream session
 )
 
-type Queue struct {
-	IsPlaying       bool
-	Mutex           sync.RWMutex
-	PlaybackState   chan PlaybackState
-	VoiceConnection *discordgo.VoiceConnection
-	Songs           []Song
+type Voice struct {
+	Connection *discordgo.VoiceConnection
+	Channel    *discordgo.Channel
 }
 
+type Queue struct {
+	IsPlaying     bool
+	Mutex         sync.RWMutex
+	PlaybackState chan PlaybackState
+	Voice         *Voice
+	Songs         []Song
+}
+
+// New creates a new music queue instance.
 func New() *Queue {
 	return &Queue{
 		PlaybackState: make(chan PlaybackState, 5),
+		Voice:         &Voice{},
 		Songs:         []Song{},
 	}
 }
 
+// Shift pops out the first song of the queue.
 func (q *Queue) Shift() *Song {
 	if len(q.Songs) == 0 {
 		return nil
@@ -48,14 +56,15 @@ func (q *Queue) Shift() *Song {
 	return &s
 }
 
+// Cleanup resets the queue to its default state.
 func (q *Queue) Cleanup(closeChan bool) {
-	if q.VoiceConnection != nil {
-		if err := q.VoiceConnection.Disconnect(); err != nil {
+	if q.Voice.Connection != nil {
+		if err := q.Voice.Connection.Disconnect(); err != nil {
 			zap.L().Error(fmt.Sprintf("voice connection disconnect error: %s", err))
 		}
 
-		q.VoiceConnection.Close()
-		q.VoiceConnection = nil
+		q.Voice.Connection.Close()
+		q.Voice = nil
 	}
 
 	q.IsPlaying = false
@@ -70,10 +79,14 @@ func (q *Queue) Cleanup(closeChan bool) {
 	}
 }
 
-func (q *Queue) Add(song *Song) {
+// Add adds a new song to the queue and returns his index.
+func (q *Queue) Add(song *Song) int {
 	q.Songs = append(q.Songs, *song)
+
+	return len(q.Songs) - 1
 }
 
+// Process manages the queue's playback state.
 func (q *Queue) Process() {
 	ssChan := make(chan StreamSession)
 	defer close(ssChan)
@@ -83,7 +96,7 @@ func (q *Queue) Process() {
 		case ps := <-q.PlaybackState:
 			switch ps {
 			case IDLE:
-				if len(q.Songs) == 0 && q.VoiceConnection != nil {
+				if len(q.Songs) == 0 && q.Voice.Connection != nil {
 					q.Cleanup(false)
 				}
 
@@ -92,21 +105,21 @@ func (q *Queue) Process() {
 					q.IsPlaying = false
 					q.PlaybackState <- IDLE
 				}
-				song := q.Shift()
-				if song != nil {
-					s := &Stream{
-						Song:            song,
-						VoiceConnection: q.VoiceConnection,
-					}
-					go s.Stream(ssChan)
+				if song := q.Shift(); song != nil {
+					go (&Stream{
+						Song: song,
+						VoiceChannel: &VoiceChannel{
+							Connection: q.Voice.Connection,
+							Bitrate:    q.Voice.Channel.Bitrate,
+						},
+					}).Stream(ssChan)
 				}
 
-			case PAUSE, UNPAUSE:
+			case PAUSE, UNPAUSE, SKIP:
 				ssChan <- StreamSession{State: ps}
-
-			case SKIP:
-				ssChan <- StreamSession{State: SKIP}
-				q.PlaybackState <- PLAY
+				if ps == SKIP {
+					q.PlaybackState <- PLAY
+				}
 			}
 
 		case ssr := <-ssChan:
@@ -114,8 +127,7 @@ func (q *Queue) Process() {
 			if ssr.Error != nil {
 				zap.L().Error(ssr.Error.Error())
 				q.Cleanup(false)
-			}
-			if ssr.State == SIGNAL {
+			} else if ssr.State == SIGNAL {
 				q.PlaybackState <- PLAY
 			}
 			q.Mutex.Unlock()

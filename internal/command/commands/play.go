@@ -6,6 +6,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/larahfelipe/saturn/internal/bot"
 	"github.com/larahfelipe/saturn/internal/command"
+	"github.com/larahfelipe/saturn/internal/common"
 	"github.com/larahfelipe/saturn/internal/music"
 )
 
@@ -34,58 +35,57 @@ func (psc *PlaySongCommand) Help() string {
 func (psc *PlaySongCommand) Execute(bot *bot.Bot, m *command.Message) error {
 	if len(m.Args) == 0 {
 		bot.Session.ChannelMessageSendEmbedReply(m.ChannelID, bot.BuildErrorMessageEmbed("Guess you forgot to provide a song url"), m.Reference())
-		return fmt.Errorf("youtube song url not provided")
+		return common.ErrMissingYoutubeUrl
 	}
 
-	songUrl := m.Args[0]
-
-	v, err := bot.Module.External.Youtube.GetVideo(songUrl)
+	url := m.Args[0]
+	video, err := bot.Module.Extension.Youtube.GetVideo(url)
 	if err != nil {
 		bot.Session.ChannelMessageSendEmbedReply(m.ChannelID, bot.BuildErrorMessageEmbed("It seems something went wrong while searching for your song"), m.Reference())
 		return fmt.Errorf("youtube video request error: %s", err)
 	}
 
-	av := v.Formats.WithAudioChannels()[0]
-	rs, _, err := bot.Module.External.Youtube.GetStream(v, &av)
+	vf := video.Formats.WithAudioChannels()[0]
+	rs, _, err := bot.Module.Extension.Youtube.GetStream(video, &vf)
 	if err != nil {
 		bot.Session.ChannelMessageSendEmbedReply(m.ChannelID, bot.BuildErrorMessageEmbed("It seems something went wrong while searching for your song"), m.Reference())
 		return fmt.Errorf("youtube stream request error: %s", err)
 	}
 
 	queue := bot.Module.Queue
-
 	queue.Mutex.Lock()
 	defer queue.Mutex.Unlock()
 
 	song := &music.Song{
-		Title:       v.Title,
-		Url:         songUrl,
-		ArtworkUrl:  v.Thumbnails[0].URL,
-		Duration:    v.Duration.String(),
+		Title:       video.Title,
+		Url:         url,
+		ArtworkUrl:  video.Thumbnails[0].URL,
+		Duration:    video.Duration.String(),
 		RequestedBy: m.Author.ID,
 		Position:    len(queue.Songs) + 1,
 		StreamData: &music.StreamData{
-			Url:          av.URL,
-			MimeType:     av.MimeType,
-			AudioQuality: av.AudioQuality,
-			Bitrate:      av.Bitrate,
+			Url:          vf.URL,
+			MimeType:     vf.MimeType,
+			AudioQuality: vf.AudioQuality,
+			Bitrate:      vf.Bitrate,
 			Readable:     rs,
 		},
 	}
-
 	queue.Add(song)
 
 	sme := song.BuildMessageEmbed(queue.IsPlaying)
 
 	if !queue.IsPlaying {
-		if queue.VoiceConnection == nil {
-			vc, err := bot.MakeVoiceConnection(&discordgo.MessageCreate{Message: m.Message})
+		if queue.Voice.Connection == nil {
+			mv, err := bot.MakeVoiceConnection(&discordgo.MessageCreate{Message: m.Message})
 			if err != nil {
-				bot.Session.ChannelMessageSendEmbed(m.ChannelID, bot.BuildErrorMessageEmbed("It seems that I'm not in the mood for partying right now. Maybe later?"))
+				bot.Session.ChannelMessageSendEmbed(m.ChannelID, bot.BuildErrorMessageEmbed("I'm not in the best mood for partying right now. Maybe later?"))
 				return fmt.Errorf("voice connection error: %s", err)
 			}
 
-			queue.VoiceConnection = vc
+			bot.Session.ChannelMessageSendEmbed(m.ChannelID, bot.BuildMessageEmbed(fmt.Sprintf("Yay! Joining the party on <#%s>", mv.Channel.ID)))
+
+			queue.Voice = mv
 		}
 
 		queue.IsPlaying = true

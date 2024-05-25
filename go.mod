@@ -2,7 +2,7 @@ module github.com/larahfelipe/saturn
 
 go 1.21.3
 
-require github.com/bwmarrin/discordgo v0.27.1
+require github.com/bwmarrin/discordgo v0.28.1
 
 require (
 	github.com/bitly/go-simplejson v0.5.1 // indirect
