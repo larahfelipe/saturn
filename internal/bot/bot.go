@@ -1,107 +1,110 @@
 package bot
 
 import (
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
-	"github.com/kkdai/youtube/v2"
+	"go.uber.org/zap"
 
+	"github.com/larahfelipe/saturn/internal/command"
 	"github.com/larahfelipe/saturn/internal/common"
-	"github.com/larahfelipe/saturn/internal/music"
-	"github.com/larahfelipe/saturn/pkg/discord"
+	"github.com/larahfelipe/saturn/internal/config"
+	"github.com/larahfelipe/saturn/internal/discord"
+	"github.com/larahfelipe/saturn/internal/player"
 )
 
-type Core struct {
-	Queue *music.Queue
-}
-
-type Extension struct {
-	Youtube *youtube.Client
-}
-
-type Module struct {
-	*Core
-	*Extension
-}
-
 type Bot struct {
-	Token  string
-	Module *Module
-	*discord.DiscordService
+	Token string
+	DS    *discord.Discord
 }
 
-// New creates a new discord bot instance.
-func New(token string, module *Module) (*Bot, error) {
+var (
+	once     sync.Once
+	instance *Bot
+)
+
+// newBot creates a new `Bot` record.
+func newBot(token string) (*Bot, error) {
 	if len(token) == 0 {
 		return nil, common.ErrMissingDiscordBotToken
 	}
 
-	ds, err := discord.NewService(token)
+	ds, err := discord.New(token)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Bot{
-		Token:          token,
-		Module:         module,
-		DiscordService: ds,
+		Token: token,
+		DS:    ds,
 	}, nil
 }
 
-// BuildErrorMessageEmbed builds an embed error message with the given message.
-func (bot *Bot) BuildErrorMessageEmbed(message string) *discordgo.MessageEmbed {
-	return &discordgo.MessageEmbed{
-		Author: &discordgo.MessageEmbedAuthor{
-			Name:    "❌ Oops, a wild error appeared! 😱",
-			IconURL: bot.Session.State.User.AvatarURL("256"),
-		},
-		Description: message,
-		Footer: &discordgo.MessageEmbedFooter{
-			Text: "Please try again later",
-		},
-		Timestamp: time.Now().Format(time.RFC3339),
-		Color:     0xFB3640,
-	}
+// GetInstance returns the singleton instance of `Bot`.
+func GetInstance() *Bot {
+	once.Do(func() {
+		var err error
+		instance, err = newBot(config.GetBotToken())
+		if err != nil {
+			zap.L().Fatal("bot initialization error", zap.Error(err))
+		}
+	})
+
+	return instance
 }
 
-// BuildMessageEmbed builds an embed message with the given message.
-func (bot *Bot) BuildMessageEmbed(message string) *discordgo.MessageEmbed {
-	return &discordgo.MessageEmbed{
-		Author: &discordgo.MessageEmbedAuthor{
-			Name:    bot.Session.State.User.Username,
-			IconURL: bot.Session.State.User.AvatarURL("256"),
-		},
-		Description: message,
-		Footer: &discordgo.MessageEmbedFooter{
-			Text: "From space",
-		},
-		Timestamp: time.Now().Format(time.RFC3339),
-		Color:     0x6E76E5,
-	}
+// Prepare loads commands and registers a message handler to process them.
+func (bot *Bot) Prepare(command *command.Command, commands ...command.ICommand) {
+	command.Load(commands...)
+	bot.DS.CommandMessageCreateHandler(command.Process, command.Prefix)
 }
 
-// MakeVoiceConnection makes a voice connection based on the channel where the message's author is.
-func (bot *Bot) MakeVoiceConnection(m *discordgo.MessageCreate) (*music.Voice, error) {
-	for _, guild := range bot.Session.State.Guilds {
-		for _, vs := range guild.VoiceStates {
-			if vs.UserID == m.Author.ID {
-				var err error
-				mv := &music.Voice{}
+// Run starts the bot by establishing a ws connection to Discord, and waits for shutdown signals.
+func (bot *Bot) Run() {
+	startTime := time.Now()
 
-				mv.Connection, err = bot.Session.ChannelVoiceJoin(guild.ID, vs.ChannelID, false, true)
-				if err != nil {
-					return nil, err
-				}
+	if err := bot.DS.Connect(); err != nil {
+		zap.L().Fatal("discord websocket connection error", zap.Error(err))
+	}
+	defer func() {
+		if err := bot.DS.Disconnect(); err != nil {
+			zap.L().Fatal("discord websocket disconnection error", zap.Error(err))
+		}
 
-				mv.Channel, err = bot.Session.Channel(vs.ChannelID)
-				if err != nil {
-					return nil, err
-				}
+		zap.L().Info("app stopped", zap.String("uptime", time.Since(startTime).String()))
+	}()
 
-				return mv, nil
-			}
+	if len(config.GetBotStatus()) != 0 {
+		if err := bot.DS.Session.UpdateCustomStatus(config.GetBotStatus()); err != nil {
+			zap.L().Error("bot activity status update error", zap.Error(err))
 		}
 	}
 
-	return nil, common.ErrUnknownVoiceChannel
+	zap.S().Infof("bot connected as `%s` and listening for interactions", bot.DS.Session.State.User.Username)
+	zap.L().Info("app started", zap.String("environment", config.GetAppEnvironment()))
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+	<-sigChan
+}
+
+// MakeVoiceConnection makes a voice connection to a voice channel.
+func (bot *Bot) MakeVoiceConnection(userId string) (*player.Voice, error) {
+	voiceChannel, err := bot.DS.GetVoiceChannelByUserId(userId)
+	if err != nil {
+		return nil, err
+	}
+
+	voice := &player.Voice{
+		Channel: voiceChannel,
+	}
+	voice.Connection, err = bot.DS.Session.ChannelVoiceJoin(voiceChannel.GuildID, voiceChannel.ID, false, true)
+	if err != nil {
+		return nil, err
+	}
+
+	return voice, nil
 }

@@ -1,18 +1,37 @@
 package util
 
 import (
-	"os"
+	"fmt"
+	"log"
 
+	"github.com/larahfelipe/saturn/internal/config"
 	"go.uber.org/zap"
 )
 
 // NewLogger creates a new logger instance.
-func NewLogger() {
-	zl := zap.Must(zap.NewProduction())
+func NewLogger() (*zap.Logger, error) {
+	var logger *zap.Logger
+	var err error
 
-	if env := os.Getenv("APP_ENV"); env == "development" {
-		zl = zap.Must(zap.NewDevelopment())
+	if config.GetAppEnvironment() == "development" {
+		logger, err = zap.NewDevelopment()
+	} else {
+		if err := MkDir(config.GetAppLogsDirName()); err != nil {
+			log.Fatalf("logs directory creation error: %s", err)
+		}
+
+		zapProdCfg := zap.NewProductionConfig()
+		zapProdCfg.Level = zap.NewAtomicLevel()
+		zapProdCfg.OutputPaths = []string{"stdout", fmt.Sprintf("%s/app.log", config.GetAppLogsDirName())}
+
+		logger, err = zapProdCfg.Build()
 	}
 
-	zap.ReplaceGlobals(zl)
+	if err != nil {
+		return nil, err
+	}
+
+	zap.ReplaceGlobals(logger)
+
+	return logger, nil
 }

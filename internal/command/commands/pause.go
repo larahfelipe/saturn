@@ -3,7 +3,7 @@ package commands
 import (
 	"github.com/larahfelipe/saturn/internal/bot"
 	"github.com/larahfelipe/saturn/internal/command"
-	"github.com/larahfelipe/saturn/internal/music"
+	"github.com/larahfelipe/saturn/internal/player"
 )
 
 type PauseSongCommand struct {
@@ -28,18 +28,22 @@ func (psc *PauseSongCommand) Help() string {
 	return psc.BaseCommand.Help
 }
 
-func (psc *PauseSongCommand) Execute(bot *bot.Bot, m *command.Message) error {
-	queue := bot.Module.Queue
-	if !queue.IsPlaying {
-		bot.Session.ChannelMessageSendReply(m.ChannelID, "There's nothing to sing along right now", m.Reference())
+func (psc *PauseSongCommand) Execute(m *command.Message) error {
+	bot := bot.GetInstance()
+	queue := player.GetInstance()
+
+	if queue.Idle {
+		bot.DS.SendReplyMessage(m.Message, "There is no song playing right now")
+
+		return nil
 	}
 
 	queue.Mutex.Lock()
 	defer queue.Mutex.Unlock()
 
-	queue.PlaybackState <- music.PAUSE
+	queue.PlaybackState <- player.PAUSE
 
-	bot.Session.MessageReactionAdd(m.ChannelID, m.ID, "⏸️")
+	bot.DS.Session.MessageReactionAdd(m.ChannelID, m.ID, "⏸️")
 
 	return nil
 }

@@ -1,49 +1,30 @@
 package main
 
 import (
-	"fmt"
-	"os"
+	"log"
 
-	env "github.com/joho/godotenv"
 	"go.uber.org/zap"
 
 	"github.com/larahfelipe/saturn/internal/bot"
 	"github.com/larahfelipe/saturn/internal/command"
 	"github.com/larahfelipe/saturn/internal/command/commands"
-	"github.com/larahfelipe/saturn/internal/music"
+	"github.com/larahfelipe/saturn/internal/config"
+	"github.com/larahfelipe/saturn/internal/player"
 	"github.com/larahfelipe/saturn/internal/util"
-	"github.com/larahfelipe/saturn/pkg/youtube"
 )
 
 func main() {
-	if err := env.Load(); err != nil {
-		panic(fmt.Sprintf("environment variables load error: %s", err))
+	config.Load()
+
+	if _, err := util.NewLogger(); err != nil {
+		log.Fatalf("logger initialization error: %v", err)
 	}
+	defer zap.L().Sync()
 
-	token, prefix := os.Getenv("BOT_TOKEN"), os.Getenv("BOT_CMD_PREFIX")
+	bot := bot.GetInstance()
+	command := command.GetInstance()
 
-	util.NewLogger()
-
-	module := &bot.Module{
-		Core: &bot.Core{
-			Queue: music.New(),
-		},
-		Extension: &bot.Extension{
-			Youtube: youtube.New(),
-		},
-	}
-
-	bot, err := bot.New(token, module)
-	if err != nil {
-		zap.L().Fatal(fmt.Sprintf("bot creation error: %s", err))
-	}
-
-	c, err := command.New(prefix, bot)
-	if err != nil {
-		zap.L().Fatal(fmt.Sprintf("command creation error: %s", err))
-	}
-
-	c.Load(
+	bot.Prepare(command,
 		commands.NewHealthCommand(),
 		commands.NewHelpCommand(),
 		commands.NewPauseSongCommand(),
@@ -54,23 +35,9 @@ func main() {
 		commands.NewUnpauseSongCommand(),
 	)
 
-	bot.CommandMessageCreateHandler(c.Process, c.Prefix)
+	queue := player.GetInstance()
+	go queue.Process()
+	defer queue.Reset(true)
 
-	if err := bot.Connect(); err != nil {
-		zap.L().Fatal(fmt.Sprintf("discord ws connection opening error: %s", err))
-	}
-
-	bot.Session.UpdateWatchStatus(0, "the stars")
-
-	go bot.Module.Queue.Process()
-	defer bot.Module.Queue.Cleanup(true)
-
-	fmt.Println("")
-	zap.L().Info(fmt.Sprintf("bot is now connected as %s and it's ready to listen for interactions", bot.Session.State.User.Username))
-
-	util.Shutdown()
-
-	if err := bot.Disconnect(); err != nil {
-		zap.L().Fatal(fmt.Sprintf("discord ws connection closing error: %s", err))
-	}
+	bot.Run()
 }

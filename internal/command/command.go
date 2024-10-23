@@ -1,16 +1,17 @@
 package command
 
 import (
-	"fmt"
 	"strings"
+	"sync"
 
-	"github.com/bwmarrin/discordgo"
-	"github.com/larahfelipe/saturn/internal/bot"
+	dg "github.com/bwmarrin/discordgo"
 	"github.com/larahfelipe/saturn/internal/common"
+	"github.com/larahfelipe/saturn/internal/config"
+	"go.uber.org/zap"
 )
 
 type Message struct {
-	*discordgo.MessageCreate
+	*dg.MessageCreate
 	Args []string
 }
 
@@ -18,7 +19,7 @@ type ICommand interface {
 	Active() bool
 	Name() string
 	Help() string
-	Execute(bot *bot.Bot, m *Message) error
+	Execute(m *Message) error
 }
 
 type BaseCommand struct {
@@ -29,24 +30,40 @@ type BaseCommand struct {
 
 type Command struct {
 	Prefix   string
-	Bot      *bot.Bot
 	Commands map[string]ICommand
 }
 
-// New creates a new bot command instance.
-func New(prefix string, bot *bot.Bot) (*Command, error) {
+var (
+	once     sync.Once
+	instance *Command
+)
+
+// newCommand creates a new `Command` record.
+func newCommand(prefix string) (*Command, error) {
 	if len(prefix) == 0 {
 		return nil, common.ErrMissingDiscordBotPrefix
 	}
 
 	return &Command{
 		Prefix:   prefix,
-		Bot:      bot,
 		Commands: make(map[string]ICommand),
 	}, nil
 }
 
-// NewBaseCommand creates a new bot base command instance.
+// GetInstance returns the singleton instance of `Command`.
+func GetInstance() *Command {
+	once.Do(func() {
+		var err error
+		instance, err = newCommand(config.GetBotPrefix())
+		if err != nil {
+			zap.L().Fatal("command initialization error", zap.Error(err))
+		}
+	})
+
+	return instance
+}
+
+// NewBaseCommand creates a new `BaseCommand` record.
 func NewBaseCommand(name, help string, active bool) *BaseCommand {
 	return &BaseCommand{
 		Active: active,
@@ -63,16 +80,15 @@ func (c *Command) Load(commands ...ICommand) {
 }
 
 // Process handles the command execution.
-func (c *Command) Process(s *discordgo.Session, m *discordgo.MessageCreate) error {
-	mc := strings.Split(m.Content, " ")
-	maybeCommandName, maybeCommandArgs := mc[0], mc[1:]
+func (c *Command) Process(s *dg.Session, m *dg.MessageCreate) error {
+	content := strings.Split(m.Content, " ")
+	maybeCommandName, maybeCommandArgs := content[0], content[1:]
 
 	command, exists := c.Commands[maybeCommandName]
 	if !exists || !command.Active() {
-		return fmt.Errorf("unknown or unavailable command `%s` triggered with args `%v`", maybeCommandName, maybeCommandArgs)
+		return common.ErrUnknownOrUnavailableCommand
 	}
-
-	if err := command.Execute(c.Bot, &Message{m, maybeCommandArgs}); err != nil {
+	if err := command.Execute(&Message{m, maybeCommandArgs}); err != nil {
 		return err
 	}
 

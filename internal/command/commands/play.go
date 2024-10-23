@@ -2,12 +2,13 @@ package commands
 
 import (
 	"fmt"
+	"math"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/larahfelipe/saturn/internal/bot"
 	"github.com/larahfelipe/saturn/internal/command"
 	"github.com/larahfelipe/saturn/internal/common"
-	"github.com/larahfelipe/saturn/internal/music"
+	"github.com/larahfelipe/saturn/internal/player"
+	"github.com/larahfelipe/saturn/internal/youtube"
 )
 
 type PlaySongCommand struct {
@@ -32,67 +33,69 @@ func (psc *PlaySongCommand) Help() string {
 	return psc.BaseCommand.Help
 }
 
-func (psc *PlaySongCommand) Execute(bot *bot.Bot, m *command.Message) error {
+func (psc *PlaySongCommand) Execute(m *command.Message) error {
+	bot := bot.GetInstance()
+	youtube := youtube.GetInstance()
+
 	if len(m.Args) == 0 {
-		bot.Session.ChannelMessageSendEmbedReply(m.ChannelID, bot.BuildErrorMessageEmbed("Guess you forgot to provide a song url"), m.Reference())
-		return common.ErrMissingYoutubeUrl
+		bot.DS.SendReplyMessageEmbed(m.Message, bot.DS.BuildErrorMessageEmbed("Missing song url. Forgot to provide it?"))
+		return common.ErrMissingYoutubeVideoUrl
 	}
 
-	url := m.Args[0]
-	video, err := bot.Module.Extension.Youtube.GetVideo(url)
+	videoUrl := m.Args[0]
+	videoMetadata, err := youtube.GetVideo(videoUrl)
 	if err != nil {
-		bot.Session.ChannelMessageSendEmbedReply(m.ChannelID, bot.BuildErrorMessageEmbed("It seems something went wrong while searching for your song"), m.Reference())
+		bot.DS.SendReplyMessageEmbed(m.Message, bot.DS.BuildErrorMessageEmbed("Something went wrong while searching your song. Please, try again later"))
 		return fmt.Errorf("youtube video request error: %s", err)
 	}
 
-	vf := video.Formats.WithAudioChannels()[0]
-	rs, _, err := bot.Module.Extension.Youtube.GetStream(video, &vf)
+	videoFormat := videoMetadata.Formats.WithAudioChannels()[0]
+	audioStream, _, err := youtube.GetStream(videoMetadata, &videoFormat)
 	if err != nil {
-		bot.Session.ChannelMessageSendEmbedReply(m.ChannelID, bot.BuildErrorMessageEmbed("It seems something went wrong while searching for your song"), m.Reference())
+		bot.DS.SendReplyMessageEmbed(m.Message, bot.DS.BuildErrorMessageEmbed("Something went wrong while retrieving your song. Please, try again later"))
 		return fmt.Errorf("youtube stream request error: %s", err)
 	}
 
-	queue := bot.Module.Queue
+	queue := player.GetInstance()
 	queue.Mutex.Lock()
 	defer queue.Mutex.Unlock()
 
-	song := &music.Song{
-		Title:       video.Title,
-		Url:         url,
-		ArtworkUrl:  video.Thumbnails[0].URL,
-		Duration:    video.Duration.String(),
-		RequestedBy: m.Author.ID,
+	song := &player.Song{
+		Url:         videoUrl,
+		Title:       videoMetadata.Title,
+		ArtworkUrl:  videoMetadata.Thumbnails[0].URL,
+		Duration:    videoMetadata.Duration.String(),
 		Position:    len(queue.Songs) + 1,
-		StreamData: &music.StreamData{
-			Url:          vf.URL,
-			MimeType:     vf.MimeType,
-			AudioQuality: vf.AudioQuality,
-			Bitrate:      vf.Bitrate,
-			Readable:     rs,
+		RequestedBy: m.Author.ID,
+		Stream: &player.Stream{
+			Url:          videoFormat.URL,
+			MimeType:     videoFormat.MimeType,
+			AudioQuality: videoFormat.AudioQuality,
+			Bitrate:      videoFormat.Bitrate / int(math.Pow10(3)),
+			Readable:     audioStream,
 		},
 	}
 	queue.Add(song)
 
-	sme := song.BuildMessageEmbed(queue.IsPlaying)
+	songMsgEmbed := song.BuildMessageEmbed(!queue.Idle)
 
-	if !queue.IsPlaying {
+	if queue.Idle {
 		if queue.Voice.Connection == nil {
-			mv, err := bot.MakeVoiceConnection(&discordgo.MessageCreate{Message: m.Message})
+			voice, err := bot.MakeVoiceConnection(m.Message.Author.ID)
 			if err != nil {
-				bot.Session.ChannelMessageSendEmbed(m.ChannelID, bot.BuildErrorMessageEmbed("I'm not in the best mood for partying right now. Maybe later?"))
+				bot.DS.SendMessageEmbed(m.Message, bot.DS.BuildErrorMessageEmbed("Something went wrong while trying to join the party. Please, try again later"))
 				return fmt.Errorf("voice connection error: %s", err)
 			}
 
-			bot.Session.ChannelMessageSendEmbed(m.ChannelID, bot.BuildMessageEmbed(fmt.Sprintf("Yay! Joining the party on <#%s>", mv.Channel.ID)))
+			bot.DS.SendMessageEmbed(m.Message, bot.DS.BuildMessageEmbed(fmt.Sprintf("Yay! Joining the party on <#%s>", voice.Channel.ID)))
 
-			queue.Voice = mv
+			queue.Voice = voice
 		}
-
-		queue.IsPlaying = true
-		queue.PlaybackState <- music.PLAY
+		queue.Idle = false
+		queue.PlaybackState <- player.PLAY
 	}
 
-	bot.Session.ChannelMessageSendEmbed(m.ChannelID, sme)
+	bot.DS.SendMessageEmbed(m.Message, songMsgEmbed)
 
 	return nil
 }

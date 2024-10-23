@@ -3,7 +3,7 @@ package commands
 import (
 	"github.com/larahfelipe/saturn/internal/bot"
 	"github.com/larahfelipe/saturn/internal/command"
-	"github.com/larahfelipe/saturn/internal/music"
+	"github.com/larahfelipe/saturn/internal/player"
 )
 
 type SkipSongCommand struct {
@@ -28,14 +28,22 @@ func (ssc *SkipSongCommand) Help() string {
 	return ssc.BaseCommand.Help
 }
 
-func (ssc *SkipSongCommand) Execute(bot *bot.Bot, m *command.Message) error {
-	queue := bot.Module.Queue
+func (ssc *SkipSongCommand) Execute(m *command.Message) error {
+	bot := bot.GetInstance()
+	queue := player.GetInstance()
+
+	if queue.Idle {
+		bot.DS.SendReplyMessage(m.Message, "There is no song playing right now")
+
+		return nil
+	}
+
 	queue.Mutex.Lock()
 	defer queue.Mutex.Unlock()
 
-	queue.PlaybackState <- music.SKIP
+	queue.PlaybackState <- player.SKIP
 
-	bot.Session.MessageReactionAdd(m.ChannelID, m.ID, "⏭️")
+	bot.DS.AddMessageReaction(m.Message, "⏭️")
 
 	return nil
 }

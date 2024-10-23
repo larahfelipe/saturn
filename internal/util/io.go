@@ -22,22 +22,28 @@ func PrintObject(obj interface{}) {
 	for i := 0; i < valueOfObj.NumField(); i++ {
 		field := valueOfObj.Type().Field(i)
 		fieldValue := valueOfObj.Field(i).Interface()
-
 		fmt.Printf("%s: %v\n", field.Name, fieldValue)
 	}
 }
 
-// GetFileExtFromMime extracts the file format or extension from the given mime type.
+// GetFileExtFromMime extracts the file format/extension from the given mime type.
 func GetFileExtFromMime(mimeType string) string {
-	pattern := `\/([^;\s]+)`
-	re := regexp.MustCompile(pattern)
-
+	re := regexp.MustCompile(`\/([^;\s]+)`)
 	sm := re.FindStringSubmatch(mimeType)
 	if len(sm) < 1 {
 		return ""
 	}
 
 	return sm[1]
+}
+
+// MkDir creates a directory based on given name.
+func MkDir(name string) error {
+	if err := os.MkdirAll(name, 0755); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // DeleteDir deletes a directory by the given path.
@@ -68,14 +74,13 @@ func DeleteFile(filePath string) error {
 
 // WriteFile creates a new file based on a readable and a file name.
 func WriteFile(readable io.ReadCloser, fileName string) error {
-	f, err := os.Create(fileName)
+	file, err := os.Create(fileName)
 	if err != nil {
 		return err
 	}
+	defer file.Close()
 
-	defer f.Close()
-
-	if _, err := io.Copy(f, readable); err != nil {
+	if _, err := io.Copy(file, readable); err != nil {
 		return err
 	}
 
