@@ -16,82 +16,99 @@
   </a>
 </p>
 
-## Usage
+## Table of contents
 
-Saturn is a _self-hosted_ bot, which means you'll be responsible for hosting and maintaining your own instance. You can choose to set it up on your local machine or opt for a cloud platform. One recommended cloud platform is Heroku, known for its seamless compatibility with apps like Saturn.
+- [About](#about)
+- [Setup options](#setup-options)
+- [Installation](#installation)
+  - [Prerequisites](#prerequisites)
+  - [Configuration](#configuration)
+  - [Option 1: Docker setup (recommended)](#option-1-docker-setup-recommended)
+  - [Option 2: Manual setup](#option-2-manual-setup)
+- [License](#license)
 
-Please be aware that uploading this bot to services like "discordbotlist" or "top.gg" is strictly prohibited. Saturn is intended for personal community hosting only.
+## About
 
-### Getting started
+**Saturn** is a **self-hosted Discord bot** built with Go and `discordgo`. Designed for community use, it's lightweight, customizable, and easy to deploy either locally or in the cloud. Hosting platforms like **Heroku** work especially well with Saturn.
 
-In this step-by-step guide, you can choose between 2 setup paths. Although, I highly recommend using Docker to run this Discord bot because it offers several advantages. Docker provides a standardized environment for your application, ensuring that it runs consistently across different systems. This can greatly simplify deployment and eliminate potential compatibility issues, and I've ensured that everything necessary for the bot to work properly is included in the Dockerfile.
+> ⚠️ **Note:** Public listing of this bot on services like [top.gg](https://top.gg) or [discordbotlist.com](https://discordbotlist.com) is **strictly prohibited**. Saturn is intended for **private or community use only**.
 
-### Clone this repo and navigate to it
+## Setup options
 
-```
-git clone https://github.com/larahfelipe/saturn.git && cd saturn
-```
+You can set up Saturn in two ways:
 
-### Preparing the environment
+1. **Docker setup (Recommended)**: Provides a standardized environment, ensuring consistent performance across different systems while simplifying deployment.
 
-Locate the `.env.example` file within the project's folder and open it using your preferred text editor.
+2. **Manual Setup**: Traditional installation directly on your machine.
 
-Now, make sure you have your bot token and your desired bot prefix ready. If you don't know how to obtain your token, follow the steps below:
+## Installation
 
-1. Visit the [Discord Developers Portal](https://discord.com/developers/);
-2. Create a new app;
-3. Navigate to the "Bot" section to copy your generated token.
+### Prerequisites
 
-After that, fill the `.env.example` with your credentials and rename it to `.env`.
+- Git
+- Your Discord bot token (from [Discord Developers Portal](https://discord.com/developers/))
+- For Docker setup: Docker installed on your machine
+- For manual setup: Go language and FFmpeg (for music functionality)
 
-### Setting up automatically via Docker (recommended)
+### Configuration
 
-Ensure you have Docker installed on your machine before proceeding. To check if Docker is properly installed, run the following command:
+1. Clone the repository:
 
-```
-docker -v
-```
+   ```bash
+   git clone https://github.com/larahfelipe/saturn.git && cd saturn
+   ```
 
-If you get an output saying something like the Docker version, then you're good to go. Otherwise, please refer to the Docker documentation for installation instructions.
+2. Set up environment variables:
+   - Copy `.env.example` to `.env`
+   - Add your bot token and configure your preferred prefix
 
-Once you have Docker installed, run the following command to build the image:
+### Option 1: Docker setup (recommended)
 
-```
-docker build -t saturn .
-```
+1. Verify Docker installation:
 
-After the image is built, you can run the container using the following command:
+   ```bash
+   docker -v
+   ```
 
-```
-docker run -d --name saturn saturn
-```
+2. Build the Docker image:
 
-Ensure that the container is running by executing the following command:
+   ```bash
+   docker build -t saturn .
+   ```
 
-```
-docker ps -a
-```
+3. Run the container:
 
-If the container is running, you should be able to see it in the list of container with the status "Up".
+   ```bash
+   docker run -d --name saturn saturn
+   ```
 
-For the Docker setup, that's it, you're good to go!
+4. Verify the container is running:
+   ```bash
+   docker ps -a
+   ```
+   The container should appear with status "Up".
 
-### Setting up manually
+### Option 2: Manual setup
 
-Before we begin, make sure that you have `go` installed in your machine. You can check this out by running the following command:
+1. Verify Go installation:
 
-```
-go version
-```
+   ```bash
+   go version
+   ```
 
-Also, if you intend to use the music function, you must install `ffmpeg` on your system. The installation process varies depending on your operating system. For instance, if you are using Ubuntu, you can install it using the following command. Alternatively, refer to the FFmpeg documentation for installation instructions tailored to your specific OS.
+2. If using music functionality, install FFmpeg:
 
-```
-sudo apt install ffmpeg -y
-```
+   - Ubuntu/Debian:
+     ```bash
+     sudo apt install ffmpeg -y
+     ```
+   - Other systems: Refer to the [FFmpeg documentation](https://ffmpeg.org/download.html)
 
-Now, you can start the bot by running the following command:
+3. Run the bot:
+   ```bash
+   go run cmd/main.go
+   ```
 
-```
-go run cmd/main.go
-```
+## License
+
+Saturn is licensed under the [GPL-3.0 License](https://github.com/larahfelipe/saturn/blob/master/LICENSE).
