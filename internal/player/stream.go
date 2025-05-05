@@ -74,6 +74,7 @@ func (ss *StreamSession) Stream(streamSessionChan chan StreamSessionResult) {
 	defer source.Cleanup()
 
 	doneChan := make(chan error)
+	defer close(doneChan)
 	streaming := dca.NewStream(source, ss.VoiceChannel.Connection, doneChan)
 	for {
 		select {
