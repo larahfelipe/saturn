@@ -2,27 +2,26 @@ package util
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/larahfelipe/saturn/internal/config"
 	"go.uber.org/zap"
 )
 
 // NewLogger creates a new logger instance.
-func NewLogger() (*zap.Logger, error) {
+func NewLogger(cfg *config.Config) (*zap.Logger, error) {
 	var logger *zap.Logger
 	var err error
 
-	if config.GetAppEnvironment() == "development" {
+	if cfg.AppEnvironment == "development" {
 		logger, err = zap.NewDevelopment()
 	} else {
-		if err := MkDir(config.GetAppLogsDirName()); err != nil {
-			log.Fatalf("logs directory creation error: %s", err)
+		if err := MkDir(cfg.AppLogsDirName); err != nil {
+			return nil, fmt.Errorf("logs directory creation error: %w", err)
 		}
 
 		zapProdCfg := zap.NewProductionConfig()
 		zapProdCfg.Level = zap.NewAtomicLevel()
-		zapProdCfg.OutputPaths = []string{"stdout", fmt.Sprintf("%s/app.log", config.GetAppLogsDirName())}
+		zapProdCfg.OutputPaths = []string{"stdout", fmt.Sprintf("%s/app.log", cfg.AppLogsDirName)}
 
 		logger, err = zapProdCfg.Build()
 	}

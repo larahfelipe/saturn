@@ -7,11 +7,13 @@ import (
 
 type PingCommand struct {
 	*command.BaseCommand
+	Bot *bot.Bot
 }
 
-func NewPingCommand() *PingCommand {
+func NewPingCommand(bot *bot.Bot) *PingCommand {
 	return &PingCommand{
 		BaseCommand: command.NewBaseCommand("ping", "Ping the bot", true),
+		Bot:         bot,
 	}
 }
 
@@ -28,9 +30,6 @@ func (pc *PingCommand) Help() string {
 }
 
 func (pc *PingCommand) Execute(m *command.Message) error {
-	bot := bot.GetInstance()
-
-	bot.DS.SendReplyMessage(m.Message, "Pong!")
-
+	pc.Bot.DS.SendReplyMessage(m.Message, "Pong!")
 	return nil
 }

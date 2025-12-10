@@ -9,11 +9,13 @@ import (
 
 type HealthCommand struct {
 	*command.BaseCommand
+	Bot *bot.Bot
 }
 
-func NewHealthCommand() *HealthCommand {
+func NewHealthCommand(bot *bot.Bot) *HealthCommand {
 	return &HealthCommand{
 		BaseCommand: command.NewBaseCommand("health", "Check bot's health", true),
+		Bot:         bot,
 	}
 }
 
@@ -30,11 +32,8 @@ func (hc *HealthCommand) Help() string {
 }
 
 func (hc *HealthCommand) Execute(m *command.Message) error {
-	bot := bot.GetInstance()
-
-	latencyMs := bot.DS.Session.HeartbeatLatency().Milliseconds()
-
-	bot.DS.SendMessageEmbed(m.Message, bot.DS.BuildMessageEmbed(fmt.Sprintf("Heartbeat latency: %dms", latencyMs)))
+	latencyMs := hc.Bot.DS.Session.HeartbeatLatency().Milliseconds()
+	hc.Bot.DS.SendMessageEmbed(m.Message, hc.Bot.DS.BuildMessageEmbed(fmt.Sprintf("Heartbeat latency: %dms", latencyMs)))
 
 	return nil
 }

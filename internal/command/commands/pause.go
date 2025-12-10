@@ -8,11 +8,15 @@ import (
 
 type PauseSongCommand struct {
 	*command.BaseCommand
+	Bot   *bot.Bot
+	Queue *player.Queue
 }
 
-func NewPauseSongCommand() *PauseSongCommand {
+func NewPauseSongCommand(bot *bot.Bot, queue *player.Queue) *PauseSongCommand {
 	return &PauseSongCommand{
 		BaseCommand: command.NewBaseCommand("pause", "Pause the current song", true),
+		Bot:         bot,
+		Queue:       queue,
 	}
 }
 
@@ -29,21 +33,13 @@ func (psc *PauseSongCommand) Help() string {
 }
 
 func (psc *PauseSongCommand) Execute(m *command.Message) error {
-	bot := bot.GetInstance()
-	queue := player.GetInstance()
-
-	if queue.Idle {
-		bot.DS.SendReplyMessage(m.Message, "There is no song playing right now")
-
+	if psc.Queue.Idle {
+		psc.Bot.DS.SendReplyMessage(m.Message, "There is no song playing right now")
 		return nil
 	}
 
-	queue.Mutex.Lock()
-	defer queue.Mutex.Unlock()
-
-	queue.PlaybackState <- player.PAUSE
-
-	bot.DS.Session.MessageReactionAdd(m.ChannelID, m.ID, "⏸️")
+	psc.Queue.PlaybackState <- player.PAUSE
+	psc.Bot.DS.Session.MessageReactionAdd(m.ChannelID, m.ID, "⏸️")
 
 	return nil
 }

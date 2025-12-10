@@ -7,11 +7,13 @@ import (
 
 type HelpCommand struct {
 	*command.BaseCommand
+	Bot *bot.Bot
 }
 
-func NewHelpCommand() *HelpCommand {
+func NewHelpCommand(bot *bot.Bot) *HelpCommand {
 	return &HelpCommand{
 		BaseCommand: command.NewBaseCommand("help", "Show available commands", false),
+		Bot:         bot,
 	}
 }
 
@@ -28,17 +30,6 @@ func (hc *HelpCommand) Help() string {
 }
 
 func (hc *HelpCommand) Execute(m *command.Message) error {
-	bot := bot.GetInstance()
-
-	bot.DS.SendMessageEmbed(m.Message, bot.DS.BuildMessageEmbed("Help command"))
-	// activeCommands := []string{}
-	// for _, command := range hc.GetAll() {
-	// 	if command.Active {
-	// 		activeCommands = append(activeCommands, fmt.Sprintf("**%s%s**: %s", c.Prefix, command.Name, command.Help))
-	// 	}
-	// }
-
-	// bot.Session.ChannelMessageSendEmbedReply(m.ChannelID, bot.BuildMessageEmbed(strings.Join(activeCommands, "\n")), m.Reference())
-
+	hc.Bot.DS.SendMessageEmbed(m.Message, hc.Bot.DS.BuildMessageEmbed("Help command"))
 	return nil
 }

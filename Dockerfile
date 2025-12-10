@@ -1,4 +1,4 @@
-FROM golang:1.24.5 AS builder
+FROM golang:1.24.9 AS builder
 
 WORKDIR /usr/src/app
 
@@ -10,7 +10,7 @@ COPY . .
 
 RUN go build -o /go/bin/app ./cmd
 
-FROM golang:1.24.5
+FROM golang:1.24.9
 
 WORKDIR /usr/src/app
 

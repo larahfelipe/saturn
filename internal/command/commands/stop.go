@@ -8,11 +8,15 @@ import (
 
 type StopSongCommand struct {
 	*command.BaseCommand
+	Bot   *bot.Bot
+	Queue *player.Queue
 }
 
-func NewStopSongCommand() *StopSongCommand {
+func NewStopSongCommand(bot *bot.Bot, queue *player.Queue) *StopSongCommand {
 	return &StopSongCommand{
 		BaseCommand: command.NewBaseCommand("stop", "Stop the current song", true),
+		Bot:         bot,
+		Queue:       queue,
 	}
 }
 
@@ -29,21 +33,13 @@ func (ssc *StopSongCommand) Help() string {
 }
 
 func (ssc *StopSongCommand) Execute(m *command.Message) error {
-	bot := bot.GetInstance()
-	queue := player.GetInstance()
-
-	if queue.Idle {
-		bot.DS.SendReplyMessage(m.Message, "There is no song playing right now")
-
+	if ssc.Queue.Idle {
+		ssc.Bot.DS.SendReplyMessage(m.Message, "There is no song playing right now")
 		return nil
 	}
 
-	queue.Mutex.Lock()
-	defer queue.Mutex.Unlock()
-
-	queue.PlaybackState <- player.IDLE
-
-	bot.DS.AddMessageReaction(m.Message, "🛑")
+	ssc.Queue.PlaybackState <- player.IDLE
+	ssc.Bot.DS.AddMessageReaction(m.Message, "🛑")
 
 	return nil
 }

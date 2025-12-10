@@ -2,14 +2,9 @@ package player
 
 import (
 	"fmt"
-	"path/filepath"
 	"time"
 
 	dg "github.com/bwmarrin/discordgo"
-
-	"github.com/larahfelipe/saturn/internal/common"
-	"github.com/larahfelipe/saturn/internal/config"
-	"github.com/larahfelipe/saturn/internal/util"
 )
 
 type Song struct {
@@ -59,26 +54,4 @@ func (song *Song) BuildMessageEmbed(queued bool) *dg.MessageEmbed {
 		},
 		Color: 0x1ED760,
 	}
-}
-
-// Download downloads the song stream to a local directory.
-func (song *Song) Download() (string, error) {
-	defer song.Stream.Readable.Close()
-
-	fileExt := util.GetFileExtFromMime(song.Stream.MimeType)
-	if len(fileExt) == 0 {
-		return "", common.ErrUnknownFileExtFromMimeType
-	}
-
-	if err := util.MkDir(config.GetAppDownloadsDirName()); err != nil {
-		return "", err
-	}
-
-	fileName := fmt.Sprintf("%d.%s", time.Now().Unix(), fileExt)
-	filePath := filepath.Join(config.GetAppDownloadsDirName(), fileName)
-	if err := util.WriteFile(song.Stream.Readable, filePath); err != nil {
-		return "", err
-	}
-
-	return filePath, nil
 }

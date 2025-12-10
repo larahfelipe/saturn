@@ -8,8 +8,6 @@ import (
 	dg "github.com/bwmarrin/discordgo"
 	"github.com/jonas747/dca"
 	"go.uber.org/zap"
-
-	"github.com/larahfelipe/saturn/internal/util"
 )
 
 type StreamSessionResult struct {
@@ -44,17 +42,6 @@ func (ss *StreamSession) Stream(streamSessionChan chan StreamSessionResult) {
 		return
 	}
 
-	songFilePath, err := ss.Song.Download()
-	if err != nil {
-		streamSessionChan <- StreamSessionResult{State: ERR, Error: err}
-		return
-	}
-	defer func() {
-		if err := util.DeleteFile(songFilePath); err != nil {
-			streamSessionChan <- StreamSessionResult{State: ERR, Error: err}
-		}
-	}()
-
 	voiceChannelBitrate := ss.VoiceChannel.Bitrate / int(math.Pow10(3))
 	options := dca.StdEncodeOptions
 	options.RawOutput = true
@@ -66,7 +53,7 @@ func (ss *StreamSession) Stream(streamSessionChan chan StreamSessionResult) {
 
 	zap.L().Debug("encoding song", zap.Reflect("song", ss.Song), zap.Reflect("encoding_options", options))
 
-	source, err := dca.EncodeFile(songFilePath, options)
+	source, err := dca.EncodeMem(ss.Song.Stream.Readable, options)
 	if err != nil {
 		streamSessionChan <- StreamSessionResult{State: ERR, Error: err}
 		return

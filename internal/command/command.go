@@ -2,12 +2,9 @@ package command
 
 import (
 	"strings"
-	"sync"
 
 	dg "github.com/bwmarrin/discordgo"
 	"github.com/larahfelipe/saturn/internal/common"
-	"github.com/larahfelipe/saturn/internal/config"
-	"go.uber.org/zap"
 )
 
 type Message struct {
@@ -33,13 +30,8 @@ type Command struct {
 	Commands map[string]ICommand
 }
 
-var (
-	once     sync.Once
-	instance *Command
-)
-
-// newCommand creates a new `Command` record.
-func newCommand(prefix string) (*Command, error) {
+// New creates a new `Command` record.
+func New(prefix string) (*Command, error) {
 	if len(prefix) == 0 {
 		return nil, common.ErrMissingDiscordBotPrefix
 	}
@@ -48,19 +40,6 @@ func newCommand(prefix string) (*Command, error) {
 		Prefix:   prefix,
 		Commands: make(map[string]ICommand),
 	}, nil
-}
-
-// GetInstance returns the singleton instance of `Command`.
-func GetInstance() *Command {
-	once.Do(func() {
-		var err error
-		instance, err = newCommand(config.GetBotPrefix())
-		if err != nil {
-			zap.L().Fatal("command initialization error", zap.Error(err))
-		}
-	})
-
-	return instance
 }
 
 // NewBaseCommand creates a new `BaseCommand` record.

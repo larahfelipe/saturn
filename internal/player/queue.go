@@ -1,15 +1,12 @@
 package player
 
 import (
-	"fmt"
 	"sync"
-	"time"
 
 	"go.uber.org/zap"
 
 	dg "github.com/bwmarrin/discordgo"
 	"github.com/larahfelipe/saturn/internal/config"
-	"github.com/larahfelipe/saturn/internal/util"
 )
 
 type Voice struct {
@@ -23,14 +20,11 @@ type Queue struct {
 	PlaybackState chan PlaybackState
 	Voice         *Voice
 	Songs         []Song
+	Config        *config.Config
+	Logger        *zap.Logger
 }
 
 type PlaybackState int
-
-var (
-	once     sync.Once
-	instance *Queue
-)
 
 const (
 	IDLE PlaybackState = iota
@@ -42,114 +36,97 @@ const (
 	ERR // indicates a stream session error
 )
 
-const QueueSleepInterval = 100 * time.Millisecond // 100ms
-
-func newQueue() *Queue {
+func New(cfg *config.Config, logger *zap.Logger) *Queue {
 	return &Queue{
 		Idle:          true,
 		Voice:         &Voice{},
 		Songs:         []Song{},
 		PlaybackState: make(chan PlaybackState, 5),
+		Config:        cfg,
+		Logger:        logger,
 	}
-}
-
-// GetInstance returns the singleton instance of `Queue`.
-func GetInstance() *Queue {
-	once.Do(func() {
-		instance = newQueue()
-	})
-
-	return instance
 }
 
 // Shift pops out the first song of the queue.
-func (q *Queue) Shift() *Song {
-	if len(q.Songs) == 0 {
+func (queue *Queue) Shift() *Song {
+	queue.Mutex.Lock()
+	defer queue.Mutex.Unlock()
+
+	if len(queue.Songs) == 0 {
 		return nil
 	}
 
-	song := q.Songs[0]
-	q.Songs = q.Songs[1:]
+	song := queue.Songs[0]
+	queue.Songs = queue.Songs[1:]
 
 	return &song
 }
 
 // Cleanup resets the queue to its default state.
-func (q *Queue) Reset(cleanupAndShutdown bool) {
-	q.Mutex.Lock()
-	defer q.Mutex.Unlock()
+func (queue *Queue) Reset() {
+	queue.Mutex.Lock()
+	defer queue.Mutex.Unlock()
 
-	if q.Voice.Connection != nil {
-		if err := q.Voice.Connection.Disconnect(); err != nil {
-			zap.L().Error("voice connection disconnect error", zap.Error(err))
+	if queue.Voice.Connection != nil {
+		if err := queue.Voice.Connection.Disconnect(); err != nil {
+			queue.Logger.Error("voice connection disconnect error", zap.Error(err))
 		}
 	}
 
-	q.Voice = &Voice{}
-	q.Songs = []Song{}
-	q.Idle = true
-
-	if cleanupAndShutdown {
-		if err := util.DeleteDir(config.GetAppDownloadsDirName()); err != nil {
-			zap.L().Info(fmt.Sprintf("`%s` directory was not found, skipping", config.GetAppDownloadsDirName()))
-		}
-
-		if q.PlaybackState != nil {
-			close(q.PlaybackState)
-		}
-	}
+	queue.Voice = &Voice{}
+	queue.Songs = []Song{}
+	queue.Idle = true
 }
 
-// Add adds a new song to the queue and returns his index.
-func (q *Queue) Add(song *Song) int {
-	q.Songs = append(q.Songs, *song)
+// Add adds a new song to the queue and returns its index.
+func (queue *Queue) Add(song *Song) int {
+	queue.Mutex.Lock()
+	defer queue.Mutex.Unlock()
 
-	return len(q.Songs) - 1
+	queue.Songs = append(queue.Songs, *song)
+
+	return len(queue.Songs) - 1
 }
 
 // Process manages the queue's playback state.
-func (q *Queue) Process() {
+func (queue *Queue) Process() {
 	streamSessionChan := make(chan StreamSessionResult)
-	defer close(streamSessionChan)
 
 	for {
 		select {
-		case playbackState := <-q.PlaybackState:
+		case playbackState := <-queue.PlaybackState:
 			switch playbackState {
 			case IDLE:
-				q.Reset(false)
+				queue.Reset()
 
 			case PLAY:
-				if song := q.Shift(); song != nil {
+				song := queue.Shift()
+				if song != nil {
 					go (&StreamSession{
 						Song: song,
 						VoiceChannel: &VoiceChannel{
-							Connection: q.Voice.Connection,
-							Bitrate:    q.Voice.Channel.Bitrate,
+							Connection: queue.Voice.Connection,
+							Bitrate:    queue.Voice.Channel.Bitrate,
 						},
 					}).Stream(streamSessionChan)
 				} else {
-					q.PlaybackState <- IDLE
+					go func() { queue.PlaybackState <- IDLE }()
 				}
 
 			case PAUSE, UNPAUSE, SKIP:
 				streamSessionChan <- StreamSessionResult{State: playbackState}
 				if playbackState == SKIP {
-					q.PlaybackState <- PLAY
+					go func() { queue.PlaybackState <- PLAY }()
 				}
 			}
 
 		case streamSessionResult := <-streamSessionChan:
 			if streamSessionResult.State == EOF {
-				q.PlaybackState <- PLAY
+				go func() { queue.PlaybackState <- PLAY }()
 			} else if streamSessionResult.State == ERR {
-				zap.L().Error("stream session result received an error", zap.Error(streamSessionResult.Error))
-				q.PlaybackState <- IDLE
+				queue.Logger.Error("stream session result received an error", zap.Error(streamSessionResult.Error))
+				go func() { queue.PlaybackState <- IDLE }()
 			}
-
-		default:
-			// prevent cpu spinning by sleeping for a short interval
-			time.Sleep(QueueSleepInterval)
 		}
 	}
 }
