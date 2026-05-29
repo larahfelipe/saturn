@@ -1,6 +1,7 @@
 package player
 
 import (
+	"fmt"
 	"io"
 	"math"
 	"os/exec"
@@ -35,11 +36,10 @@ type Stream struct {
 
 const MAX_BITRATE = 128 // dca only supports bitrate values between 8 and 128
 
-// Stream streams a song on a voice channel.
-func (ss *StreamSession) Stream(streamSessionChan chan StreamSessionResult) {
+// Stream streams a song on a voice channel and processes control signals.
+func (ss *StreamSession) Stream(controlChan chan PlaybackState) error {
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
-		streamSessionChan <- StreamSessionResult{State: ERR, Error: err}
-		return
+		return fmt.Errorf("ffmpeg path lookup error: %w", err)
 	}
 
 	voiceChannelBitrate := ss.VoiceChannel.Bitrate / int(math.Pow10(3))
@@ -55,34 +55,31 @@ func (ss *StreamSession) Stream(streamSessionChan chan StreamSessionResult) {
 
 	source, err := dca.EncodeMem(ss.Song.Stream.Readable, options)
 	if err != nil {
-		streamSessionChan <- StreamSessionResult{State: ERR, Error: err}
-		return
+		return fmt.Errorf("dca memory encoding error: %w", err)
 	}
 	defer source.Cleanup()
 
 	doneChan := make(chan error)
-	defer close(doneChan)
 	streaming := dca.NewStream(source, ss.VoiceChannel.Connection, doneChan)
 	for {
 		select {
-		case streamSessionResult := <-streamSessionChan:
-			switch streamSessionResult.State {
+		case ctrlState := <-controlChan:
+			switch ctrlState {
 			case UNPAUSE:
 				streaming.SetPaused(false)
-			case PAUSE, SKIP:
+			case PAUSE:
 				streaming.SetPaused(true)
-			case EOF:
-				return
+			case SKIP, EOF:
+				streaming.SetPaused(true)
+				return nil
 			}
 
 		// dca signals the end of a stream session by sending an io.EOF error
 		case err := <-doneChan:
 			if err != nil && err != io.EOF {
-				streamSessionChan <- StreamSessionResult{State: ERR, Error: err}
-			} else {
-				streamSessionChan <- StreamSessionResult{State: EOF}
+				return err
 			}
-			return
+			return nil
 		}
 	}
 }

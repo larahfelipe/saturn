@@ -1,35 +1,26 @@
 package commands
 
 import (
-	"github.com/larahfelipe/saturn/internal/bot"
+	"fmt"
+	"strings"
+
+	dg "github.com/bwmarrin/discordgo"
 	"github.com/larahfelipe/saturn/internal/command"
+	"github.com/larahfelipe/saturn/internal/discord"
 )
 
-type HelpCommand struct {
-	*command.BaseCommand
-	Bot *bot.Bot
-}
+// Help constructs the help command handler.
+func Help(bot *discord.Bot, router *command.Router) command.HandlerFunc {
+	return func(s *dg.Session, m *dg.MessageCreate, args []string) error {
+		var list []string
+		for _, cmd := range router.Commands() {
+			if cmd.Active {
+				list = append(list, fmt.Sprintf("`%s%s` - %s", bot.Config.BotPrefix, cmd.Name, cmd.Description))
+			}
+		}
 
-func NewHelpCommand(bot *bot.Bot) *HelpCommand {
-	return &HelpCommand{
-		BaseCommand: command.NewBaseCommand("help", "Show available commands", false),
-		Bot:         bot,
+		content := "Available commands:\n" + strings.Join(list, "\n")
+		bot.SendMessageEmbed(m.Message, bot.BuildMessageEmbed(content))
+		return nil
 	}
-}
-
-func (hc *HelpCommand) Active() bool {
-	return hc.BaseCommand.Active
-}
-
-func (hc *HelpCommand) Name() string {
-	return hc.BaseCommand.Name
-}
-
-func (hc *HelpCommand) Help() string {
-	return hc.BaseCommand.Help
-}
-
-func (hc *HelpCommand) Execute(m *command.Message) error {
-	hc.Bot.DS.SendMessageEmbed(m.Message, hc.Bot.DS.BuildMessageEmbed("Help command"))
-	return nil
 }

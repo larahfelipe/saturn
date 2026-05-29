@@ -1,21 +1,23 @@
-package util
+package logger
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/larahfelipe/saturn/internal/config"
 	"go.uber.org/zap"
 )
 
-// NewLogger creates a new logger instance.
-func NewLogger(cfg *config.Config) (*zap.Logger, error) {
-	var logger *zap.Logger
+// New creates a new zap.Logger instance.
+func New(cfg *config.Config) (*zap.Logger, error) {
+	var log *zap.Logger
 	var err error
 
 	if cfg.AppEnvironment == "development" {
-		logger, err = zap.NewDevelopment()
+		log, err = zap.NewDevelopment()
 	} else {
-		if err := MkDir(cfg.AppLogsDirName); err != nil {
+		// Secure logs directory creation
+		if err := os.MkdirAll(cfg.AppLogsDirName, 0750); err != nil {
 			return nil, fmt.Errorf("logs directory creation error: %w", err)
 		}
 
@@ -23,14 +25,14 @@ func NewLogger(cfg *config.Config) (*zap.Logger, error) {
 		zapProdCfg.Level = zap.NewAtomicLevel()
 		zapProdCfg.OutputPaths = []string{"stdout", fmt.Sprintf("%s/app.log", cfg.AppLogsDirName)}
 
-		logger, err = zapProdCfg.Build()
+		log, err = zapProdCfg.Build()
 	}
 
 	if err != nil {
 		return nil, err
 	}
 
-	zap.ReplaceGlobals(logger)
+	zap.ReplaceGlobals(log)
 
-	return logger, nil
+	return log, nil
 }

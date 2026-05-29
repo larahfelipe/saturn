@@ -1,16 +1,15 @@
-FROM golang:1.24.9 AS builder
+FROM golang:1.26.3-bookworm AS builder
 
 WORKDIR /usr/src/app
 
 COPY go.mod go.sum ./
-
 RUN go mod download
 
 COPY . .
 
-RUN go build -o /go/bin/app ./cmd
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /go/bin/app ./cmd/main.go
 
-FROM golang:1.24.9
+FROM debian:bookworm-slim
 
 WORKDIR /usr/src/app
 
@@ -21,8 +20,11 @@ RUN apt-get update && \
 
 COPY --from=builder /go/bin/app /go/bin/app
 
-COPY .env .
+RUN groupadd -r saturn && useradd -r -g saturn -s /sbin/nologin saturn && \
+    chown -R saturn:saturn /usr/src/app
 
 EXPOSE 8080
+
+USER saturn
 
 CMD ["/go/bin/app"]

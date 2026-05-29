@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/larahfelipe/saturn">
-    <img src="https://github.com/larahfelipe/saturn/blob/master/.github/logo.png">
+    <img src="https://github.com/larahfelipe/saturn/blob/master/.github/logo.png" alt="Saturn Logo">
   </a>
 </p>
 
@@ -16,99 +16,133 @@
   </a>
 </p>
 
-## Table of contents
+---
+
+## Table of Contents
 
 - [About](#about)
-- [Setup options](#setup-options)
+- [Features](#features)
+- [Commands](#commands)
+- [Configuration](#configuration)
+- [Prerequisites](#prerequisites)
 - [Installation](#installation)
-  - [Prerequisites](#prerequisites)
-  - [Configuration](#configuration)
-  - [Option 1: Docker setup (recommended)](#option-1-docker-setup-recommended)
-  - [Option 2: Manual setup](#option-2-manual-setup)
+  - [Docker Setup (Recommended)](#docker-setup-recommended)
+  - [Manual Setup](#manual-setup)
+- [Testing](#testing)
 - [License](#license)
+
+---
 
 ## About
 
-**Saturn** is a **self-hosted Discord bot** built with Go and `discordgo`. Designed for community use, it's lightweight, customizable, and easy to deploy either locally or in the cloud. Hosting platforms like **Heroku** work especially well with Saturn.
+**Saturn** is a self-hosted Discord music bot built with Go and `discordgo`. It is designed for private or community use only.
 
-> ⚠️ **Note:** Public listing of this bot on services like [top.gg](https://top.gg) or [discordbotlist.com](https://discordbotlist.com) is **strictly prohibited**. Saturn is intended for **private or community use only**.
+> ⚠️ **Notice:** Listing this bot publicly on services like top.gg or discordbotlist.com is prohibited.
 
-## Setup options
+---
 
-You can set up Saturn in two ways:
+## Features
 
-1. **Docker setup (Recommended)**: Provides a standardized environment, ensuring consistent performance across different systems while simplifying deployment.
+- **Multi-Guild Isolation**: Separate playback states, voice sessions, and queues for each server.
+- **Ffmpeg Audio Streaming**: Efficient YouTube audio resolution and streaming.
+- **Race-Free Concurrency**: Thread-safe queue structures and event coordinators.
+- **Minimised Base Container**: Optimized multi-stage Docker build utilizing Debian-Slim and running under non-root user permissions.
 
-2. **Manual Setup**: Traditional installation directly on your machine.
+---
+
+## Commands
+
+Commands are mapped using prefix routing. The prefix is configured via environment variables (default: `!`).
+
+| Command | Arguments | Description |
+| :--- | :--- | :--- |
+| `play` | `<youtube-url>` | Resolve and play a YouTube audio stream |
+| `pause` | None | Pause playback |
+| `unpause` | None | Resume playback |
+| `skip` | None | Skip the current track |
+| `stop` | None | Stop streaming and clear guild queue |
+| `help` | None | Print active command configurations |
+| `ping` | None | Check bot responsiveness |
+| `health` | None | Check heartbeat connection latency |
+
+---
+
+## Configuration
+
+Duplicate `.env.example` to `.env` and set the following parameters:
+
+```env
+BOT_TOKEN=your-discord-bot-token
+BOT_COMMAND_PREFIX=!
+BOT_ACTIVITY_STATUS="Playing music"
+APP_ENVIRONMENT=production
+```
+
+---
+
+## Prerequisites
+
+- Git
+- Discord bot token (obtained from the Discord Developers Portal)
+- Gateway Intents enabled on the Bot page (Guilds, Guild Voice States, Guild Messages, Message Content)
+- **Docker** (recommended setup) or **Go 1.26+** and **FFmpeg** (manual setup)
+
+---
 
 ## Installation
 
-### Prerequisites
+Clone the repository and enter the directory before choosing an installation option:
 
-- Git
-- Your Discord bot token (from [Discord Developers Portal](https://discord.com/developers/))
-- For Docker setup: Docker installed on your machine
-- For manual setup: Go language and FFmpeg (for music functionality)
+```bash
+git clone https://github.com/larahfelipe/saturn.git && cd saturn
+```
 
-### Configuration
+### Docker Setup (Recommended)
 
-1. Clone the repository:
-
-   ```bash
-   git clone https://github.com/larahfelipe/saturn.git && cd saturn
-   ```
-
-2. Set up environment variables:
-   - Copy `.env.example` to `.env`
-   - Add your bot token and configure your preferred prefix
-
-### Option 1: Docker setup (recommended)
-
-1. Verify Docker installation:
-
-   ```bash
-   docker -v
-   ```
-
-2. Build the Docker image:
-
+1. Build the Docker container:
    ```bash
    docker build -t saturn .
    ```
 
-3. Run the container:
-
+2. Run the container, passing the environment variables:
    ```bash
-   docker run -d --name saturn saturn
+   docker run -d --name saturn --env-file .env saturn
    ```
 
-4. Verify the container is running:
-   ```bash
-   docker ps -a
-   ```
-   The container should appear with status "Up".
+### Manual Setup
 
-### Option 2: Manual setup
-
-1. Verify Go installation:
-
+1. Verify Go version (requires Go 1.26+):
    ```bash
    go version
    ```
 
-2. If using music functionality, install FFmpeg:
-
-   - Ubuntu/Debian:
+2. Install FFmpeg:
+   - **Debian/Ubuntu**:
      ```bash
-     sudo apt install ffmpeg -y
+     sudo apt update && sudo apt install -y ffmpeg
      ```
-   - Other systems: Refer to the [FFmpeg documentation](https://ffmpeg.org/download.html)
+   - **macOS**:
+     ```bash
+     brew install ffmpeg
+     ```
 
-3. Run the bot:
+3. Build and execute:
    ```bash
    go run cmd/main.go
    ```
 
+---
+
+## Testing
+
+Verify queue concurrency and routing handlers:
+
+```bash
+go test -race ./...
+```
+
+---
+
 ## License
 
-Saturn is licensed under the [GPL-3.0 License](https://github.com/larahfelipe/saturn/blob/master/LICENSE).
+Saturn is licensed under the GPL-3.0 License. See the `LICENSE` file for details.

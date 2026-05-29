@@ -1,35 +1,15 @@
 package commands
 
 import (
-	"github.com/larahfelipe/saturn/internal/bot"
+	dg "github.com/bwmarrin/discordgo"
 	"github.com/larahfelipe/saturn/internal/command"
+	"github.com/larahfelipe/saturn/internal/discord"
 )
 
-type PingCommand struct {
-	*command.BaseCommand
-	Bot *bot.Bot
-}
-
-func NewPingCommand(bot *bot.Bot) *PingCommand {
-	return &PingCommand{
-		BaseCommand: command.NewBaseCommand("ping", "Ping the bot", true),
-		Bot:         bot,
+// Ping constructs the ping command handler.
+func Ping(bot *discord.Bot) command.HandlerFunc {
+	return func(s *dg.Session, m *dg.MessageCreate, args []string) error {
+		bot.SendReplyMessage(m.Message, "Pong!")
+		return nil
 	}
-}
-
-func (pc *PingCommand) Active() bool {
-	return pc.BaseCommand.Active
-}
-
-func (pc *PingCommand) Name() string {
-	return pc.BaseCommand.Name
-}
-
-func (pc *PingCommand) Help() string {
-	return pc.BaseCommand.Help
-}
-
-func (pc *PingCommand) Execute(m *command.Message) error {
-	pc.Bot.DS.SendReplyMessage(m.Message, "Pong!")
-	return nil
 }

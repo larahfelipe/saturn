@@ -1,75 +1,68 @@
 package command
 
 import (
+	"errors"
 	"strings"
 
 	dg "github.com/bwmarrin/discordgo"
-	"github.com/larahfelipe/saturn/internal/common"
 )
 
-type Message struct {
-	*dg.MessageCreate
-	Args []string
-}
+var (
+	ErrUnknownOrUnavailableCommand = errors.New("triggered an unknown or unavailable command")
+	ErrMissingDiscordBotPrefix     = errors.New("missing bot command prefix")
+)
 
-type ICommand interface {
-	Active() bool
-	Name() string
-	Help() string
-	Execute(m *Message) error
-}
+// HandlerFunc is the signature of functional command handlers.
+type HandlerFunc func(s *dg.Session, m *dg.MessageCreate, args []string) error
 
-type BaseCommand struct {
-	Active bool
-	Name   string
-	Help   string
-}
-
+// Command configuration structure.
 type Command struct {
-	Prefix   string
-	Commands map[string]ICommand
+	Name        string
+	Description string
+	Active      bool
+	Run         HandlerFunc
 }
 
-// New creates a new `Command` record.
-func New(prefix string) (*Command, error) {
-	if len(prefix) == 0 {
-		return nil, common.ErrMissingDiscordBotPrefix
-	}
+// Router manages command routing based on message prefix matching.
+type Router struct {
+	prefix   string
+	commands map[string]Command
+}
 
-	return &Command{
-		Prefix:   prefix,
-		Commands: make(map[string]ICommand),
+// NewRouter instantiates a new Router.
+func NewRouter(prefix string) (*Router, error) {
+	if len(prefix) == 0 {
+		return nil, ErrMissingDiscordBotPrefix
+	}
+	return &Router{
+		prefix:   prefix,
+		commands: make(map[string]Command),
 	}, nil
 }
 
-// NewBaseCommand creates a new `BaseCommand` record.
-func NewBaseCommand(name, help string, active bool) *BaseCommand {
-	return &BaseCommand{
-		Active: active,
-		Name:   name,
-		Help:   help,
-	}
+// Register adds a command configuration to the routing table.
+func (r *Router) Register(cmd Command) {
+	r.commands[cmd.Name] = cmd
 }
 
-// Load loads the given bot commands.
-func (c *Command) Load(commands ...ICommand) {
-	for _, command := range commands {
-		c.Commands[command.Name()] = command
-	}
-}
-
-// Process handles the command execution.
-func (c *Command) Process(s *dg.Session, m *dg.MessageCreate) error {
+// Process parses and routes the message payload.
+func (r *Router) Process(s *dg.Session, m *dg.MessageCreate) error {
 	content := strings.Split(m.Content, " ")
-	maybeCommandName, maybeCommandArgs := content[0], content[1:]
-
-	command, exists := c.Commands[maybeCommandName]
-	if !exists || !command.Active() {
-		return common.ErrUnknownOrUnavailableCommand
-	}
-	if err := command.Execute(&Message{m, maybeCommandArgs}); err != nil {
-		return err
+	maybeCommandName := content[0]
+	var maybeCommandArgs []string
+	if len(content) > 1 {
+		maybeCommandArgs = content[1:]
 	}
 
-	return nil
+	cmd, exists := r.commands[maybeCommandName]
+	if !exists || !cmd.Active {
+		return ErrUnknownOrUnavailableCommand
+	}
+
+	return cmd.Run(s, m, maybeCommandArgs)
+}
+
+// Commands returns the mapping of registered command configs.
+func (r *Router) Commands() map[string]Command {
+	return r.commands
 }

@@ -1,45 +1,23 @@
 package commands
 
 import (
-	"github.com/larahfelipe/saturn/internal/bot"
+	dg "github.com/bwmarrin/discordgo"
 	"github.com/larahfelipe/saturn/internal/command"
+	"github.com/larahfelipe/saturn/internal/discord"
 	"github.com/larahfelipe/saturn/internal/player"
 )
 
-type StopSongCommand struct {
-	*command.BaseCommand
-	Bot   *bot.Bot
-	Queue *player.Queue
-}
+// Stop constructs the stop command handler.
+func Stop(bot *discord.Bot, registry *player.Registry) command.HandlerFunc {
+	return func(s *dg.Session, m *dg.MessageCreate, args []string) error {
+		queue := registry.Get(m.GuildID)
+		if !queue.Stop() {
+			bot.SendReplyMessage(m.Message, "There is no song playing right now")
+			return nil
+		}
 
-func NewStopSongCommand(bot *bot.Bot, queue *player.Queue) *StopSongCommand {
-	return &StopSongCommand{
-		BaseCommand: command.NewBaseCommand("stop", "Stop the current song", true),
-		Bot:         bot,
-		Queue:       queue,
-	}
-}
+		bot.AddMessageReaction(m.Message, "🛑")
 
-func (ssc *StopSongCommand) Active() bool {
-	return ssc.BaseCommand.Active
-}
-
-func (ssc *StopSongCommand) Name() string {
-	return ssc.BaseCommand.Name
-}
-
-func (ssc *StopSongCommand) Help() string {
-	return ssc.BaseCommand.Help
-}
-
-func (ssc *StopSongCommand) Execute(m *command.Message) error {
-	if ssc.Queue.Idle {
-		ssc.Bot.DS.SendReplyMessage(m.Message, "There is no song playing right now")
 		return nil
 	}
-
-	ssc.Queue.PlaybackState <- player.IDLE
-	ssc.Bot.DS.AddMessageReaction(m.Message, "🛑")
-
-	return nil
 }

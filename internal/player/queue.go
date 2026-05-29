@@ -3,10 +3,9 @@ package player
 import (
 	"sync"
 
-	"go.uber.org/zap"
-
 	dg "github.com/bwmarrin/discordgo"
 	"github.com/larahfelipe/saturn/internal/config"
+	"go.uber.org/zap"
 )
 
 type Voice struct {
@@ -15,13 +14,14 @@ type Voice struct {
 }
 
 type Queue struct {
-	Idle          bool
-	Mutex         sync.RWMutex
-	PlaybackState chan PlaybackState
-	Voice         *Voice
-	Songs         []Song
-	Config        *config.Config
-	Logger        *zap.Logger
+	mutex         sync.RWMutex
+	idle          bool
+	playbackState chan PlaybackState
+	voice         *Voice
+	songs         []Song
+	config        *config.Config
+	logger        *zap.Logger
+	controlChan   chan PlaybackState
 }
 
 type PlaybackState int
@@ -36,97 +36,267 @@ const (
 	ERR // indicates a stream session error
 )
 
-func New(cfg *config.Config, logger *zap.Logger) *Queue {
-	return &Queue{
-		Idle:          true,
-		Voice:         &Voice{},
-		Songs:         []Song{},
-		PlaybackState: make(chan PlaybackState, 5),
-		Config:        cfg,
-		Logger:        logger,
+func (p PlaybackState) String() string {
+	switch p {
+	case IDLE:
+		return "IDLE"
+	case PLAY:
+		return "PLAY"
+	case PAUSE:
+		return "PAUSE"
+	case UNPAUSE:
+		return "UNPAUSE"
+	case SKIP:
+		return "SKIP"
+	case EOF:
+		return "EOF"
+	case ERR:
+		return "ERR"
+	default:
+		return "UNKNOWN"
 	}
 }
 
-// Shift pops out the first song of the queue.
-func (queue *Queue) Shift() *Song {
-	queue.Mutex.Lock()
-	defer queue.Mutex.Unlock()
+func New(cfg *config.Config, logger *zap.Logger) *Queue {
+	return &Queue{
+		idle:          true,
+		voice:         &Voice{},
+		songs:         []Song{},
+		playbackState: make(chan PlaybackState, 10),
+		config:        cfg,
+		logger:        logger,
+	}
+}
 
-	if len(queue.Songs) == 0 {
+// IsIdle returns whether the player queue is currently idle.
+func (queue *Queue) IsIdle() bool {
+	queue.mutex.RLock()
+	defer queue.mutex.RUnlock()
+	return queue.idle
+}
+
+// GetSongCount returns the total number of songs in the queue.
+func (queue *Queue) GetSongCount() int {
+	queue.mutex.RLock()
+	defer queue.mutex.RUnlock()
+	return len(queue.songs)
+}
+
+// Add appends a new song to the queue and returns its 0-indexed position.
+func (queue *Queue) Add(song *Song) int {
+	queue.mutex.Lock()
+	defer queue.mutex.Unlock()
+	queue.songs = append(queue.songs, *song)
+	return len(queue.songs) - 1
+}
+
+// Shift removes and returns the first song of the queue.
+func (queue *Queue) Shift() *Song {
+	queue.mutex.Lock()
+	defer queue.mutex.Unlock()
+	return queue.songsPopUnlocked()
+}
+
+func (queue *Queue) songsPopUnlocked() *Song {
+	if len(queue.songs) == 0 {
 		return nil
 	}
-
-	song := queue.Songs[0]
-	queue.Songs = queue.Songs[1:]
-
+	song := queue.songs[0]
+	queue.songs = queue.songs[1:]
 	return &song
 }
 
-// Cleanup resets the queue to its default state.
-func (queue *Queue) Reset() {
-	queue.Mutex.Lock()
-	defer queue.Mutex.Unlock()
+// GetVoiceConnection returns the current voice connection safely.
+func (queue *Queue) GetVoiceConnection() *dg.VoiceConnection {
+	queue.mutex.RLock()
+	defer queue.mutex.RUnlock()
+	return queue.voice.Connection
+}
 
-	if queue.Voice.Connection != nil {
-		if err := queue.Voice.Connection.Disconnect(); err != nil {
-			queue.Logger.Error("voice connection disconnect error", zap.Error(err))
+// GetVoiceChannelID returns the voice channel ID if connected.
+func (queue *Queue) GetVoiceChannelID() string {
+	queue.mutex.RLock()
+	defer queue.mutex.RUnlock()
+	if queue.voice.Channel != nil {
+		return queue.voice.Channel.ID
+	}
+	return ""
+}
+
+// StartPlayback initializes voice connection state and triggers song processing.
+func (queue *Queue) StartPlayback(voice *Voice) {
+	queue.mutex.Lock()
+	queue.voice = voice
+	queue.idle = false
+	queue.mutex.Unlock()
+
+	queue.playbackState <- PLAY
+}
+
+// Pause pauses song streaming if active.
+func (queue *Queue) Pause() bool {
+	queue.mutex.RLock()
+	idle := queue.idle
+	queue.mutex.RUnlock()
+	if idle {
+		return false
+	}
+	queue.playbackState <- PAUSE
+	return true
+}
+
+// Unpause resumes song streaming if active.
+func (queue *Queue) Unpause() bool {
+	queue.mutex.RLock()
+	idle := queue.idle
+	queue.mutex.RUnlock()
+	if idle {
+		return false
+	}
+	queue.playbackState <- UNPAUSE
+	return true
+}
+
+// Skip skips the currently playing song if active.
+func (queue *Queue) Skip() bool {
+	queue.mutex.RLock()
+	idle := queue.idle
+	queue.mutex.RUnlock()
+	if idle {
+		return false
+	}
+	queue.playbackState <- SKIP
+	return true
+}
+
+// Stop stops the song playback and resets queue state.
+func (queue *Queue) Stop() bool {
+	queue.mutex.RLock()
+	idle := queue.idle
+	queue.mutex.RUnlock()
+	if idle {
+		return false
+	}
+	queue.playbackState <- IDLE
+	return true
+}
+
+// Reset clears the queue and disconnects from voice channels.
+func (queue *Queue) Reset() {
+	queue.mutex.Lock()
+	defer queue.mutex.Unlock()
+	queue.resetUnlocked()
+}
+
+func (queue *Queue) resetUnlocked() {
+	if queue.voice.Connection != nil {
+		if err := queue.voice.Connection.Disconnect(); err != nil {
+			queue.logger.Error("voice connection disconnect error", zap.Error(err))
 		}
 	}
-
-	queue.Voice = &Voice{}
-	queue.Songs = []Song{}
-	queue.Idle = true
+	queue.voice = &Voice{}
+	queue.songs = []Song{}
+	queue.idle = true
+	queue.controlChan = nil
 }
 
-// Add adds a new song to the queue and returns its index.
-func (queue *Queue) Add(song *Song) int {
-	queue.Mutex.Lock()
-	defer queue.Mutex.Unlock()
-
-	queue.Songs = append(queue.Songs, *song)
-
-	return len(queue.Songs) - 1
-}
-
-// Process manages the queue's playback state.
+// Process handles queue and stream lifecycle.
 func (queue *Queue) Process() {
-	streamSessionChan := make(chan StreamSessionResult)
-
 	for {
 		select {
-		case playbackState := <-queue.PlaybackState:
+		case playbackState := <-queue.playbackState:
+			queue.mutex.Lock()
 			switch playbackState {
 			case IDLE:
-				queue.Reset()
+				queue.resetUnlocked()
+				queue.mutex.Unlock()
 
 			case PLAY:
-				song := queue.Shift()
+				song := queue.songsPopUnlocked()
 				if song != nil {
-					go (&StreamSession{
-						Song: song,
-						VoiceChannel: &VoiceChannel{
-							Connection: queue.Voice.Connection,
-							Bitrate:    queue.Voice.Channel.Bitrate,
-						},
-					}).Stream(streamSessionChan)
+					queue.controlChan = make(chan PlaybackState, 10)
+					controlChan := queue.controlChan
+					queue.idle = false
+
+					voiceConn := queue.voice.Connection
+					var bitrate int
+					if queue.voice.Channel != nil {
+						bitrate = queue.voice.Channel.Bitrate
+					}
+					queue.mutex.Unlock()
+
+					go func() {
+						err := (&StreamSession{
+							Song: song,
+							VoiceChannel: &VoiceChannel{
+								Connection: voiceConn,
+								Bitrate:    bitrate,
+							},
+						}).Stream(controlChan)
+
+						if err != nil {
+							queue.logger.Error("stream session error", zap.Error(err))
+							queue.playbackState <- IDLE
+						} else {
+							queue.playbackState <- PLAY
+						}
+					}()
 				} else {
-					go func() { queue.PlaybackState <- IDLE }()
+					queue.idle = true
+					queue.resetUnlocked()
+					queue.mutex.Unlock()
 				}
 
 			case PAUSE, UNPAUSE, SKIP:
-				streamSessionChan <- StreamSessionResult{State: playbackState}
-				if playbackState == SKIP {
-					go func() { queue.PlaybackState <- PLAY }()
+				if queue.controlChan != nil {
+					select {
+					case queue.controlChan <- playbackState:
+					default:
+						queue.logger.Warn("control channel buffer full, dropping signal", zap.String("state", playbackState.String()))
+					}
 				}
-			}
-
-		case streamSessionResult := <-streamSessionChan:
-			if streamSessionResult.State == EOF {
-				go func() { queue.PlaybackState <- PLAY }()
-			} else if streamSessionResult.State == ERR {
-				queue.Logger.Error("stream session result received an error", zap.Error(streamSessionResult.Error))
-				go func() { queue.PlaybackState <- IDLE }()
+				queue.mutex.Unlock()
 			}
 		}
+	}
+}
+
+// Registry manages thread-safe mapping of guild-level player instances.
+type Registry struct {
+	mutex   sync.RWMutex
+	players map[string]*Queue
+	config  *config.Config
+	logger  *zap.Logger
+}
+
+// NewRegistry instantiates a new player registry.
+func NewRegistry(cfg *config.Config, logger *zap.Logger) *Registry {
+	return &Registry{
+		players: make(map[string]*Queue),
+		config:  cfg,
+		logger:  logger,
+	}
+}
+
+// Get retrieves or spawns a guild player instance.
+func (r *Registry) Get(guildID string) *Queue {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	q, exists := r.players[guildID]
+	if !exists {
+		q = New(r.config, r.logger)
+		r.players[guildID] = q
+		go q.Process()
+	}
+	return q
+}
+
+// ResetAll resets and disconnects all registry player instances.
+func (r *Registry) ResetAll() {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	for _, q := range r.players {
+		q.Reset()
 	}
 }

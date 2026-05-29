@@ -1,45 +1,23 @@
 package commands
 
 import (
-	"github.com/larahfelipe/saturn/internal/bot"
+	dg "github.com/bwmarrin/discordgo"
 	"github.com/larahfelipe/saturn/internal/command"
+	"github.com/larahfelipe/saturn/internal/discord"
 	"github.com/larahfelipe/saturn/internal/player"
 )
 
-type PauseSongCommand struct {
-	*command.BaseCommand
-	Bot   *bot.Bot
-	Queue *player.Queue
-}
+// Pause constructs the pause command handler.
+func Pause(bot *discord.Bot, registry *player.Registry) command.HandlerFunc {
+	return func(s *dg.Session, m *dg.MessageCreate, args []string) error {
+		queue := registry.Get(m.GuildID)
+		if !queue.Pause() {
+			bot.SendReplyMessage(m.Message, "There is no song playing right now")
+			return nil
+		}
 
-func NewPauseSongCommand(bot *bot.Bot, queue *player.Queue) *PauseSongCommand {
-	return &PauseSongCommand{
-		BaseCommand: command.NewBaseCommand("pause", "Pause the current song", true),
-		Bot:         bot,
-		Queue:       queue,
-	}
-}
+		bot.AddMessageReaction(m.Message, "⏸️")
 
-func (psc *PauseSongCommand) Active() bool {
-	return psc.BaseCommand.Active
-}
-
-func (psc *PauseSongCommand) Name() string {
-	return psc.BaseCommand.Name
-}
-
-func (psc *PauseSongCommand) Help() string {
-	return psc.BaseCommand.Help
-}
-
-func (psc *PauseSongCommand) Execute(m *command.Message) error {
-	if psc.Queue.Idle {
-		psc.Bot.DS.SendReplyMessage(m.Message, "There is no song playing right now")
 		return nil
 	}
-
-	psc.Queue.PlaybackState <- player.PAUSE
-	psc.Bot.DS.Session.MessageReactionAdd(m.ChannelID, m.ID, "⏸️")
-
-	return nil
 }

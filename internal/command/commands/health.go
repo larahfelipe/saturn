@@ -3,37 +3,16 @@ package commands
 import (
 	"fmt"
 
-	"github.com/larahfelipe/saturn/internal/bot"
+	dg "github.com/bwmarrin/discordgo"
 	"github.com/larahfelipe/saturn/internal/command"
+	"github.com/larahfelipe/saturn/internal/discord"
 )
 
-type HealthCommand struct {
-	*command.BaseCommand
-	Bot *bot.Bot
-}
-
-func NewHealthCommand(bot *bot.Bot) *HealthCommand {
-	return &HealthCommand{
-		BaseCommand: command.NewBaseCommand("health", "Check bot's health", true),
-		Bot:         bot,
+// Health constructs the health command handler.
+func Health(bot *discord.Bot) command.HandlerFunc {
+	return func(s *dg.Session, m *dg.MessageCreate, args []string) error {
+		latencyMs := bot.Session.HeartbeatLatency().Milliseconds()
+		bot.SendMessageEmbed(m.Message, bot.BuildMessageEmbed(fmt.Sprintf("Heartbeat latency: %dms", latencyMs)))
+		return nil
 	}
-}
-
-func (hc *HealthCommand) Active() bool {
-	return hc.BaseCommand.Active
-}
-
-func (hc *HealthCommand) Name() string {
-	return hc.BaseCommand.Name
-}
-
-func (hc *HealthCommand) Help() string {
-	return hc.BaseCommand.Help
-}
-
-func (hc *HealthCommand) Execute(m *command.Message) error {
-	latencyMs := hc.Bot.DS.Session.HeartbeatLatency().Milliseconds()
-	hc.Bot.DS.SendMessageEmbed(m.Message, hc.Bot.DS.BuildMessageEmbed(fmt.Sprintf("Heartbeat latency: %dms", latencyMs)))
-
-	return nil
 }

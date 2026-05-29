@@ -1,45 +1,23 @@
 package commands
 
 import (
-	"github.com/larahfelipe/saturn/internal/bot"
+	dg "github.com/bwmarrin/discordgo"
 	"github.com/larahfelipe/saturn/internal/command"
+	"github.com/larahfelipe/saturn/internal/discord"
 	"github.com/larahfelipe/saturn/internal/player"
 )
 
-type SkipSongCommand struct {
-	*command.BaseCommand
-	Bot   *bot.Bot
-	Queue *player.Queue
-}
+// Skip constructs the skip command handler.
+func Skip(bot *discord.Bot, registry *player.Registry) command.HandlerFunc {
+	return func(s *dg.Session, m *dg.MessageCreate, args []string) error {
+		queue := registry.Get(m.GuildID)
+		if !queue.Skip() {
+			bot.SendReplyMessage(m.Message, "There is no song playing right now")
+			return nil
+		}
 
-func NewSkipSongCommand(bot *bot.Bot, queue *player.Queue) *SkipSongCommand {
-	return &SkipSongCommand{
-		BaseCommand: command.NewBaseCommand("skip", "Skip the current song", true),
-		Bot:         bot,
-		Queue:       queue,
-	}
-}
+		bot.AddMessageReaction(m.Message, "⏭️")
 
-func (ssc *SkipSongCommand) Active() bool {
-	return ssc.BaseCommand.Active
-}
-
-func (ssc *SkipSongCommand) Name() string {
-	return ssc.BaseCommand.Name
-}
-
-func (ssc *SkipSongCommand) Help() string {
-	return ssc.BaseCommand.Help
-}
-
-func (ssc *SkipSongCommand) Execute(m *command.Message) error {
-	if ssc.Queue.Idle {
-		ssc.Bot.DS.SendReplyMessage(m.Message, "There is no song playing right now")
 		return nil
 	}
-
-	ssc.Queue.PlaybackState <- player.SKIP
-	ssc.Bot.DS.AddMessageReaction(m.Message, "⏭️")
-
-	return nil
 }
