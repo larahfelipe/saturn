@@ -8,8 +8,8 @@ import (
 
 // Ping constructs the ping command handler.
 func Ping(bot *discord.Bot) command.HandlerFunc {
-	return func(s *dg.Session, m *dg.MessageCreate, args []string) error {
-		bot.SendReplyMessage(m.Message, "Pong!")
+	return func(s *dg.Session, i *dg.InteractionCreate) error {
+		bot.RespondText(i.Interaction, "Pong! 🏓")
 		return nil
 	}
 }

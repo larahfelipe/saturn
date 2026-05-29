@@ -9,60 +9,61 @@ import (
 )
 
 func TestRouterProcess(t *testing.T) {
-	router, err := command.NewRouter("!")
-	if err != nil {
-		t.Fatalf("unexpected error creating router: %v", err)
-	}
+	router := command.NewRouter()
 
 	var called bool
-	var capturedArgs []string
-
 	router.Register(command.Command{
-		Name:   "play",
+		ApplicationCommand: &dg.ApplicationCommand{
+			Name:        "play",
+			Description: "Play song",
+		},
 		Active: true,
-		Run: func(s *dg.Session, m *dg.MessageCreate, args []string) error {
+		Run: func(s *dg.Session, i *dg.InteractionCreate) error {
 			called = true
-			capturedArgs = args
 			return nil
 		},
 	})
 
-	// Match registered prefix command
-	msg := &dg.MessageCreate{
-		Message: &dg.Message{
-			Content: "play https://youtube.com/watch?v=123",
+	interaction := &dg.InteractionCreate{
+		Interaction: &dg.Interaction{
+			Type: dg.InteractionApplicationCommand,
+			Data: dg.ApplicationCommandInteractionData{
+				Name: "play",
+			},
 		},
 	}
 
-	err = router.Process(nil, msg)
+	err := router.Process(nil, interaction)
 	if err != nil {
-		t.Errorf("unexpected router error: %v", err)
+		t.Errorf("unexpected error: %v", err)
 	}
 
 	if !called {
-		t.Errorf("expected command handler to be executed")
+		t.Errorf("expected play command to be executed")
 	}
 
-	if len(capturedArgs) != 1 || capturedArgs[0] != "https://youtube.com/watch?v=123" {
-		t.Errorf("incorrect args parsed: %v", capturedArgs)
-	}
-
-	// Try triggering inactive command
+	// Inactive command check
 	router.Register(command.Command{
-		Name:   "hidden",
+		ApplicationCommand: &dg.ApplicationCommand{
+			Name:        "hidden",
+			Description: "Hidden command",
+		},
 		Active: false,
-		Run: func(s *dg.Session, m *dg.MessageCreate, args []string) error {
+		Run: func(s *dg.Session, i *dg.InteractionCreate) error {
 			return nil
 		},
 	})
 
-	inactiveMsg := &dg.MessageCreate{
-		Message: &dg.Message{
-			Content: "hidden",
+	inactiveInteraction := &dg.InteractionCreate{
+		Interaction: &dg.Interaction{
+			Type: dg.InteractionApplicationCommand,
+			Data: dg.ApplicationCommandInteractionData{
+				Name: "hidden",
+			},
 		},
 	}
 
-	err = router.Process(nil, inactiveMsg)
+	err = router.Process(nil, inactiveInteraction)
 	if !errors.Is(err, command.ErrUnknownOrUnavailableCommand) {
 		t.Errorf("expected ErrUnknownOrUnavailableCommand, got %v", err)
 	}

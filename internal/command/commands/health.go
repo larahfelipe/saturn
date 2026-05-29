@@ -10,9 +10,9 @@ import (
 
 // Health constructs the health command handler.
 func Health(bot *discord.Bot) command.HandlerFunc {
-	return func(s *dg.Session, m *dg.MessageCreate, args []string) error {
+	return func(s *dg.Session, i *dg.InteractionCreate) error {
 		latencyMs := bot.Session.HeartbeatLatency().Milliseconds()
-		bot.SendMessageEmbed(m.Message, bot.BuildMessageEmbed(fmt.Sprintf("Heartbeat latency: %dms", latencyMs)))
+		bot.RespondEmbed(i.Interaction, bot.BuildMessageEmbed(fmt.Sprintf("Heartbeat latency: %dms", latencyMs)))
 		return nil
 	}
 }

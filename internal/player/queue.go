@@ -5,6 +5,7 @@ import (
 
 	dg "github.com/bwmarrin/discordgo"
 	"github.com/larahfelipe/saturn/internal/config"
+	"github.com/larahfelipe/saturn/internal/metrics"
 	"go.uber.org/zap"
 )
 
@@ -123,14 +124,28 @@ func (queue *Queue) GetVoiceChannelID() string {
 	return ""
 }
 
-// StartPlayback initializes voice connection state and triggers song processing.
-func (queue *Queue) StartPlayback(voice *Voice) {
+// StartPlaybackWithVoiceJoin serializes voice channel connection and starts stream processing.
+func (queue *Queue) StartPlaybackWithVoiceJoin(joinFunc func() (*Voice, error)) error {
 	queue.mutex.Lock()
-	queue.voice = voice
+	defer queue.mutex.Unlock()
+
+	wasIdle := queue.idle
+
+	if queue.voice.Connection == nil {
+		voice, err := joinFunc()
+		if err != nil {
+			return err
+		}
+		queue.voice = voice
+	}
+
 	queue.idle = false
-	queue.mutex.Unlock()
+	if wasIdle {
+		metrics.ActivePlayers.Inc()
+	}
 
 	queue.playbackState <- PLAY
+	return nil
 }
 
 // Pause pauses song streaming if active.
@@ -196,6 +211,9 @@ func (queue *Queue) resetUnlocked() {
 	}
 	queue.voice = &Voice{}
 	queue.songs = []Song{}
+	if !queue.idle {
+		metrics.ActivePlayers.Dec()
+	}
 	queue.idle = true
 	queue.controlChan = nil
 }

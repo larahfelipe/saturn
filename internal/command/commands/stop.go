@@ -9,14 +9,14 @@ import (
 
 // Stop constructs the stop command handler.
 func Stop(bot *discord.Bot, registry *player.Registry) command.HandlerFunc {
-	return func(s *dg.Session, m *dg.MessageCreate, args []string) error {
-		queue := registry.Get(m.GuildID)
+	return func(s *dg.Session, i *dg.InteractionCreate) error {
+		queue := registry.Get(i.GuildID)
 		if !queue.Stop() {
-			bot.SendReplyMessage(m.Message, "There is no song playing right now")
+			bot.RespondText(i.Interaction, "There is no song playing right now")
 			return nil
 		}
 
-		bot.AddMessageReaction(m.Message, "🛑")
+		bot.RespondText(i.Interaction, "Playback stopped 🛑")
 
 		return nil
 	}

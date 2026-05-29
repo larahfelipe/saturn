@@ -2,9 +2,12 @@ package main
 
 import (
 	"log"
+	"net/http"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 
+	dg "github.com/bwmarrin/discordgo"
 	"github.com/larahfelipe/saturn/internal/command"
 	"github.com/larahfelipe/saturn/internal/command/commands"
 	"github.com/larahfelipe/saturn/internal/config"
@@ -36,61 +39,92 @@ func main() {
 
 	yt := youtube.New()
 
-	router, err := command.NewRouter(cfg.BotPrefix)
-	if err != nil {
-		logInst.Fatal("command router init error", zap.Error(err))
-	}
+	router := command.NewRouter()
 
-	// Register functional command handlers
+	// Register Slash Command configs
 	router.Register(command.Command{
-		Name:        "play",
-		Description: "Play a YouTube video audio",
-		Active:      true,
-		Run:         commands.Play(bot, registry, yt),
+		ApplicationCommand: &dg.ApplicationCommand{
+			Name:        "play",
+			Description: "Play a YouTube video audio",
+			Options: []*dg.ApplicationCommandOption{
+				{
+					Type:        dg.ApplicationCommandOptionString,
+					Name:        "url",
+					Description: "The YouTube video URL",
+					Required:    true,
+				},
+			},
+		},
+		Active: true,
+		Run:    commands.Play(bot, registry, yt),
 	})
 	router.Register(command.Command{
-		Name:        "pause",
-		Description: "Pause the currently playing song",
-		Active:      true,
-		Run:         commands.Pause(bot, registry),
+		ApplicationCommand: &dg.ApplicationCommand{
+			Name:        "pause",
+			Description: "Pause the currently playing song",
+		},
+		Active: true,
+		Run:    commands.Pause(bot, registry),
 	})
 	router.Register(command.Command{
-		Name:        "unpause",
-		Description: "Resume song playback",
-		Active:      true,
-		Run:         commands.Unpause(bot, registry),
+		ApplicationCommand: &dg.ApplicationCommand{
+			Name:        "unpause",
+			Description: "Resume song playback",
+		},
+		Active: true,
+		Run:    commands.Unpause(bot, registry),
 	})
 	router.Register(command.Command{
-		Name:        "skip",
-		Description: "Skip the currently playing song",
-		Active:      true,
-		Run:         commands.Skip(bot, registry),
+		ApplicationCommand: &dg.ApplicationCommand{
+			Name:        "skip",
+			Description: "Skip the currently playing song",
+		},
+		Active: true,
+		Run:    commands.Skip(bot, registry),
 	})
 	router.Register(command.Command{
-		Name:        "stop",
-		Description: "Stop playback and clear the queue",
-		Active:      true,
-		Run:         commands.Stop(bot, registry),
+		ApplicationCommand: &dg.ApplicationCommand{
+			Name:        "stop",
+			Description: "Stop playback and clear the queue",
+		},
+		Active: true,
+		Run:    commands.Stop(bot, registry),
 	})
 	router.Register(command.Command{
-		Name:        "ping",
-		Description: "Verify bot responsiveness",
-		Active:      true,
-		Run:         commands.Ping(bot),
+		ApplicationCommand: &dg.ApplicationCommand{
+			Name:        "ping",
+			Description: "Verify bot responsiveness",
+		},
+		Active: true,
+		Run:    commands.Ping(bot),
 	})
 	router.Register(command.Command{
-		Name:        "health",
-		Description: "Check bot heartbeat latency",
-		Active:      true,
-		Run:         commands.Health(bot),
+		ApplicationCommand: &dg.ApplicationCommand{
+			Name:        "health",
+			Description: "Check bot heartbeat latency",
+		},
+		Active: true,
+		Run:    commands.Health(bot),
 	})
 	router.Register(command.Command{
-		Name:        "help",
-		Description: "Show available commands list",
-		Active:      true,
-		Run:         commands.Help(bot, router),
+		ApplicationCommand: &dg.ApplicationCommand{
+			Name:        "help",
+			Description: "Show available commands list",
+		},
+		Active: true,
+		Run:    commands.Help(bot, router),
 	})
 
-	bot.Prepare(router)
-	bot.Run()
+	bot.Prepare(router, registry)
+
+	// Start Prometheus HTTP Metrics exporter on port 8080
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		logInst.Info("metrics endpoint listening on port 8080")
+		if err := http.ListenAndServe(":8080", nil); err != nil {
+			logInst.Error("metrics server listener error", zap.Error(err))
+		}
+	}()
+
+	bot.Run(router)
 }

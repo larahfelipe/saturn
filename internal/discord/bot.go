@@ -44,35 +44,72 @@ func New(cfg *config.Config, logger *zap.Logger) (*Bot, error) {
 	}, nil
 }
 
-// Prepare registers the command router handler.
-func (bot *Bot) Prepare(router *command.Router) {
-	bot.Session.AddHandler(func(s *dg.Session, m *dg.MessageCreate) {
-		if m.Author.Bot || !strings.HasPrefix(m.Content, bot.Config.BotPrefix) {
-			return
-		}
-
-		maybeCommand := strings.TrimPrefix(m.Content, bot.Config.BotPrefix)
-		if len(maybeCommand) == 0 {
-			bot.Logger.Error("missing command name", zap.String("author", m.Author.Username))
-			return
-		}
-
-		m.Content = maybeCommand
-
-		if err := router.Process(s, m); err != nil {
-			bot.Logger.Error("runtime error", zap.Error(err), zap.String("interaction", m.Content), zap.String("author", m.Author.Username))
+// Prepare registers the command router handler and message components listener.
+func (bot *Bot) Prepare(router *command.Router, registry *player.Registry) {
+	bot.Session.AddHandler(func(s *dg.Session, i *dg.InteractionCreate) {
+		switch i.Type {
+		case dg.InteractionApplicationCommand:
+			if err := router.Process(s, i); err != nil {
+				bot.Logger.Error("command interaction error", zap.Error(err), zap.String("command", i.ApplicationCommandData().Name))
+			}
+		case dg.InteractionMessageComponent:
+			bot.handleComponent(s, i, registry)
 		}
 	})
 }
 
-// Run starts the bot connection gateway and waits for system interrupt signals.
-func (bot *Bot) Run() {
+// handleComponent routes action clicks from buttons to their targeted player instances.
+func (bot *Bot) handleComponent(s *dg.Session, i *dg.InteractionCreate, registry *player.Registry) {
+	customID := i.MessageComponentData().CustomID
+	parts := strings.Split(customID, "_")
+	if len(parts) < 2 {
+		return
+	}
+
+	action, guildID := parts[0], parts[1]
+	queue := registry.Get(guildID)
+
+	var content string
+	var success bool
+
+	switch action {
+	case "pause":
+		success = queue.Pause()
+		content = "Playback paused ⏸️"
+	case "unpause":
+		success = queue.Unpause()
+		content = "Playback resumed ▶️"
+	case "skip":
+		success = queue.Skip()
+		content = "Song skipped ⏭️"
+	case "stop":
+		success = queue.Stop()
+		content = "Playback stopped 🛑"
+	}
+
+	if !success {
+		content = "Command could not be completed (player might be idle)"
+	}
+
+	err := s.InteractionRespond(i.Interaction, &dg.InteractionResponse{
+		Type: dg.InteractionResponseChannelMessageWithSource,
+		Data: &dg.InteractionResponseData{
+			Content: content,
+			Flags:   dg.MessageFlagsEphemeral,
+		},
+	})
+	if err != nil {
+		bot.Logger.Error("failed to respond to button component", zap.Error(err))
+	}
+}
+
+// Run starts the bot connection gateway and registers application commands.
+func (bot *Bot) Run(router *command.Router) {
 	startTime := time.Now()
 
+	// Intents: no longer requires Message Content or Message events!
 	bot.Session.Identify.Intents = dg.IntentsGuilds |
-		dg.IntentsGuildVoiceStates |
-		dg.IntentsGuildMessages |
-		dg.IntentsMessageContent
+		dg.IntentsGuildVoiceStates
 
 	if err := bot.Session.Open(); err != nil {
 		bot.Logger.Fatal("discord websocket connection error", zap.Error(err))
@@ -83,6 +120,18 @@ func (bot *Bot) Run() {
 		}
 		bot.Logger.Info("app stopped", zap.String("uptime", time.Since(startTime).String()))
 	}()
+
+	bot.Logger.Info("registering application slash commands...")
+	for _, cmd := range router.Commands() {
+		if cmd.Active {
+			_, err := bot.Session.ApplicationCommandCreate(bot.Session.State.User.ID, "", cmd.ApplicationCommand)
+			if err != nil {
+				bot.Logger.Error("failed to register slash command", zap.String("name", cmd.ApplicationCommand.Name), zap.Error(err))
+			} else {
+				bot.Logger.Info("registered command", zap.String("name", cmd.ApplicationCommand.Name))
+			}
+		}
+	}
 
 	if bot.Config.BotStatus != "" {
 		if err := bot.Session.UpdateCustomStatus(bot.Config.BotStatus); err != nil {
@@ -169,30 +218,122 @@ func (bot *Bot) BuildMessageEmbed(content string) *dg.MessageEmbed {
 	}
 }
 
-// SendMessageEmbed transmits an embed block to a channel.
-func (bot *Bot) SendMessageEmbed(m *dg.Message, content *dg.MessageEmbed) {
-	if _, err := bot.Session.ChannelMessageSendEmbed(m.ChannelID, content); err != nil {
-		bot.Logger.Error("failed to send message", zap.Error(err))
+// RespondText responds to an interaction with simple text.
+func (bot *Bot) RespondText(i *dg.Interaction, content string) {
+	err := bot.Session.InteractionRespond(i, &dg.InteractionResponse{
+		Type: dg.InteractionResponseChannelMessageWithSource,
+		Data: &dg.InteractionResponseData{
+			Content: content,
+		},
+	})
+	if err != nil {
+		bot.Logger.Error("failed to respond text to interaction", zap.Error(err))
 	}
 }
 
-// SendReplyMessage sends a plain text response as a reply.
-func (bot *Bot) SendReplyMessage(m *dg.Message, content string) {
-	if _, err := bot.Session.ChannelMessageSendReply(m.ChannelID, content, m.Reference()); err != nil {
-		bot.Logger.Error("failed to send message reply", zap.Error(err))
+// RespondEmbed responds to an interaction with an embed message.
+func (bot *Bot) RespondEmbed(i *dg.Interaction, embed *dg.MessageEmbed) {
+	err := bot.Session.InteractionRespond(i, &dg.InteractionResponse{
+		Type: dg.InteractionResponseChannelMessageWithSource,
+		Data: &dg.InteractionResponseData{
+			Embeds: []*dg.MessageEmbed{embed},
+		},
+	})
+	if err != nil {
+		bot.Logger.Error("failed to respond embed to interaction", zap.Error(err))
 	}
 }
 
-// SendReplyMessageEmbed sends an embed response as a reply.
-func (bot *Bot) SendReplyMessageEmbed(m *dg.Message, content *dg.MessageEmbed) {
-	if _, err := bot.Session.ChannelMessageSendEmbedReply(m.ChannelID, content, m.Reference()); err != nil {
-		bot.Logger.Error("failed to send message reply", zap.Error(err))
+// RespondEmbedWithButtons responds to an interaction with an embed and control buttons.
+func (bot *Bot) RespondEmbedWithButtons(i *dg.Interaction, embed *dg.MessageEmbed) {
+	err := bot.Session.InteractionRespond(i, &dg.InteractionResponse{
+		Type: dg.InteractionResponseChannelMessageWithSource,
+		Data: &dg.InteractionResponseData{
+			Embeds: []*dg.MessageEmbed{embed},
+			Components: []dg.MessageComponent{
+				dg.ActionsRow{
+					Components: []dg.MessageComponent{
+						dg.Button{
+							Label:    "Pause",
+							Style:    dg.SecondaryButton,
+							CustomID: "pause_" + i.GuildID,
+							Emoji:    &dg.ComponentEmoji{Name: "⏸️"},
+						},
+						dg.Button{
+							Label:    "Resume",
+							Style:    dg.SuccessButton,
+							CustomID: "unpause_" + i.GuildID,
+							Emoji:    &dg.ComponentEmoji{Name: "▶️"},
+						},
+						dg.Button{
+							Label:    "Skip",
+							Style:    dg.PrimaryButton,
+							CustomID: "skip_" + i.GuildID,
+							Emoji:    &dg.ComponentEmoji{Name: "⏭️"},
+						},
+						dg.Button{
+							Label:    "Stop",
+							Style:    dg.DangerButton,
+							CustomID: "stop_" + i.GuildID,
+							Emoji:    &dg.ComponentEmoji{Name: "🛑"},
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		bot.Logger.Error("failed to respond embed with buttons to interaction", zap.Error(err))
 	}
 }
 
-// AddMessageReaction appends a reaction emoji to a message.
-func (bot *Bot) AddMessageReaction(m *dg.Message, content string) {
-	if err := bot.Session.MessageReactionAdd(m.ChannelID, m.ID, content); err != nil {
-		bot.Logger.Error("failed to add message reaction", zap.Error(err))
+// FollowupError edits a deferred response with an error embed.
+func (bot *Bot) FollowupError(i *dg.Interaction, content string) {
+	embed := bot.BuildErrorMessageEmbed(content)
+	_, err := bot.Session.InteractionResponseEdit(i, &dg.WebhookEdit{
+		Embeds: &[]*dg.MessageEmbed{embed},
+	})
+	if err != nil {
+		bot.Logger.Error("failed to send followup error to interaction", zap.Error(err))
+	}
+}
+
+// FollowupEmbedWithButtons edits a deferred response with a song embed and control buttons.
+func (bot *Bot) FollowupEmbedWithButtons(i *dg.Interaction, embed *dg.MessageEmbed) {
+	_, err := bot.Session.InteractionResponseEdit(i, &dg.WebhookEdit{
+		Embeds: &[]*dg.MessageEmbed{embed},
+		Components: &[]dg.MessageComponent{
+			dg.ActionsRow{
+				Components: []dg.MessageComponent{
+					dg.Button{
+						Label:    "Pause",
+						Style:    dg.SecondaryButton,
+						CustomID: "pause_" + i.GuildID,
+						Emoji:    &dg.ComponentEmoji{Name: "⏸️"},
+					},
+					dg.Button{
+						Label:    "Resume",
+						Style:    dg.SuccessButton,
+						CustomID: "unpause_" + i.GuildID,
+						Emoji:    &dg.ComponentEmoji{Name: "▶️"},
+					},
+					dg.Button{
+						Label:    "Skip",
+						Style:    dg.PrimaryButton,
+						CustomID: "skip_" + i.GuildID,
+						Emoji:    &dg.ComponentEmoji{Name: "⏭️"},
+					},
+					dg.Button{
+						Label:    "Stop",
+						Style:    dg.DangerButton,
+						CustomID: "stop_" + i.GuildID,
+						Emoji:    &dg.ComponentEmoji{Name: "🛑"},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		bot.Logger.Error("failed to send followup embed with buttons", zap.Error(err))
 	}
 }

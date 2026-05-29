@@ -52,7 +52,7 @@
 
 ## Commands
 
-Commands are mapped using prefix routing. The prefix is configured via environment variables (default: `!`).
+Commands are registered as native Discord Slash Commands.
 
 | Command | Arguments | Description |
 | :--- | :--- | :--- |
@@ -73,8 +73,7 @@ Duplicate `.env.example` to `.env` and set the following parameters:
 
 ```env
 BOT_TOKEN=your-discord-bot-token
-BOT_COMMAND_PREFIX=!
-BOT_ACTIVITY_STATUS="Playing music"
+BOT_ACTIVITY_STATUS="Hello, earth!"
 APP_ENVIRONMENT=production
 ```
 
@@ -84,7 +83,7 @@ APP_ENVIRONMENT=production
 
 - Git
 - Discord bot token (obtained from the Discord Developers Portal)
-- Gateway Intents enabled on the Bot page (Guilds, Guild Voice States, Guild Messages, Message Content)
+- Gateway Intents enabled on the Bot page (Guilds, Guild Voice States, Guild Messages)
 - **Docker** (recommended setup) or **Go 1.26+** and **FFmpeg** (manual setup)
 
 ---

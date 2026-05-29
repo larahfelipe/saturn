@@ -10,7 +10,6 @@ import (
 
 type Config struct {
 	BotToken       string
-	BotPrefix      string
 	BotStatus      string
 	AppEnvironment string
 	AppLogsDirName string
@@ -23,7 +22,6 @@ func New() (*Config, error) {
 
 	cfg := &Config{
 		BotToken:       os.Getenv("BOT_TOKEN"),
-		BotPrefix:      os.Getenv("BOT_COMMAND_PREFIX"),
 		BotStatus:      os.Getenv("BOT_ACTIVITY_STATUS"),
 		AppEnvironment: os.Getenv("APP_ENVIRONMENT"),
 		AppLogsDirName: ".logs",

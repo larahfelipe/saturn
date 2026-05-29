@@ -11,16 +11,16 @@ import (
 
 // Help constructs the help command handler.
 func Help(bot *discord.Bot, router *command.Router) command.HandlerFunc {
-	return func(s *dg.Session, m *dg.MessageCreate, args []string) error {
+	return func(s *dg.Session, i *dg.InteractionCreate) error {
 		var list []string
 		for _, cmd := range router.Commands() {
 			if cmd.Active {
-				list = append(list, fmt.Sprintf("`%s%s` - %s", bot.Config.BotPrefix, cmd.Name, cmd.Description))
+				list = append(list, fmt.Sprintf("`/%s` - %s", cmd.ApplicationCommand.Name, cmd.ApplicationCommand.Description))
 			}
 		}
 
-		content := "Available commands:\n" + strings.Join(list, "\n")
-		bot.SendMessageEmbed(m.Message, bot.BuildMessageEmbed(content))
+		content := "Available slash commands:\n" + strings.Join(list, "\n")
+		bot.RespondEmbed(i.Interaction, bot.BuildMessageEmbed(content))
 		return nil
 	}
 }
