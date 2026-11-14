@@ -5,11 +5,14 @@
 </p>
 
 <p align="center">
-  <a href="https://go.dev/">
-    <img src="https://img.shields.io/static/v1?label=built%20with&message=Go&color=5965E0&labelColor=121214" alt="Go">
+  <a href="https://nodejs.org/">
+    <img src="https://img.shields.io/static/v1?label=runtime&message=Node.js%2026&color=5965E0&labelColor=121214" alt="Node.js 26">
   </a>
-  <a href="https://github.com/bwmarrin/discordgo">
-    <img src="https://img.shields.io/static/v1?label=built%20with&message=discordgo&color=5965E0&labelColor=121214" alt="discordgo">
+  <a href="https://www.typescriptlang.org/">
+    <img src="https://img.shields.io/static/v1?label=built%20with&message=TypeScript&color=5965E0&labelColor=121214" alt="TypeScript">
+  </a>
+  <a href="https://discord.js.org/">
+    <img src="https://img.shields.io/static/v1?label=built%20with&message=discord.js&color=5965E0&labelColor=121214" alt="discord.js">
   </a>
   <a href="https://github.com/larahfelipe/saturn/blob/master/LICENSE">
     <img src="https://img.shields.io/static/v1?label=license&message=GPL-3.0&color=5965E0&labelColor=121214" alt="License">
@@ -23,19 +26,20 @@
 - [About](#about)
 - [Features](#features)
 - [Commands](#commands)
-- [Configuration](#configuration)
 - [Prerequisites](#prerequisites)
+- [Configuration](#configuration)
 - [Installation](#installation)
   - [Docker Setup (Recommended)](#docker-setup-recommended)
   - [Manual Setup](#manual-setup)
-- [Testing](#testing)
+- [Documentation](#documentation)
 - [License](#license)
 
 ---
 
 ## About
 
-**Saturn** is a self-hosted Discord music bot built with Go and `discordgo`. It is designed for private or community use only.
+**Saturn** is a self-hosted Discord music bot built with TypeScript, Node.js and
+`discord.js`. It is designed for private or community use only.
 
 > ⚠️ **Notice:** Listing this bot publicly on services like top.gg or discordbotlist.com is prohibited.
 
@@ -43,48 +47,52 @@
 
 ## Features
 
-- **Multi-Guild Isolation**: Separate playback states, voice sessions, and queues for each server.
-- **Ffmpeg Audio Streaming**: Efficient YouTube audio resolution and streaming.
-- **Race-Free Concurrency**: Thread-safe queue structures and event coordinators.
-- **Minimised Base Container**: Optimized multi-stage Docker build utilizing Debian-Slim and running under non-root user permissions.
+- **Multi-Guild Isolation**: Each server has its own queue, playback state and voice connection.
+- **YouTube Playback**: Audio is streamed through FFmpeg and encoded to Opus at the voice channel's bitrate.
+- **Playback Controls**: Slash commands plus Pause, Resume, Skip and Stop buttons on every track.
+- **Observability**: Prometheus metrics on `:8080/metrics` and structured JSON logs.
+- **Graceful Shutdown**: Voice connections, streams and FFmpeg processes are released on `SIGTERM`/`SIGINT`.
+- **Hardened Container**: Multi-stage Docker build running as a non-root user with production dependencies only.
 
 ---
 
 ## Commands
 
-Commands are registered as native Discord Slash Commands.
+Commands are registered as native Discord slash commands and work in servers only.
 
-| Command   | Arguments       | Description                             |
-| :-------- | :-------------- | :-------------------------------------- |
-| `play`    | `<youtube-url>` | Resolve and play a YouTube audio stream |
-| `pause`   | None            | Pause playback                          |
-| `unpause` | None            | Resume playback                         |
-| `skip`    | None            | Skip the current track                  |
-| `stop`    | None            | Stop streaming and clear guild queue    |
-| `help`    | None            | Print active command configurations     |
-| `ping`    | None            | Check bot responsiveness                |
-| `health`  | None            | Check heartbeat connection latency      |
-
----
-
-## Configuration
-
-Duplicate `.env.example` to `.env` and set the following parameters:
-
-```env
-BOT_TOKEN=your-discord-bot-token
-BOT_ACTIVITY_STATUS="Hello, earth!"
-APP_ENVIRONMENT=production
-```
+| Command   | Arguments           | Description                               |
+| :-------- | :------------------ | :---------------------------------------- |
+| `play`    | `url:<youtube-url>` | Play a YouTube video's audio, or queue it |
+| `pause`   | None                | Pause playback                            |
+| `unpause` | None                | Resume playback                           |
+| `skip`    | None                | Skip the current track                    |
+| `stop`    | None                | Stop playback and clear the queue         |
+| `help`    | None                | List the available commands               |
+| `ping`    | None                | Check bot responsiveness                  |
+| `health`  | None                | Show the gateway heartbeat latency        |
 
 ---
 
 ## Prerequisites
 
-- Git
-- Discord bot token (obtained from the Discord Developers Portal)
-- Gateway Intents enabled on the Bot page (Guilds, Guild Voice States, Guild Messages)
-- **Docker** (recommended setup) or **Go 1.26+** and **FFmpeg** (manual setup)
+- A Discord application and bot token from the [Discord Developer Portal](https://discord.com/developers/applications).
+  Invite the bot with the `bot` and `applications.commands` scopes and the View Channels, Connect and Speak permissions.
+  No privileged gateway intents are needed.
+- **Docker** (recommended), or **Node.js 26** and **FFmpeg** with the `libopus` encoder.
+
+---
+
+## Configuration
+
+Copy `.env.example` to `.env` and set the values:
+
+```env
+BOT_TOKEN=your-discord-bot-token
+BOT_ACTIVITY_STATUS=Hello, earth!
+APP_ENVIRONMENT=production
+```
+
+Only `BOT_TOKEN` is required. See [operations](docs/operations.md#environment-variables) for every variable.
 
 ---
 
@@ -98,26 +106,23 @@ git clone https://github.com/larahfelipe/saturn.git && cd saturn
 
 ### Docker Setup (Recommended)
 
-1. Build the Docker container:
+1. Build the image:
 
    ```bash
    docker build -t saturn .
    ```
 
 2. Run the container, passing the environment variables:
+
    ```bash
-   docker run -d --name saturn --env-file .env saturn
+   docker run -d --name saturn --restart unless-stopped --stop-timeout 20 --env-file .env saturn
    ```
+
+   Add `-p 127.0.0.1:8080:8080` to expose the metrics endpoint.
 
 ### Manual Setup
 
-1. Verify Go version (requires Go 1.26+):
-
-   ```bash
-   go version
-   ```
-
-2. Install FFmpeg:
+1. Install FFmpeg:
    - **Debian/Ubuntu**:
      ```bash
      sudo apt update && sudo apt install -y ffmpeg
@@ -127,20 +132,22 @@ git clone https://github.com/larahfelipe/saturn.git && cd saturn
      brew install ffmpeg
      ```
 
-3. Build and execute:
+2. Install dependencies, build and start:
    ```bash
-   go run cmd/main.go
+   npm ci
+   npm run build
+   npm start
    ```
 
 ---
 
-## Testing
+## Documentation
 
-Verify queue concurrency and routing handlers:
-
-```bash
-go test -race ./...
-```
+- [Architecture](docs/architecture.md): layers, components and data flows.
+- [Decisions](docs/decisions.md): design decisions and trade-offs.
+- [Development](docs/development.md): local setup, commands, tests and conventions.
+- [Operations](docs/operations.md): deployment, logging, metrics, shutdown and troubleshooting.
+- [Migration](docs/migration.md): Go → TypeScript migration record and parity status.
 
 ---
 
