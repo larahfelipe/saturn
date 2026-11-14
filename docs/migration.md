@@ -111,6 +111,8 @@ Intentional differences from `master`; see [decisions](decisions.md).
 - Logs go to stdout only; the `.logs/app.log` file sink is dropped.
 - `help` lists commands in registration order.
 - An unrecognized `APP_ENVIRONMENT` value is rejected at startup.
+- The Opus bitrate is the channel bitrate clamped to 8–128 kbit/s. Go fell back to
+  64 kbit/s on channels above 128 kbit/s when the source was below 128 kbit/s.
 
 ## Edge cases
 
@@ -145,12 +147,12 @@ Status: ✅ implemented and tested · 🟡 implemented, pending real Discord val
 | ping                        | ⬜     |
 | health                      | ⬜     |
 | Playback buttons            | ⬜     |
-| Per-guild queues            | ⬜     |
-| Per-guild player isolation  | ⬜     |
+| Per-guild queues            | ✅     |
+| Per-guild player isolation  | ✅     |
 | YouTube metadata resolution | ⬜     |
 | YouTube audio streaming     | ⬜     |
-| FFmpeg integration          | ⬜     |
-| Voice channel management    | ⬜     |
+| FFmpeg integration          | 🟡     |
+| Voice channel management    | 🟡     |
 | Prometheus metrics          | ⬜     |
 | Structured logging          | ⬜     |
 | Graceful shutdown           | ⬜     |
