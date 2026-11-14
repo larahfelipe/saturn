@@ -149,8 +149,8 @@ Status: ✅ implemented and tested · 🟡 implemented, pending real Discord val
 | Playback buttons            | ⬜     |
 | Per-guild queues            | ✅     |
 | Per-guild player isolation  | ✅     |
-| YouTube metadata resolution | ⬜     |
-| YouTube audio streaming     | ⬜     |
+| YouTube metadata resolution | 🟡     |
+| YouTube audio streaming     | 🟡     |
 | FFmpeg integration          | 🟡     |
 | Voice channel management    | 🟡     |
 | Prometheus metrics          | ⬜     |
