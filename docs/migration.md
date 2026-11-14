@@ -123,6 +123,11 @@ Intentional differences from `master`; see [decisions](decisions.md).
   `Something went wrong. Please, try again later` for unexpected errors.
 - Every button interaction is acknowledged. Malformed IDs, unsupported actions
   and IDs naming another guild reply with the ephemeral failure text.
+- `saturn_commands_processed_total` exports every command at zero from startup,
+  and `saturn_active_players` is read from the player registry at scrape time.
+  Go runtime metrics are replaced by Node.js runtime and process metrics.
+- `APP_ENVIRONMENT=development` lowers the log level to `debug`; output is JSON
+  in both environments, pretty-printed by `npm run dev`.
 
 ## Edge cases
 
