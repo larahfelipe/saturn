@@ -1,0 +1,51 @@
+{
+  "name": "saturn",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Self-hosted Discord music bot",
+  "license": "GPL-3.0-only",
+  "author": "Felipe Lara",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/larahfelipe/saturn.git"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=26"
+  },
+  "scripts": {
+    "dev": "node --watch --env-file-if-exists=.env src/main.ts | pino-pretty",
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "build": "node --run clean && tsc -p tsconfig.build.json",
+    "start": "node --env-file-if-exists=.env dist/main.js",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration"
+  },
+  "dependencies": {
+    "@discordjs/voice": "0.19.2",
+    "@distube/ytdl-core": "5.2.1",
+    "@prometheus-io/client": "0.16.1",
+    "discord.js": "14.28.1",
+    "pino": "10.4.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.6.6",
+    "eslint": "10.15.0",
+    "pino-pretty": "13.2.0",
+    "prettier": "3.10.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.2",
+    "vitest": "5.1.0"
+  },
+  "overrides": {
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "11.0.8"
+    }
+  }
+}

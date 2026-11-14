@@ -54,16 +54,16 @@
 
 Commands are registered as native Discord Slash Commands.
 
-| Command | Arguments | Description |
-| :--- | :--- | :--- |
-| `play` | `<youtube-url>` | Resolve and play a YouTube audio stream |
-| `pause` | None | Pause playback |
-| `unpause` | None | Resume playback |
-| `skip` | None | Skip the current track |
-| `stop` | None | Stop streaming and clear guild queue |
-| `help` | None | Print active command configurations |
-| `ping` | None | Check bot responsiveness |
-| `health` | None | Check heartbeat connection latency |
+| Command   | Arguments       | Description                             |
+| :-------- | :-------------- | :-------------------------------------- |
+| `play`    | `<youtube-url>` | Resolve and play a YouTube audio stream |
+| `pause`   | None            | Pause playback                          |
+| `unpause` | None            | Resume playback                         |
+| `skip`    | None            | Skip the current track                  |
+| `stop`    | None            | Stop streaming and clear guild queue    |
+| `help`    | None            | Print active command configurations     |
+| `ping`    | None            | Check bot responsiveness                |
+| `health`  | None            | Check heartbeat connection latency      |
 
 ---
 
@@ -99,6 +99,7 @@ git clone https://github.com/larahfelipe/saturn.git && cd saturn
 ### Docker Setup (Recommended)
 
 1. Build the Docker container:
+
    ```bash
    docker build -t saturn .
    ```
@@ -111,6 +112,7 @@ git clone https://github.com/larahfelipe/saturn.git && cd saturn
 ### Manual Setup
 
 1. Verify Go version (requires Go 1.26+):
+
    ```bash
    go version
    ```
