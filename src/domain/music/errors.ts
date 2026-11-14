@@ -1,11 +1,7 @@
+import { SaturnError } from '../../shared/errors.ts';
 import type { PlaybackEvent, PlaybackStatus } from './PlaybackState.ts';
 
-export abstract class DomainError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = new.target.name;
-  }
-}
+export abstract class DomainError extends SaturnError {}
 
 export class InvalidTrackError extends DomainError {
   readonly field: string;
