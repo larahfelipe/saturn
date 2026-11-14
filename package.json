@@ -22,9 +22,10 @@
     "lint": "eslint . --max-warnings=0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "vitest run",
+    "test": "vitest run --project unit --project integration",
     "test:unit": "vitest run --project unit",
-    "test:integration": "vitest run --project integration"
+    "test:integration": "vitest run --project integration",
+    "test:ffmpeg": "vitest run --project ffmpeg"
   },
   "dependencies": {
     "@discordjs/voice": "0.19.2",

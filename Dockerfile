@@ -1,30 +1,31 @@
-FROM golang:1.26.3-bookworm AS builder
+# syntax=docker/dockerfile:1
 
-WORKDIR /usr/src/app
+ARG NODE_IMAGE=node:26.13.1-trixie-slim
 
-COPY go.mod go.sum ./
-RUN go mod download
+FROM ${NODE_IMAGE} AS base
+WORKDIR /app
 
-COPY . .
+FROM base AS build
+COPY package.json package-lock.json .npmrc ./
+RUN npm ci --ignore-scripts
+COPY tsconfig.json tsconfig.build.json ./
+COPY src ./src
+RUN npm run build
 
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /go/bin/app ./cmd/main.go
+FROM base AS production-dependencies
+COPY package.json package-lock.json .npmrc ./
+RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 
-FROM debian:bookworm-slim
-
-WORKDIR /usr/src/app
-
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates ffmpeg && \
-    apt-get clean autoclean && \
-    rm -rf /var/lib/apt/lists/*
-
-COPY --from=builder /go/bin/app /go/bin/app
-
-RUN groupadd -r saturn && useradd -r -g saturn -s /sbin/nologin saturn && \
-    chown -R saturn:saturn /usr/src/app
-
+FROM base AS runtime
+ENV NODE_ENV=production
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ffmpeg \
+  && rm -rf /var/lib/apt/lists/*
+COPY --from=production-dependencies /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+COPY package.json ./
+USER node
 EXPOSE 8080
-
-USER saturn
-
-CMD ["/go/bin/app"]
+# Node runs as PID 1 and handles SIGTERM itself, shutting down gracefully.
+STOPSIGNAL SIGTERM
+CMD ["node", "dist/main.js"]

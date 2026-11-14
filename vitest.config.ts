@@ -6,6 +6,8 @@ export default defineConfig({
     projects: [
       { extends: true, test: { name: 'unit', include: ['test/unit/**/*.test.ts'] } },
       { extends: true, test: { name: 'integration', include: ['test/integration/**/*.test.ts'] } },
+      // Needs a real FFmpeg build with libopus (FFMPEG_PATH, or ffmpeg on the PATH).
+      { extends: true, test: { name: 'ffmpeg', include: ['test/ffmpeg/**/*.test.ts'] } },
     ],
   },
 });

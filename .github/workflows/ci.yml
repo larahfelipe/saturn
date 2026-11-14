@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Keep in sync with the Dockerfile's NODE_IMAGE.
+  NODE_VERSION: 26.13.1
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Integration tests
+        run: npm run test:integration
+
+      - name: FFmpeg tests
+        run: npm run test:ffmpeg
+
+      - name: Build
+        run: npm run build
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Build image
+        run: docker build --tag saturn:ci .
+
+      - name: Check image contents
+        run: |
+          test "$(docker run --rm --entrypoint id saturn:ci -u)" -ne 0
+          docker run --rm --entrypoint ffmpeg saturn:ci -hide_banner -encoders | grep libopus
+          test -z "$(docker run --rm --entrypoint find saturn:ci . -name '.env*' -not -path './node_modules/*')"
+
+          # The lockfile flags packages that only development needs, transitive ones included.
+          docker run --rm --volume "$PWD/package-lock.json:/tmp/package-lock.json:ro" --entrypoint node saturn:ci -e "
+            const { existsSync, readFileSync } = require('node:fs');
+            const { packages } = JSON.parse(readFileSync('/tmp/package-lock.json', 'utf8'));
+            const present = Object.keys(packages).filter((path) => packages[path].dev && existsSync(path));
+            if (present.length > 0) throw new Error('Development dependencies in the image: ' + present.join(', '));
+          "
+
+      - name: Check startup
+        run: |
+          status=0
+          docker run --rm saturn:ci || status=$?
+          test "$status" -eq 1
+
+          # Without network access, startup gets past configuration and FFmpeg
+          # verification, then fails to reach Discord.
+          status=0
+          docker run --rm --network none --env BOT_TOKEN=ci-placeholder-token saturn:ci > startup.log 2>&1 || status=$?
+          cat startup.log
+          test "$status" -eq 1
+          grep -q '"msg":"startup failed"' startup.log
+          if grep -q ci-placeholder-token startup.log; then
+            echo "The bot token was logged."
+            exit 1
+          fi

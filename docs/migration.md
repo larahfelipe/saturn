@@ -133,6 +133,10 @@ Intentional differences from `master`; see [decisions](decisions.md).
 - Shutdown exits with 0 after a clean SIGINT/SIGTERM shutdown and 1 when a step
   fails or times out, on startup failure, or on an uncaught error. A second
   signal forces an immediate exit.
+- The Docker image is based on Debian 13 instead of 12, so it ships FFmpeg 7.1
+  instead of 5.1, and runs as `node` (uid 1000) from `/app`.
+- A GitHub Actions workflow runs the checks, the real-FFmpeg tests and a Docker
+  image smoke test; `master` has no CI.
 
 ## Edge cases
 
@@ -154,7 +158,7 @@ Intentional differences from `master`; see [decisions](decisions.md).
 
 ## Parity matrix
 
-Status: ✅ implemented and tested · 🟡 implemented, pending real Discord validation · ⬜ not started.
+Status: ✅ implemented and tested · 🟡 implemented, pending real Discord validation.
 
 | Feature                     | Status |
 | --------------------------- | ------ |
@@ -176,7 +180,7 @@ Status: ✅ implemented and tested · 🟡 implemented, pending real Discord val
 | Prometheus metrics          | ✅     |
 | Structured logging          | ✅     |
 | Graceful shutdown           | 🟡     |
-| Docker deployment           | ⬜     |
+| Docker deployment           | 🟡     |
 
 ## YouTube extraction proof of concept
 
