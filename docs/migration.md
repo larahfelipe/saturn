@@ -128,6 +128,11 @@ Intentional differences from `master`; see [decisions](decisions.md).
   Go runtime metrics are replaced by Node.js runtime and process metrics.
 - `APP_ENVIRONMENT=development` lowers the log level to `debug`; output is JSON
   in both environments, pretty-printed by `npm run dev`.
+- Startup fails with exit code 1 when FFmpeg is missing or lacks libopus,
+  before connecting to Discord.
+- Shutdown exits with 0 after a clean SIGINT/SIGTERM shutdown and 1 when a step
+  fails or times out, on startup failure, or on an uncaught error. A second
+  signal forces an immediate exit.
 
 ## Edge cases
 
@@ -168,9 +173,9 @@ Status: ✅ implemented and tested · 🟡 implemented, pending real Discord val
 | YouTube audio streaming     | 🟡     |
 | FFmpeg integration          | 🟡     |
 | Voice channel management    | 🟡     |
-| Prometheus metrics          | ⬜     |
-| Structured logging          | ⬜     |
-| Graceful shutdown           | ⬜     |
+| Prometheus metrics          | ✅     |
+| Structured logging          | ✅     |
+| Graceful shutdown           | 🟡     |
 | Docker deployment           | ⬜     |
 
 ## YouTube extraction proof of concept
