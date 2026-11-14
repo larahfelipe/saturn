@@ -113,6 +113,16 @@ Intentional differences from `master`; see [decisions](decisions.md).
 - An unrecognized `APP_ENVIRONMENT` value is rejected at startup.
 - The Opus bitrate is the channel bitrate clamped to 8–128 kbit/s. Go fell back to
   64 kbit/s on channels above 128 kbit/s when the source was below 128 kbit/s.
+- `play` defers before validating the URL, so an invalid URL edits the deferred
+  reply instead of replying directly.
+- Stream failures surface when a track starts, not at request time: they are
+  logged and the queue advances, so the `…while retrieving your song…` reply is
+  gone.
+- New replies: `Playback was stopped before your song could be added` (stop
+  during resolution), `Saturn is shutting down. Please, try again later`, and
+  `Something went wrong. Please, try again later` for unexpected errors.
+- Every button interaction is acknowledged. Malformed IDs, unsupported actions
+  and IDs naming another guild reply with the ephemeral failure text.
 
 ## Edge cases
 
@@ -138,15 +148,15 @@ Status: ✅ implemented and tested · 🟡 implemented, pending real Discord val
 
 | Feature                     | Status |
 | --------------------------- | ------ |
-| play                        | ⬜     |
-| pause                       | ⬜     |
-| unpause                     | ⬜     |
-| skip                        | ⬜     |
-| stop                        | ⬜     |
-| help                        | ⬜     |
-| ping                        | ⬜     |
-| health                      | ⬜     |
-| Playback buttons            | ⬜     |
+| play                        | 🟡     |
+| pause                       | 🟡     |
+| unpause                     | 🟡     |
+| skip                        | 🟡     |
+| stop                        | 🟡     |
+| help                        | 🟡     |
+| ping                        | 🟡     |
+| health                      | 🟡     |
+| Playback buttons            | 🟡     |
 | Per-guild queues            | ✅     |
 | Per-guild player isolation  | ✅     |
 | YouTube metadata resolution | 🟡     |

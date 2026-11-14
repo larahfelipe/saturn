@@ -202,6 +202,11 @@ export class RecordingLogger implements Logger {
     return this.entries.filter((entry) => entry.level === level);
   }
 
+  /** The context of the first entry logged at `level` with `message`. */
+  contextOf(level: LogEntry['level'], message: string): Record<string, unknown> | undefined {
+    return this.at(level).find((entry) => entry.message === message)?.context;
+  }
+
   #record(level: LogEntry['level'], context: object, message: string | undefined): void {
     this.entries.push({ level, context: { ...this.#bindings, ...context }, message });
   }
