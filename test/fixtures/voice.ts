@@ -26,6 +26,8 @@ export class FakeVoiceConnection extends EventEmitter {
   state: { status: VoiceConnectionStatus } & FakeDisconnect = {
     status: VoiceConnectionStatus.Signalling,
   };
+  /** Set `channelId` to simulate Discord moving the bot. */
+  readonly joinConfig: { channelId: string | null } = { channelId: 'voice-1' };
   readonly subscriptions: FakeSubscription[] = [];
   /** When each `rejoin()` call happened, from `performance.now()`. */
   readonly rejoins: number[] = [];

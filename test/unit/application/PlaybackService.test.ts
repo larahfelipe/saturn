@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { NotInVoiceChannelError, RateLimitedError } from '../../../src/application/errors.ts';
+import {
+  NotInVoiceChannelError,
+  NotListeningError,
+  RateLimitedError,
+} from '../../../src/application/errors.ts';
 import {
   PlaybackService,
   type PlayCommand,
@@ -90,10 +94,10 @@ describe('PlaybackService', () => {
   });
 
   it('reports controls on guilds without a player as unsuccessful', () => {
-    expect(service.pause('guild-1')).toBe(false);
-    expect(service.resume('guild-1')).toBe(false);
-    expect(service.skip('guild-1')).toBe(false);
-    expect(service.stop('guild-1')).toBe(false);
+    expect(service.pause('guild-1', 'voice-guild-1')).toBe(false);
+    expect(service.resume('guild-1', 'voice-guild-1')).toBe(false);
+    expect(service.skip('guild-1', 'voice-guild-1')).toBe(false);
+    expect(service.stop('guild-1', 'voice-guild-1')).toBe(false);
     expect(registry.size).toBe(0);
   });
 
@@ -102,14 +106,57 @@ describe('PlaybackService', () => {
     await service.play(command('guild-1', { url: trackUrl('bbbbbbbbbbb') }));
     await flush();
 
-    expect(service.pause('guild-1')).toBe(true);
+    expect(service.pause('guild-1', 'voice-guild-1')).toBe(true);
     expect(registry.get('guild-1')?.state.status).toBe('paused');
-    expect(service.resume('guild-1')).toBe(true);
-    expect(service.skip('guild-1')).toBe(true);
+    expect(service.resume('guild-1', 'voice-guild-1')).toBe(true);
+    expect(service.skip('guild-1', 'voice-guild-1')).toBe(true);
     await flush();
     expect(registry.get('guild-1')?.state).toMatchObject({ current: { id: 'bbbbbbbbbbb' } });
-    expect(service.stop('guild-1')).toBe(true);
+    expect(service.stop('guild-1', 'voice-guild-1')).toBe(true);
     expect(registry.size).toBe(0);
+  });
+
+  describe('listeners only', () => {
+    beforeEach(async () => {
+      await service.play(command('guild-1'));
+      await flush();
+    });
+
+    it.each([
+      ['another channel', 'voice-other'],
+      ['no channel', undefined],
+    ])('refuses controls from %s and changes nothing', (_, channelId) => {
+      for (const control of ['pause', 'resume', 'skip', 'stop'] as const) {
+        expect(() => service[control]('guild-1', channelId)).toThrow(NotListeningError);
+      }
+      expect(registry.get('guild-1')?.state.status).toBe('playing');
+    });
+
+    it('refuses songs from another channel before any lookup', async () => {
+      const other = command('guild-1', { voiceChannelId: 'voice-other' });
+
+      await expect(service.play(other)).rejects.toThrow(NotListeningError);
+      expect(resolver.calls).toHaveLength(1);
+      expect(registry.get('guild-1')?.upcoming).toEqual([]);
+    });
+
+    it('follows Discord moving the bot', async () => {
+      const session = voice.lastSession;
+      if (session !== undefined) session.channelId = 'voice-other';
+
+      expect(() => service.pause('guild-1', 'voice-guild-1')).toThrow(NotListeningError);
+      expect(service.pause('guild-1', 'voice-other')).toBe(true);
+      await expect(
+        service.play(command('guild-1', { voiceChannelId: 'voice-other' })),
+      ).resolves.toMatchObject({ status: 'queued' });
+    });
+
+    it('accepts any channel once the bot has left', async () => {
+      expect(service.stop('guild-1', 'voice-guild-1')).toBe(true);
+
+      await service.play(command('guild-1', { voiceChannelId: 'voice-other' }));
+      expect(voice.calls.at(-1)?.target).toEqual({ guildId: 'guild-1', channelId: 'voice-other' });
+    });
   });
 
   it('handles many guilds starting and stopping concurrently', async () => {
@@ -122,7 +169,7 @@ describe('PlaybackService', () => {
     expect(registry.activeCount()).toBe(20);
 
     const stopped = guilds.filter((_, index) => index % 2 === 0);
-    for (const guildId of stopped) expect(service.stop(guildId)).toBe(true);
+    for (const guildId of stopped) expect(service.stop(guildId, `voice-${guildId}`)).toBe(true);
 
     expect(registry.activeCount()).toBe(10);
     for (const guildId of guilds) {

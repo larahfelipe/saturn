@@ -46,7 +46,8 @@ module-level mutable state. The ports are where the tests substitute fakes.
   counts active players for the metrics gauge, and disposes all of them on
   shutdown.
 - **`PlaybackService`** is the use-case API the Discord layer calls: `play`,
-  `pause`, `resume`, `skip`, `stop`, addressed by guild ID.
+  `pause`, `resume`, `skip`, `stop`, addressed by guild ID, with the member's
+  voice channel. Members outside the bot's voice channel are refused.
 - **`YouTubeTrackResolver`** validates the URL, fetches metadata, picks an audio
   format and returns a `Track` plus an `AudioSource` whose stream is opened
   only when the track starts.
@@ -76,11 +77,13 @@ Discord ─interaction→ DiscordClient ─→ InteractionHandler
   defer reply (before any I/O, inside Discord's 3 s window)
   → play handler → PlaybackService.play(guild, url, user, voice channel)
     → PlayerRegistry.acquire(guild) → GuildPlayer.play
+      refuse if the bot is in another voice channel
       1. TrackResolver.resolve(url)          metadata + lazy AudioSource, starts at once
       ── wait for earlier requests of the guild (arrival order) ──
       2. VoiceConnector.connect(channel)     only when not connected yet
-      3. TrackQueue.enqueue → position
-      4. start the playback loop if nothing is playing
+      3. refuse if the bot is in another voice channel by now
+      4. TrackQueue.enqueue → position
+      5. start the playback loop if nothing is playing
   ← "Now playing" or "Queued at position n" embed with control buttons
 ```
 
@@ -97,8 +100,9 @@ not leave and rejoin the channel; it leaves once no request remains.
 
 ### Controls
 
-Slash commands and buttons call `PlaybackService.pause/resume/skip/stop`. These
-are synchronous state changes, so they never wait behind a slow `play`.
+Slash commands and buttons call `PlaybackService.pause/resume/skip/stop` with
+the member's voice channel; members outside the bot's channel are refused.
+These are synchronous state changes, so they never wait behind a slow `play`.
 `skip` aborts the current track's signal. `stop` aborts the player's epoch,
 which also cancels in-flight resolution and connection attempts. Button custom
 IDs carry the guild ID, and the handler acts only when it matches the

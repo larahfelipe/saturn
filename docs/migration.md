@@ -127,6 +127,9 @@ Intentional differences from `master`; see [decisions](decisions.md).
 - A guild's queue holds at most 100 songs; beyond that `play` replies
   `The queue is full (100 songs). Please, try again later`. Go's queue was
   unbounded.
+- While the bot is in a voice channel, `play`, the control commands and the
+  buttons work only for members in that channel; others get `You need to be
+in my voice channel to do that`. Go accepted them from anyone.
 - A user may send 5 `play` requests in any 10 s; beyond that `play` replies
   `You are adding songs too quickly. Please, try again in N seconds`. Go had
   no limit.

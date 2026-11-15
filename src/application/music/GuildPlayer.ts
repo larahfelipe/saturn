@@ -9,6 +9,7 @@ import {
 import type { Track } from '../../domain/music/Track.ts';
 import { TrackQueue } from '../../domain/music/TrackQueue.ts';
 import {
+  NotListeningError,
   PlaybackCancelledError,
   PlayerUnavailableError,
   QueueFullError,
@@ -62,6 +63,8 @@ export class GuildPlayer {
   readonly #queue = new TrackQueue<ResolvedTrack>();
   #state: PlaybackState<Track> = IDLE;
   #session: AudioSession | undefined;
+  /** The channel being joined; the session's channel takes over once connected. */
+  #target: string | undefined;
   #epoch = new AbortController();
   #track: AbortController | undefined;
   #pending = 0;
@@ -99,12 +102,26 @@ export class GuildPlayer {
     return this.#disposed;
   }
 
+  /** The voice channel the player is connected or connecting to. */
+  get channelId(): string | undefined {
+    return this.#session?.channelId ?? this.#target;
+  }
+
+  /** @throws NotListeningError when the player plays in a channel other than `voiceChannelId`. */
+  assertListener(voiceChannelId: string | undefined): void {
+    const channelId = this.channelId;
+    if (channelId !== undefined && channelId !== voiceChannelId) throw new NotListeningError();
+  }
+
   /**
-   * @throws PlayerUnavailableError when disposed, QueueFullError, PlaybackCancelledError
-   *   when stopped before completion, or a resolver / voice connector error.
+   * @throws PlayerUnavailableError when disposed, NotListeningError when the
+   *   requester is not in the player's channel on arrival or by its turn,
+   *   QueueFullError, PlaybackCancelledError when stopped before completion, or
+   *   a resolver / voice connector error.
    */
   async play(request: PlayRequest): Promise<PlayResult> {
     if (this.#disposed) throw new PlayerUnavailableError();
+    this.assertListener(request.voiceChannelId);
     // Counting requests in flight keeps the queue within the limit once they land.
     if (this.#queue.size + this.#pending >= this.#maxQueueLength) {
       throw new QueueFullError(this.#maxQueueLength);
@@ -165,6 +182,8 @@ export class GuildPlayer {
 
     const session = this.#session ?? (await this.#connect(request.voiceChannelId, epoch));
     epoch.throwIfAborted();
+    // An earlier request may have connected elsewhere, or Discord moved the bot.
+    this.assertListener(request.voiceChannelId);
     const position = this.#queue.enqueue(resolved);
 
     if (this.#state.status === 'connecting' || this.#state.status === 'waiting') {
@@ -179,6 +198,7 @@ export class GuildPlayer {
 
   async #connect(channelId: string, epoch: AbortSignal): Promise<AudioSession> {
     this.#setState({ type: 'connect' });
+    this.#target = channelId;
     let session: AudioSession;
     try {
       session = await this.#voice.connect(
@@ -192,6 +212,7 @@ export class GuildPlayer {
       );
     } catch (error) {
       epoch.throwIfAborted();
+      this.#target = undefined;
       this.#setState({ type: 'finish' });
       throw error;
     }
@@ -247,6 +268,7 @@ export class GuildPlayer {
     this.#track = undefined;
     this.#session?.destroy();
     this.#session = undefined;
+    this.#target = undefined;
     this.#setState({ type: 'finish' });
     this.#notifyIfIdle();
   }
@@ -261,6 +283,7 @@ export class GuildPlayer {
     if (canTransition(this.#state, { type: 'stop' })) this.#setState({ type: 'stop' });
     this.#session?.destroy();
     this.#session = undefined;
+    this.#target = undefined;
     if (this.#state.status === 'stopping') this.#setState({ type: 'stopped' });
     this.#notifyIfIdle();
   }

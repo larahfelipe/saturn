@@ -101,6 +101,10 @@ export class DiscordAudioSession implements AudioSession {
   }
 
   /** @throws VoiceConnectionError once destroyed, or AudioStreamError on stream failure. */
+  get channelId(): string | undefined {
+    return this.#connection.joinConfig.channelId ?? undefined;
+  }
+
   async play(source: AudioSource, signal: AbortSignal): Promise<void> {
     this.#lifetime.signal.throwIfAborted();
     if (this.#active !== undefined) throw new AudioStreamError('A track is already playing');

@@ -325,10 +325,12 @@ describe('DiscordAudioSession', () => {
     }
 
     it('keeps the session when Discord moves it to another channel', async () => {
-      createSession();
+      const session = createSession();
+      expect(session.channelId).toBe('voice-1');
 
       connection.setStatus(VoiceConnectionStatus.Disconnected, closedByDiscord);
       await sleep(RECONNECT_TIMEOUT_MS / 2);
+      connection.joinConfig.channelId = 'voice-2';
       connection.setStatus(VoiceConnectionStatus.Connecting);
       await sleep(READY_TIMEOUT_MS / 2);
       connection.setStatus(VoiceConnectionStatus.Ready);
@@ -337,6 +339,7 @@ describe('DiscordAudioSession', () => {
       expect(lost).toEqual([]);
       expect(connection.rejoins).toEqual([]);
       expect(connection.destroyCount).toBe(0);
+      expect(session.channelId).toBe('voice-2');
     });
 
     it('reports the session lost when Discord closes it and does not reconnect', async () => {

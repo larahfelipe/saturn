@@ -67,6 +67,13 @@ export class QueueFullError extends UserInputError {
   }
 }
 
+/** The requester is not in the voice channel the bot plays in. */
+export class NotListeningError extends UserInputError {
+  constructor() {
+    super("Requester is not in the bot's voice channel");
+  }
+}
+
 /** The requester sent too many requests in a short time. */
 export class RateLimitedError extends UserInputError {
   readonly retryAfterMs: number;

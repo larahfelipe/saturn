@@ -103,6 +103,13 @@ structurally:
   state immediately and never queue behind a slow request. A pause or resume
   that arrives in the moment between two tracks is refused (the user gets the
   idle reply) instead of being confirmed and lost.
+- **Listeners only.** While the bot is in a voice channel, or joining one,
+  only members in that channel may add songs or use the controls, commands and
+  buttons alike, so buttons on old messages act only for current listeners.
+  The channel follows moves made through Discord. A `play` request is checked
+  on arrival and again on its turn, since an earlier request may have joined
+  another channel meanwhile. Anyone allowed to move members can still
+  disconnect the bot through Discord, which stops playback.
 - **Epochs.** Each activation of a player owns an `AbortController`. `stop`,
   disposal and voice loss abort it, which cancels resolution, connection and
   playback in progress. Every continuation re-checks the signal, so work from a

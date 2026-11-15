@@ -10,6 +10,7 @@ import {
   InvalidTrackUrlError,
   NoAudioFormatError,
   NotInVoiceChannelError,
+  NotListeningError,
   PlaybackCancelledError,
   PlayerUnavailableError,
   QueueFullError,
@@ -70,6 +71,9 @@ export function userErrorMessage(error: unknown): string | undefined {
   if (error instanceof VoiceChannelUnusableError) return VOICE_CHANNEL_MESSAGES[error.problem];
   if (error instanceof NotInVoiceChannelError || error instanceof VoiceConnectionError) {
     return 'Something went wrong while trying to join the party. Please, try again later';
+  }
+  if (error instanceof NotListeningError) {
+    return 'You need to be in my voice channel to do that';
   }
   if (error instanceof RateLimitedError) {
     const seconds = Math.ceil(error.retryAfterMs / 1000);
@@ -163,8 +167,19 @@ export class InteractionHandler {
     let content = CONTROL_FAILED_MESSAGE;
     if (target?.guildId !== interaction.guildId) {
       logger.warn({ customId: interaction.customId }, 'rejected playback control');
-    } else if (runControl(this.#playback, target.control, target.guildId)) {
-      content = CONTROL_MESSAGES[target.control];
+    } else {
+      const voiceChannelId = interaction.inCachedGuild()
+        ? (interaction.member.voice.channelId ?? undefined)
+        : undefined;
+      try {
+        if (runControl(this.#playback, target.control, target.guildId, voiceChannelId)) {
+          content = CONTROL_MESSAGES[target.control];
+        }
+      } catch (error) {
+        if (!(error instanceof UserInputError)) throw error;
+        logger.info({ err: error, control: target.control }, 'command rejected');
+        content = userErrorMessage(error) ?? CONTROL_FAILED_MESSAGE;
+      }
     }
     await this.#respond(interaction, { content, ephemeral: true }, logger);
   }

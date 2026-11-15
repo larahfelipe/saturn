@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { NotInVoiceChannelError } from '../../../../src/application/errors.ts';
+import { NotInVoiceChannelError, NotListeningError } from '../../../../src/application/errors.ts';
 import { PlaybackService } from '../../../../src/application/music/PlaybackService.ts';
 import { PlayerRegistry } from '../../../../src/application/music/PlayerRegistry.ts';
 import { COMMAND_DEFINITIONS } from '../../../../src/infrastructure/discord/commandDefinitions.ts';
@@ -109,6 +109,15 @@ describe('command handlers', () => {
         content: 'There is no song playing right now',
       });
     });
+
+    it("refuses members outside the bot's voice channel", async () => {
+      await handlers.play.execute(context());
+
+      expect(() => handlers[name].execute(context({ voiceChannelId: 'voice-other' }))).toThrow(
+        NotListeningError,
+      );
+      expect(registry.get(GUILD_ID)?.state.status).toBe('playing');
+    });
   });
 
   it('controls the guild playback', async () => {
@@ -164,15 +173,17 @@ describe('runControl', () => {
   it('maps each control to its playback use case', () => {
     const calls: string[] = [];
     const playback = {
-      pause: (guildId: string) => calls.push(`pause ${guildId}`) > 0,
-      resume: (guildId: string) => calls.push(`resume ${guildId}`) > 0,
-      skip: (guildId: string) => calls.push(`skip ${guildId}`) > 0,
-      stop: (guildId: string) => calls.push(`stop ${guildId}`) > 0,
+      pause: (guildId: string, channelId?: string) =>
+        calls.push(`pause ${guildId} ${channelId}`) > 0,
+      resume: (guildId: string, channelId?: string) =>
+        calls.push(`resume ${guildId} ${channelId}`) > 0,
+      skip: (guildId: string, channelId?: string) => calls.push(`skip ${guildId} ${channelId}`) > 0,
+      stop: (guildId: string, channelId?: string) => calls.push(`stop ${guildId} ${channelId}`) > 0,
     } as unknown as PlaybackService;
 
     for (const control of ['pause', 'unpause', 'skip', 'stop'] as const) {
-      expect(runControl(playback, control, 'g')).toBe(true);
+      expect(runControl(playback, control, 'g', 'v')).toBe(true);
     }
-    expect(calls).toEqual(['pause g', 'resume g', 'skip g', 'stop g']);
+    expect(calls).toEqual(['pause g v', 'resume g v', 'skip g v', 'stop g v']);
   });
 });

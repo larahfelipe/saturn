@@ -59,6 +59,7 @@
 ## Commands
 
 Commands are registered as native Discord slash commands and work in servers only.
+While the bot is in a voice channel, only members in that channel can add songs or control playback.
 
 | Command   | Arguments           | Description                               |
 | :-------- | :------------------ | :---------------------------------------- |

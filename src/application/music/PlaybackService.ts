@@ -1,6 +1,6 @@
 import { NotInVoiceChannelError, RateLimitedError } from '../errors.ts';
 import { RateLimiter } from '../RateLimiter.ts';
-import type { PlayResult } from './GuildPlayer.ts';
+import type { GuildPlayer, PlayResult } from './GuildPlayer.ts';
 import type { PlayerRegistry } from './PlayerRegistry.ts';
 
 export interface PlayCommand {
@@ -19,7 +19,11 @@ export interface PlaybackServiceOptions {
   readonly playLimiter?: RateLimiter;
 }
 
-/** Playback use cases, addressed by guild. Controls on a guild without a player report `false`. */
+/**
+ * Playback use cases, addressed by guild. While the bot is in a voice channel,
+ * only members in that channel may add songs or control playback. Controls on
+ * a guild without a player report `false`.
+ */
 export class PlaybackService {
   readonly #registry: PlayerRegistry;
   readonly #playLimiter: RateLimiter;
@@ -31,7 +35,7 @@ export class PlaybackService {
 
   /**
    * @throws NotInVoiceChannelError, RateLimitedError, PlayerUnavailableError,
-   *   or any error documented by `GuildPlayer.play`.
+   *   or any error documented by `GuildPlayer.play`, such as NotListeningError.
    */
   async play(command: PlayCommand): Promise<PlayResult> {
     const { guildId, url, requestedBy, voiceChannelId } = command;
@@ -41,19 +45,37 @@ export class PlaybackService {
     return this.#registry.acquire(guildId).play({ url, requestedBy, voiceChannelId });
   }
 
-  pause(guildId: string): boolean {
-    return this.#registry.get(guildId)?.pause() ?? false;
+  /**
+   * Controls take the requester's current voice channel, if any.
+   * @throws NotListeningError when the requester is not in the bot's channel.
+   */
+  pause(guildId: string, voiceChannelId: string | undefined): boolean {
+    return this.#control(guildId, voiceChannelId, (player) => player.pause());
   }
 
-  resume(guildId: string): boolean {
-    return this.#registry.get(guildId)?.resume() ?? false;
+  /** @throws NotListeningError, as `pause`. */
+  resume(guildId: string, voiceChannelId: string | undefined): boolean {
+    return this.#control(guildId, voiceChannelId, (player) => player.resume());
   }
 
-  skip(guildId: string): boolean {
-    return this.#registry.get(guildId)?.skip() ?? false;
+  /** @throws NotListeningError, as `pause`. */
+  skip(guildId: string, voiceChannelId: string | undefined): boolean {
+    return this.#control(guildId, voiceChannelId, (player) => player.skip());
   }
 
-  stop(guildId: string): boolean {
-    return this.#registry.get(guildId)?.stop() ?? false;
+  /** @throws NotListeningError, as `pause`. */
+  stop(guildId: string, voiceChannelId: string | undefined): boolean {
+    return this.#control(guildId, voiceChannelId, (player) => player.stop());
+  }
+
+  #control(
+    guildId: string,
+    voiceChannelId: string | undefined,
+    apply: (player: GuildPlayer) => boolean,
+  ): boolean {
+    const player = this.#registry.get(guildId);
+    if (player === undefined) return false;
+    player.assertListener(voiceChannelId);
+    return apply(player);
   }
 }

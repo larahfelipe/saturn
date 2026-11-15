@@ -109,14 +109,24 @@ export class FakeCommandInteraction extends FakeRepliableInteraction {
 
 export class FakeButtonInteraction extends FakeRepliableInteraction {
   readonly customId: string;
+  readonly member: { readonly voice: { readonly channelId: string | null } };
 
-  constructor(customId: string, guildId: string | null = GUILD_ID) {
+  constructor(
+    customId: string,
+    guildId: string | null = GUILD_ID,
+    voiceChannelId: string | null = VOICE_CHANNEL_ID,
+  ) {
     super(guildId);
     this.customId = customId;
+    this.member = { voice: { channelId: voiceChannelId } };
   }
 
   override isButton(): boolean {
     return true;
+  }
+
+  inCachedGuild(): boolean {
+    return this.guildId !== null;
   }
 }
 

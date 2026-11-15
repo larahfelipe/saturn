@@ -83,11 +83,14 @@ export class FakeAudioSession implements AudioSession {
   readonly playbacks: Playback[] = [];
   /** When false, an aborted playback only settles once `finish` or `fail` is called. */
   readonly settleOnAbort: boolean;
+  /** Set it to simulate Discord moving the bot. */
+  channelId: string | undefined;
   paused = false;
   destroyCount = 0;
 
-  constructor(settleOnAbort = true) {
+  constructor(settleOnAbort = true, channelId?: string) {
     this.settleOnAbort = settleOnAbort;
+    this.channelId = channelId;
   }
 
   get destroyed(): boolean {
@@ -166,7 +169,7 @@ export class FakeVoiceConnector implements VoiceConnector {
   }
 
   connect(target: VoiceTarget, options: ConnectOptions): Promise<AudioSession> {
-    const session = new FakeAudioSession(this.settleOnAbort);
+    const session = new FakeAudioSession(this.settleOnAbort, target.channelId);
     const deferred = defer<AudioSession>(options.signal);
     this.calls.push({ target, options, session, deferred });
     if (this.failWith !== undefined) deferred.reject(this.failWith);

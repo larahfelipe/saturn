@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  NotListeningError,
   PlaybackCancelledError,
   PlayerUnavailableError,
   QueueFullError,
@@ -232,6 +233,47 @@ describe('GuildPlayer', () => {
         status: 'queued',
         position: 2,
       });
+    });
+  });
+
+  describe('voice channel', () => {
+    const elsewhere = (id: string): PlayRequest => ({ ...request(id), voiceChannelId: 'voice-2' });
+
+    it('reports the channel it is connecting to, then the one it is in', async () => {
+      voice.manual = true;
+      const play = player.play(request('aaaaaaaaaaa'));
+      await flush();
+
+      expect(player.channelId).toBe('voice-1');
+      voice.calls[0]?.deferred.resolve(session());
+      await play;
+      session().channelId = 'voice-2';
+      expect(player.channelId).toBe('voice-2');
+      player.stop();
+      expect(player.channelId).toBeUndefined();
+    });
+
+    it('refuses requests from another channel while connecting, before any lookup', async () => {
+      voice.manual = true;
+      const play = player.play(request('aaaaaaaaaaa'));
+      await flush();
+
+      await expect(player.play(elsewhere('bbbbbbbbbbb'))).rejects.toThrow(NotListeningError);
+      expect(resolver.calls).toHaveLength(1);
+      player.stop();
+      await expect(play).rejects.toThrow(PlaybackCancelledError);
+    });
+
+    it('refuses a request whose turn comes after an earlier one joined another channel', async () => {
+      resolver.manual = true;
+      const first = player.play(request('aaaaaaaaaaa'));
+      const second = player.play(elsewhere('bbbbbbbbbbb'));
+      for (const call of resolver.calls) call.deferred.resolve(call.result);
+
+      await expect(first).resolves.toMatchObject({ status: 'playing' });
+      await expect(second).rejects.toThrow(NotListeningError);
+      expect(voice.calls).toHaveLength(1);
+      expect(player.upcoming).toEqual([]);
     });
   });
 

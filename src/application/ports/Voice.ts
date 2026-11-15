@@ -7,6 +7,8 @@ export interface VoiceTarget {
 
 /** A ready voice connection with its audio output. Owned by one guild player. */
 export interface AudioSession {
+  /** The voice channel the session is in, following moves by Discord; undefined if unknown. */
+  readonly channelId: string | undefined;
   /**
    * Streams `source` until it ends. Resolves when playback finishes or
    * `signal` aborts, and rejects when the stream or encoder fails. Resources

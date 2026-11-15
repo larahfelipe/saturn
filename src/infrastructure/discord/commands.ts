@@ -39,21 +39,26 @@ export interface CommandDependencies {
   readonly heartbeatLatency: () => number;
 }
 
-/** Runs a playback control for `guildId`; `false` when the guild has no matching playback. */
+/**
+ * Runs a playback control for `guildId` on behalf of a member in
+ * `voiceChannelId`; `false` when the guild has no matching playback.
+ * @throws NotListeningError when the member is not in the bot's voice channel.
+ */
 export function runControl(
   playback: PlaybackService,
   control: PlaybackControl,
   guildId: string,
+  voiceChannelId: string | undefined,
 ): boolean {
   switch (control) {
     case 'pause':
-      return playback.pause(guildId);
+      return playback.pause(guildId, voiceChannelId);
     case 'unpause':
-      return playback.resume(guildId);
+      return playback.resume(guildId, voiceChannelId);
     case 'skip':
-      return playback.skip(guildId);
+      return playback.skip(guildId, voiceChannelId);
     case 'stop':
-      return playback.stop(guildId);
+      return playback.stop(guildId, voiceChannelId);
   }
 }
 
@@ -63,8 +68,10 @@ export function createCommandHandlers(
   const { playback, definitions, bot, heartbeatLatency } = dependencies;
 
   const control = (name: PlaybackControl): CommandHandler => ({
-    execute: ({ guildId }) => ({
-      content: runControl(playback, name, guildId) ? CONTROL_MESSAGES[name] : IDLE_MESSAGE,
+    execute: ({ guildId, voiceChannelId }) => ({
+      content: runControl(playback, name, guildId, voiceChannelId)
+        ? CONTROL_MESSAGES[name]
+        : IDLE_MESSAGE,
     }),
   });
 

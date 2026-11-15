@@ -99,7 +99,7 @@ Messages worth alerting or searching on:
 | `discord ready`, `slash commands synchronized`      | info         | Connected and serving                                              |
 | `discord gateway reconnecting` / `resumed`          | warn / info  | Gateway connection dropped / recovered                             |
 | `discord gateway closed permanently`                | error        | Discord refused the session (e.g. token reset); exiting with 1     |
-| `command rejected`                                  | info         | User error (invalid URL, not in a voice channel, rate limited)     |
+| `command rejected`                                  | info         | User error (invalid URL, wrong or no voice channel, rate limited)  |
 | `command failed`                                    | warn         | YouTube or voice failure reported to the user                      |
 | `command failed`, `interaction failed`              | error        | Unexpected error; the user got a generic reply                     |
 | `track playback failed`                             | error        | Stream or FFmpeg failure; the track was skipped                    |
@@ -164,6 +164,7 @@ process is needed.
 | `Something went wrong while searching your song`              | YouTube refused or the video is unavailable. `command failed` shows the code, e.g. `BOT_CHECK` (datacenter IP), `PRIVATE`, or `timed out` after 20 s.   |
 | `…trying to join the party`                                   | User not in a voice channel, or voice did not become ready within 15 s.                                                                                 |
 | `I need permission to connect and speak…`                     | Grant the bot View Channels, Connect and Speak in that channel. Stage, AFK and full channels have their own replies.                                    |
+| `You need to be in my voice channel…`                         | The member is not in the bot's voice channel. Only listeners control playback; disconnect the bot through Discord to stop it from elsewhere.            |
 | Tracks skip right after starting                              | `track playback failed`: the message includes FFmpeg's last error line or the stream error. `Audio stream did not start`: no audio arrived within 20 s. |
 | Bot leaves voice unexpectedly                                 | `voice connection lost`: kicked, channel deleted, five rejoin attempts over 30 s failed, or a reconnect did not become ready within 15 s.               |
 | `/health` shows `-1ms`                                        | No heartbeat acknowledged yet after connecting. Retry after a minute.                                                                                   |

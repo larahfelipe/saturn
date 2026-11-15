@@ -5,6 +5,7 @@ import {
   InvalidTrackUrlError,
   NoAudioFormatError,
   NotInVoiceChannelError,
+  NotListeningError,
   PlaybackCancelledError,
   PlayerUnavailableError,
   QueueFullError,
@@ -391,6 +392,24 @@ describe('InteractionHandler', () => {
       expect(registry.get(OTHER_GUILD_ID)).toBeDefined();
     });
 
+    it.each([
+      ['another voice channel', '200000000000000002'],
+      ['no voice channel', null],
+    ])('refuses members in %s', async (_, channelId) => {
+      const interaction = new FakeButtonInteraction(`stop_${GUILD_ID}`, GUILD_ID, channelId);
+
+      await handler.handle(interaction.asInteraction());
+
+      expect(interaction.responses).toEqual([
+        {
+          method: 'reply',
+          options: { content: 'You need to be in my voice channel to do that', flags: EPHEMERAL },
+        },
+      ]);
+      expect(registry.get(GUILD_ID)?.state.status).toBe('playing');
+      expect(logger.contextOf('info', 'command rejected')).toMatchObject({ control: 'stop' });
+    });
+
     it('reports controls on a guild without a player', async () => {
       const idleGuildId = '111111111111111111';
       const interaction = new FakeButtonInteraction(`skip_${idleGuildId}`, idleGuildId);
@@ -488,6 +507,7 @@ describe('userErrorMessage', () => {
       'I need permission to connect and speak in your voice channel',
     ],
     [new QueueFullError(100), 'The queue is full (100 songs). Please, try again later'],
+    [new NotListeningError(), 'You need to be in my voice channel to do that'],
     [
       new RateLimitedError(1_000),
       'You are adding songs too quickly. Please, try again in 1 second',
