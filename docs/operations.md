@@ -63,7 +63,8 @@ each offending variable, never its value. The metrics port is fixed at 8080.
 - Outbound network: HTTPS and WSS to Discord, UDP to Discord voice servers,
   HTTPS to YouTube. YouTube may refuse datacenter IP addresses with
   `BOT_CHECK`; run from a network YouTube accepts.
-- One FFmpeg child process per guild that is playing.
+- One FFmpeg child process and up to 1 MiB of buffered source audio per
+  guild that is playing.
 
 ## Logging
 

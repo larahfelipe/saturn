@@ -13,7 +13,10 @@ import { InteractionHandler } from './infrastructure/discord/InteractionHandler.
 import { createLogger, flushLogger } from './infrastructure/logging/logger.ts';
 import { Metrics } from './infrastructure/metrics/Metrics.ts';
 import { MetricsServer } from './infrastructure/metrics/MetricsServer.ts';
-import { YouTubeTrackResolver } from './infrastructure/youtube/YouTubeTrackResolver.ts';
+import {
+  YOUTUBE_REQUEST_TIMEOUT_MS,
+  YouTubeTrackResolver,
+} from './infrastructure/youtube/YouTubeTrackResolver.ts';
 import { GracefulShutdown } from './lifecycle/GracefulShutdown.ts';
 
 const METRICS_PORT = 8080;
@@ -42,7 +45,7 @@ async function main(): Promise<void> {
     logger,
   });
   const registry = new PlayerRegistry({
-    resolver: new YouTubeTrackResolver(new Ytdl()),
+    resolver: new YouTubeTrackResolver(new Ytdl({ timeoutMs: YOUTUBE_REQUEST_TIMEOUT_MS })),
     voice: new VoiceConnectionManager({
       channels: (target) => discord.voiceChannel(target),
       ffmpegPath: config.ffmpegPath,

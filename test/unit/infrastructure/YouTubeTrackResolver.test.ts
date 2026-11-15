@@ -8,6 +8,7 @@ import {
   TrackUnavailableError,
 } from '../../../src/application/errors.ts';
 import {
+  READ_AHEAD_BYTES,
   parseYouTubeVideoUrl,
   selectAudioFormat,
   YouTubeTrackResolver,
@@ -197,6 +198,7 @@ describe('YouTubeTrackResolver', () => {
     expect(client.downloads[0]?.options).toMatchObject({
       format: { itag: 251 },
       signal: streamController.signal,
+      highWaterMark: READ_AHEAD_BYTES,
     });
     streamController.abort();
     expect(stream.destroyed).toBe(true);

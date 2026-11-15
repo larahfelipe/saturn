@@ -75,8 +75,12 @@ stops being maintained.
 - **FFmpeg is verified at startup** (binary present, `libopus` available), so a
   broken installation fails the process immediately instead of on the first
   `play`.
-- **Stall tolerance:** the audio player allows 250 missed frames (5 s) before
-  it considers a track stuck.
+- **Stall tolerance:** up to 1 MiB of source audio, about a minute, is read
+  ahead of playback. ytdl resumes a download whose next chunk takes longer
+  than 10 s, so a network stall is absorbed by the read-ahead instead of
+  interrupting the track. Once the buffer runs dry, the audio player allows
+  250 missed frames (5 s) before it considers the track stuck, and a track
+  that delivers no audio within 20 s of starting fails.
 
 ## Concurrency: per-guild serialization and epochs
 

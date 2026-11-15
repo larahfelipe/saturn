@@ -37,6 +37,19 @@ const SUPPORTED_HOSTS: ReadonlySet<string> = new Set([
   'youtu.be',
 ]);
 
+/**
+ * Source audio buffered ahead of playback: about a minute at YouTube's audio
+ * bitrates, so playback continues while ytdl resumes a stalled download.
+ */
+export const READ_AHEAD_BYTES = 1024 * 1024;
+
+/**
+ * ytdl's limit for a response's headers or next body chunk. ytdl resumes a
+ * download from where it stopped once this expires, well before
+ * `READ_AHEAD_BYTES` of audio runs out.
+ */
+export const YOUTUBE_REQUEST_TIMEOUT_MS = 10_000;
+
 const UNAVAILABLE_CODES: ReadonlySet<YtdlErrorCode> = new Set([
   YtdlErrorCode.NOT_FOUND,
   YtdlErrorCode.PRIVATE,
@@ -95,7 +108,12 @@ export class YouTubeTrackResolver implements TrackResolver {
     return {
       track,
       source: {
-        open: (streamSignal) => this.#client.download(info, { format, signal: streamSignal }),
+        open: (streamSignal) =>
+          this.#client.download(info, {
+            format,
+            signal: streamSignal,
+            highWaterMark: READ_AHEAD_BYTES,
+          }),
       },
     };
   }
