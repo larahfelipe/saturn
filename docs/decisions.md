@@ -116,6 +116,11 @@ structurally:
 - **Bounded queues.** A guild holds at most 100 queued songs, counting
   requests still resolving. Further `play` requests are refused before any
   YouTube lookup.
+- **Per-user request limit.** A user may send 5 `play` requests in any 10 s,
+  across guilds, so one user cannot flood YouTube with lookups and get the
+  bot's IP address rate-limited for every guild. Refused requests do not count,
+  and limits for inactive users are forgotten. The limit lives in memory, so
+  each instance and restart counts from zero.
 - **One owner per resource.** The audio session owns the voice connection. A
   track's abort signal owns its FFmpeg process (spawned with that signal and
   killed with `SIGKILL`) and destroys the source stream. Every exit path

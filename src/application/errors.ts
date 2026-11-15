@@ -67,6 +67,16 @@ export class QueueFullError extends UserInputError {
   }
 }
 
+/** The requester sent too many requests in a short time. */
+export class RateLimitedError extends UserInputError {
+  readonly retryAfterMs: number;
+
+  constructor(retryAfterMs: number) {
+    super(`Too many requests; allowed again in ${retryAfterMs} ms`);
+    this.retryAfterMs = retryAfterMs;
+  }
+}
+
 /** A pending request was cancelled because playback was stopped. */
 export class PlaybackCancelledError extends SaturnError {
   constructor() {

@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { NotInVoiceChannelError } from '../../../src/application/errors.ts';
+import { NotInVoiceChannelError, RateLimitedError } from '../../../src/application/errors.ts';
 import {
   PlaybackService,
   type PlayCommand,
 } from '../../../src/application/music/PlaybackService.ts';
 import { PlayerRegistry } from '../../../src/application/music/PlayerRegistry.ts';
+import { RateLimiter } from '../../../src/application/RateLimiter.ts';
 import {
   FakeResolver,
   FakeVoiceConnector,
@@ -45,6 +46,39 @@ describe('PlaybackService', () => {
     expect(registry.size).toBe(0);
   });
 
+  describe('request rate limit', () => {
+    let now: number;
+
+    beforeEach(() => {
+      now = 0;
+      service = new PlaybackService(registry, {
+        playLimiter: new RateLimiter({ limit: 2, windowMs: 10_000, now: () => now }),
+      });
+    });
+
+    it('refuses a user who requests too often, before any lookup', async () => {
+      await service.play(command('guild-1'));
+      now += 4_000;
+      await service.play(command('guild-1'));
+
+      await expect(service.play(command('guild-2'))).rejects.toThrow(
+        expect.objectContaining({ name: RateLimitedError.name, retryAfterMs: 6_000 }),
+      );
+      expect(resolver.calls).toHaveLength(2);
+      await expect(
+        service.play(command('guild-1', { requestedBy: 'other' })),
+      ).resolves.toBeDefined();
+    });
+
+    it('does not count requests from outside a voice channel', async () => {
+      const outside = command('guild-1', { voiceChannelId: undefined });
+      await expect(service.play(outside)).rejects.toThrow(NotInVoiceChannelError);
+      await expect(service.play(outside)).rejects.toThrow(NotInVoiceChannelError);
+
+      await expect(service.play(command('guild-1'))).resolves.toBeDefined();
+    });
+  });
+
   it('plays in the requester voice channel', async () => {
     await expect(service.play(command('guild-1'))).resolves.toMatchObject({ status: 'playing' });
 
@@ -81,7 +115,9 @@ describe('PlaybackService', () => {
   it('handles many guilds starting and stopping concurrently', async () => {
     const guilds = Array.from({ length: 20 }, (_, index) => `guild-${index}`);
 
-    await Promise.all(guilds.map((guildId) => service.play(command(guildId))));
+    await Promise.all(
+      guilds.map((guildId) => service.play(command(guildId, { requestedBy: `user-${guildId}` }))),
+    );
     await flush();
     expect(registry.activeCount()).toBe(20);
 

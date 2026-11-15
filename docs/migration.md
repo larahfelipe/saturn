@@ -127,6 +127,9 @@ Intentional differences from `master`; see [decisions](decisions.md).
 - A guild's queue holds at most 100 songs; beyond that `play` replies
   `The queue is full (100 songs). Please, try again later`. Go's queue was
   unbounded.
+- A user may send 5 `play` requests in any 10 s; beyond that `play` replies
+  `You are adding songs too quickly. Please, try again in N seconds`. Go had
+  no limit.
 - Every button interaction is acknowledged. Malformed IDs, unsupported actions
   and IDs naming another guild reply with the ephemeral failure text.
 - `saturn_commands_processed_total` exports every command at zero from startup,

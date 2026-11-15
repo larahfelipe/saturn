@@ -99,7 +99,7 @@ Messages worth alerting or searching on:
 | `discord ready`, `slash commands synchronized`      | info         | Connected and serving                                              |
 | `discord gateway reconnecting` / `resumed`          | warn / info  | Gateway connection dropped / recovered                             |
 | `discord gateway closed permanently`                | error        | Discord refused the session (e.g. token reset); exiting with 1     |
-| `command rejected`                                  | info         | User error (invalid URL, not in a voice channel)                   |
+| `command rejected`                                  | info         | User error (invalid URL, not in a voice channel, rate limited)     |
 | `command failed`                                    | warn         | YouTube or voice failure reported to the user                      |
 | `command failed`, `interaction failed`              | error        | Unexpected error; the user got a generic reply                     |
 | `track playback failed`                             | error        | Stream or FFmpeg failure; the track was skipped                    |

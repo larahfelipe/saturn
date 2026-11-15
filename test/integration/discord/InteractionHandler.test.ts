@@ -8,6 +8,7 @@ import {
   PlaybackCancelledError,
   PlayerUnavailableError,
   QueueFullError,
+  RateLimitedError,
   TrackResolutionError,
   TrackUnavailableError,
   VoiceChannelUnusableError,
@@ -426,6 +427,14 @@ describe('userErrorMessage', () => {
       'I need permission to connect and speak in your voice channel',
     ],
     [new QueueFullError(100), 'The queue is full (100 songs). Please, try again later'],
+    [
+      new RateLimitedError(1_000),
+      'You are adding songs too quickly. Please, try again in 1 second',
+    ],
+    [
+      new RateLimitedError(4_200),
+      'You are adding songs too quickly. Please, try again in 5 seconds',
+    ],
     [new PlaybackCancelledError(), 'Playback was stopped before your song could be added'],
     [new PlayerUnavailableError(), 'Saturn is shutting down. Please, try again later'],
     [new Error('boom'), undefined],
