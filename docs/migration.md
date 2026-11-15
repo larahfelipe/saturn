@@ -158,7 +158,7 @@ Intentional differences from `master`; see [decisions](decisions.md).
 | Missing thumbnail                         | Embed without thumbnail                                                  |
 | Stream failure mid-queue                  | Error logged, next track starts                                          |
 | Voice connection failure / disconnect     | Join error reply; on disconnect, reconnect attempt, then player disposal |
-| Concurrent `play` requests                | Serialized per guild; positions unique and ordered                       |
+| Concurrent `play` requests                | Looked up in parallel, enqueued in arrival order; unique positions       |
 | Rapid pause/unpause, concurrent controls  | Serialized; final state matches last operation                           |
 | Stop during resolution                    | Resolution aborted; no track starts afterwards                           |
 | Skip while the track is ending            | Exactly one advancement                                                  |

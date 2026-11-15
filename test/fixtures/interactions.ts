@@ -21,6 +21,8 @@ abstract class FakeRepliableInteraction {
   deferred = false;
   replied = false;
   failResponsesWith: Error | undefined;
+  /** When set, `deferReply` completes once it settles, like a slow request to Discord. */
+  acknowledgement: Promise<void> | undefined;
 
   constructor(guildId: string | null) {
     this.guildId = guildId;
@@ -34,11 +36,11 @@ abstract class FakeRepliableInteraction {
     return false;
   }
 
-  deferReply(): Promise<void> {
+  async deferReply(): Promise<void> {
     this.#acknowledge();
     this.responses.push({ method: 'deferReply' });
+    await this.acknowledgement;
     this.deferred = true;
-    return Promise.resolve();
   }
 
   reply(options: unknown): Promise<void> {

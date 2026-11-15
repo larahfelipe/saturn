@@ -97,6 +97,8 @@ export class InteractionHandler {
   readonly #bot: () => BotProfile;
   readonly #metrics: CommandMetrics;
   readonly #logger: Logger;
+  /** Per guild, settles once the latest deferred command has been executed. */
+  readonly #turns = new Map<string, Promise<undefined>>();
 
   constructor(options: InteractionHandlerOptions) {
     this.#commands = options.commands;
@@ -134,15 +136,18 @@ export class InteractionHandler {
     }
 
     this.#metrics.recordCommand(command.definition.name);
-    let reply: Reply;
-    try {
-      if (command.defer === true) await interaction.deferReply();
-      reply = await command.execute({
+    const execute = (): Promise<Reply> | Reply =>
+      command.execute({
         guildId: interaction.guildId,
         userId: interaction.user.id,
         voiceChannelId: interaction.member.voice.channelId ?? undefined,
         option: (name) => interaction.options.getString(name) ?? undefined,
       });
+    let reply: Reply;
+    try {
+      reply = await (command.defer === true
+        ? this.#executeInTurn(interaction.guildId, interaction.deferReply(), execute)
+        : execute());
     } catch (error) {
       reply = this.#errorReply(error, logger);
     }
@@ -162,6 +167,33 @@ export class InteractionHandler {
       content = CONTROL_MESSAGES[target.control];
     }
     await this.#respond(interaction, { content, ephemeral: true }, logger);
+  }
+
+  /**
+   * Executes once `acknowledgement` succeeded and the previous deferred command
+   * of the guild has been executed, so commands reach the player in arrival
+   * order however long Discord takes to acknowledge each one.
+   */
+  async #executeInTurn(
+    guildId: string,
+    acknowledgement: Promise<unknown>,
+    execute: () => Promise<Reply> | Reply,
+  ): Promise<Reply> {
+    // Awaited once this command's turn comes; a rejection must not go unhandled until then.
+    acknowledgement.catch(() => undefined);
+    const previous = this.#turns.get(guildId);
+    const { promise: turn, resolve: release } = Promise.withResolvers<undefined>();
+    this.#turns.set(guildId, turn);
+    try {
+      await previous;
+      await acknowledgement;
+      const reply = execute();
+      release(undefined);
+      return await reply;
+    } finally {
+      release(undefined);
+      if (this.#turns.get(guildId) === turn) this.#turns.delete(guildId);
+    }
   }
 
   #errorReply(error: unknown, logger: Logger): Reply {

@@ -22,7 +22,11 @@ export interface CommandContext {
 }
 
 export interface CommandHandler {
-  /** Acknowledge before executing, for commands that may exceed Discord's 3 s reply window. */
+  /**
+   * Acknowledge before executing, for commands that may exceed Discord's 3 s
+   * reply window. Deferred commands of a guild are executed in arrival order,
+   * each once the previous `execute` call has returned.
+   */
   readonly defer?: boolean;
   /** Errors thrown are presented to the user by the interaction handler. */
   execute(context: CommandContext): Promise<Reply> | Reply;

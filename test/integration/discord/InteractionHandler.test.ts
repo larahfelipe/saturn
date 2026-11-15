@@ -124,6 +124,67 @@ describe('InteractionHandler', () => {
       ]);
     });
 
+    describe('arrival order', () => {
+      it('hands play requests of a guild to the player in arrival order', async () => {
+        const slow = Promise.withResolvers<undefined>();
+        const first = playInteraction('aaaaaaaaaaa');
+        first.acknowledgement = slow.promise;
+        const second = playInteraction('bbbbbbbbbbb');
+
+        const handled = [first, second].map((interaction) =>
+          handler.handle(interaction.asInteraction()),
+        );
+        await flush();
+
+        expect(second.responses).toEqual([{ method: 'deferReply' }]);
+        expect(resolver.calls).toHaveLength(0);
+
+        slow.resolve(undefined);
+        await Promise.all(handled);
+
+        expect(resolver.calls.map(({ request }) => request.url)).toEqual([
+          trackUrl('aaaaaaaaaaa'),
+          trackUrl('bbbbbbbbbbb'),
+        ]);
+        expect(registry.get(GUILD_ID)?.state).toMatchObject({ current: { id: 'aaaaaaaaaaa' } });
+        expect(registry.get(GUILD_ID)?.upcoming.map(({ id }) => id)).toEqual(['bbbbbbbbbbb']);
+      });
+
+      it('does not hold up other guilds', async () => {
+        const slow = Promise.withResolvers<undefined>();
+        const first = playInteraction('aaaaaaaaaaa');
+        first.acknowledgement = slow.promise;
+
+        const handled = handler.handle(first.asInteraction());
+        await handler.handle(playInteraction('bbbbbbbbbbb', OTHER_GUILD_ID).asInteraction());
+
+        expect(resolver.calls.map(({ request }) => request.url)).toEqual([trackUrl('bbbbbbbbbbb')]);
+        slow.resolve(undefined);
+        await handled;
+        expect(resolver.calls).toHaveLength(2);
+      });
+
+      it('passes the turn on when an acknowledgement fails', async () => {
+        const failing = Promise.withResolvers<undefined>();
+        const first = playInteraction('aaaaaaaaaaa');
+        first.acknowledgement = failing.promise;
+        const second = playInteraction('bbbbbbbbbbb');
+
+        const handled = [first, second].map((interaction) =>
+          handler.handle(interaction.asInteraction()),
+        );
+        await flush();
+        failing.reject(new Error('Unknown interaction'));
+        await Promise.all(handled);
+
+        expect(resolver.calls.map(({ request }) => request.url)).toEqual([trackUrl('bbbbbbbbbbb')]);
+        expect(registry.get(GUILD_ID)?.state).toMatchObject({ current: { id: 'bbbbbbbbbbb' } });
+
+        await handler.handle(playInteraction('ccccccccccc').asInteraction());
+        expect(resolver.calls).toHaveLength(2);
+      });
+    });
+
     it('replies directly to commands that do not defer', async () => {
       const interaction = new FakeCommandInteraction('ping');
 

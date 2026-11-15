@@ -89,9 +89,12 @@ interaction can run. Go's implementation had races between stop/skip,
 in-flight resolution and stream completion. The TypeScript design removes them
 structurally:
 
-- **`play` requests are ordered per guild.** Lookups start at once and run in
+- **`play` requests are ordered per guild.** Arrival order is the order in
+  which Discord delivers the interactions. Each one is acknowledged at once,
+  but reaches the player only after the previous one of its guild, however
+  long Discord takes to answer each acknowledgement. Lookups then run in
   parallel, so a slow one does not delay the others. Connecting and enqueueing
-  then run one request at a time, in arrival order, chained on a promise tail.
+  run one request at a time, in arrival order, chained on a promise tail.
   Queue positions are assigned atomically by `enqueue`, and guilds never wait
   on each other.
 - **Lookups have a deadline.** A YouTube lookup can take several requests, each
