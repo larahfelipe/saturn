@@ -73,6 +73,8 @@ export class FakeResolver implements TrackResolver {
 export interface Playback {
   readonly source: AudioSource;
   readonly signal: AbortSignal;
+  /** Until the playback settles; controls are refused afterwards. */
+  inProgress: boolean;
   finish(): void;
   fail(error: Error): void;
 }
@@ -99,32 +101,42 @@ export class FakeAudioSession implements AudioSession {
   play(source: AudioSource, signal: AbortSignal): Promise<void> {
     const { promise, resolve, reject } = Promise.withResolvers<undefined>();
     this.paused = false;
+    const playback: Playback = {
+      source,
+      signal,
+      inProgress: true,
+      finish: () => {
+        playback.inProgress = false;
+        resolve(undefined);
+      },
+      fail: (error) => {
+        playback.inProgress = false;
+        reject(error);
+      },
+    };
     if (this.settleOnAbort) {
       signal.addEventListener(
         'abort',
         () => {
-          resolve(undefined);
+          playback.finish();
         },
         { once: true },
       );
     }
-    this.playbacks.push({
-      source,
-      signal,
-      finish: () => {
-        resolve(undefined);
-      },
-      fail: reject,
-    });
+    this.playbacks.push(playback);
     return promise;
   }
 
-  pause(): void {
+  pause(): boolean {
+    if (this.current?.inProgress !== true) return false;
     this.paused = true;
+    return true;
   }
 
-  resume(): void {
+  resume(): boolean {
+    if (this.current?.inProgress !== true) return false;
     this.paused = false;
+    return true;
   }
 
   destroy(): void {

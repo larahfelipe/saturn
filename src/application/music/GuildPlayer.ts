@@ -109,15 +109,11 @@ export class GuildPlayer {
   }
 
   pause(): boolean {
-    return this.#control({ type: 'pause' }, (session) => {
-      session.pause();
-    });
+    return this.#control({ type: 'pause' }, (session) => session.pause());
   }
 
   resume(): boolean {
-    return this.#control({ type: 'resume' }, (session) => {
-      session.resume();
-    });
+    return this.#control({ type: 'resume' }, (session) => session.resume());
   }
 
   skip(): boolean {
@@ -214,12 +210,13 @@ export class GuildPlayer {
     }
   }
 
-  #control(event: PlaybackEvent<Track>, apply: (session: AudioSession) => void): boolean {
+  /** Changes state only if the session applied the control. */
+  #control(event: PlaybackEvent<Track>, apply: (session: AudioSession) => boolean): boolean {
     if (this.#disposed || this.#session === undefined || !canTransition(this.#state, event)) {
       return false;
     }
+    if (!apply(this.#session)) return false;
     this.#setState(event);
-    apply(this.#session);
     return true;
   }
 

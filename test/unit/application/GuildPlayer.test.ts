@@ -230,6 +230,36 @@ describe('GuildPlayer', () => {
       expect(player.stop()).toBe(false);
     });
 
+    it('refuses a pause between tracks instead of losing it', async () => {
+      await player.play(request('aaaaaaaaaaa'));
+      await player.play(request('bbbbbbbbbbb'));
+      await flush();
+
+      session().current?.finish();
+
+      expect(player.pause()).toBe(false);
+      expect(player.state.status).toBe('playing');
+      await flush();
+      expect(playingId()).toBe('bbbbbbbbbbb');
+      expect(player.pause()).toBe(true);
+      expect(session().paused).toBe(true);
+    });
+
+    it('refuses a resume between tracks', async () => {
+      await player.play(request('aaaaaaaaaaa'));
+      await player.play(request('bbbbbbbbbbb'));
+      await flush();
+      player.pause();
+
+      session().current?.finish();
+
+      expect(player.resume()).toBe(false);
+      expect(player.state.status).toBe('paused');
+      await flush();
+      expect(player.state).toMatchObject({ status: 'playing', current: { id: 'bbbbbbbbbbb' } });
+      expect(session().paused).toBe(false);
+    });
+
     it('rejects pause, resume and skip while connecting', async () => {
       voice.manual = true;
       void player.play(request('aaaaaaaaaaa')).catch(() => undefined);

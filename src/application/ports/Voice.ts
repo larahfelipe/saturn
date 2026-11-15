@@ -13,8 +13,10 @@ export interface AudioSession {
    * opened for the track are released before the promise settles.
    */
   play(source: AudioSource, signal: AbortSignal): Promise<void>;
-  pause(): void;
-  resume(): void;
+  /** @returns false when no track is in progress (between tracks), changing nothing. */
+  pause(): boolean;
+  /** @returns false when no track is in progress (between tracks), changing nothing. */
+  resume(): boolean;
   /** Stops playback and disconnects. Idempotent. */
   destroy(): void;
 }

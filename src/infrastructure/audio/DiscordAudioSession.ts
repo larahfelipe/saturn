@@ -167,14 +167,18 @@ export class DiscordAudioSession implements AudioSession {
     }
   }
 
-  pause(): void {
+  pause(): boolean {
+    if (!this.#inProgress()) return false;
     this.#paused = true;
     this.#player.pause();
+    return true;
   }
 
-  resume(): void {
+  resume(): boolean {
+    if (!this.#inProgress()) return false;
     this.#paused = false;
     this.#player.unpause();
+    return true;
   }
 
   destroy(): void {
@@ -188,6 +192,16 @@ export class DiscordAudioSession implements AudioSession {
     if (this.#connection.state.status !== VoiceConnectionStatus.Destroyed) {
       this.#connection.destroy();
     }
+  }
+
+  /** Whether a track is buffering or playing; it ends once the player is done with it. */
+  #inProgress(): boolean {
+    const state = this.#player.state;
+    return (
+      this.#active !== undefined &&
+      state.status !== AudioPlayerStatus.Idle &&
+      state.resource === this.#active.resource
+    );
   }
 
   readonly #onPlayerState = (previous: AudioPlayerState, next: AudioPlayerState): void => {

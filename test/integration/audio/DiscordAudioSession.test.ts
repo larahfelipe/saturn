@@ -105,12 +105,12 @@ describe('DiscordAudioSession', () => {
       const playback = session.play(new StreamSource(oggOpus(15)), new AbortController().signal);
       await entersState(player, AudioPlayerStatus.Playing, 2000);
 
-      session.pause();
+      expect(session.pause()).toBe(true);
       expect(player.state.status).toBe(AudioPlayerStatus.Paused);
       await sleep(400);
       expect(player.state.status).toBe(AudioPlayerStatus.Paused);
 
-      session.resume();
+      expect(session.resume()).toBe(true);
       expect(player.state.status).toBe(AudioPlayerStatus.Playing);
       await expect(playback).resolves.toBeUndefined();
     });
@@ -119,11 +119,27 @@ describe('DiscordAudioSession', () => {
       const session = createSession();
       const playback = session.play(new StreamSource(oggOpus(10)), new AbortController().signal);
 
-      session.pause();
+      expect(session.pause()).toBe(true);
       await entersState(player, AudioPlayerStatus.Paused, 2000);
 
       session.resume();
       await expect(playback).resolves.toBeUndefined();
+    });
+
+    it('refuses controls when no track is in progress', async () => {
+      const session = createSession();
+      const controls: boolean[] = [];
+      player.on('stateChange', (_, next) => {
+        if (next.status === AudioPlayerStatus.Idle)
+          controls.push(session.pause(), session.resume());
+      });
+
+      expect(session.pause()).toBe(false);
+      await session.play(new StreamSource(oggOpus(5)), new AbortController().signal);
+
+      expect(controls).toEqual([false, false]);
+      expect(session.resume()).toBe(false);
+      expect(statuses).not.toContain(AudioPlayerStatus.Paused);
     });
 
     it('starts the next track unpaused', async () => {

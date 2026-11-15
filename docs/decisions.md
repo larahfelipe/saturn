@@ -97,7 +97,9 @@ structurally:
 - **Lookups have a deadline.** A YouTube lookup can take several requests, each
   limited to 10 s by ytdl; the whole lookup is limited to 20 s.
 - **Controls are synchronous.** `pause`, `resume`, `skip` and `stop` change
-  state immediately and never queue behind a slow request.
+  state immediately and never queue behind a slow request. A pause or resume
+  that arrives in the moment between two tracks is refused (the user gets the
+  idle reply) instead of being confirmed and lost.
 - **Epochs.** Each activation of a player owns an `AbortController`. `stop`,
   disposal and voice loss abort it, which cancels resolution, connection and
   playback in progress. Every continuation re-checks the signal, so work from a
