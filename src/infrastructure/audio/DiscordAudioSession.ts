@@ -121,6 +121,7 @@ export class DiscordAudioSession implements AudioSession {
       reject(new AudioStreamError('Audio stream did not start'));
     }, this.#startTimeoutMs);
 
+    let started = false;
     let input: Readable | undefined;
     let resource: AudioResource | undefined;
     try {
@@ -130,12 +131,17 @@ export class DiscordAudioSession implements AudioSession {
         bitrateKbps: this.#bitrateKbps,
         signal: track.signal,
       });
-      completion.catch(reject);
+      completion.catch((error: unknown) => {
+        // Once audio plays, the player drains what is buffered and `ended`
+        // reports the failure.
+        if (!started) reject(error);
+      });
       const playing = createAudioResource(output, { inputType: StreamType.OggOpus });
       resource = playing;
       this.#active = {
         resource: playing,
         started: () => {
+          started = true;
           clearTimeout(startTimer);
         },
         ended: () => {

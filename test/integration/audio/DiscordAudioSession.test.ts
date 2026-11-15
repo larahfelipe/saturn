@@ -8,12 +8,19 @@ import {
   VoiceConnectionDisconnectReason,
   VoiceConnectionStatus,
   type AudioPlayer,
+  type AudioPlayerPlayingState,
 } from '@discordjs/voice';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AudioStreamError, VoiceConnectionError } from '../../../src/application/errors.ts';
 import { DiscordAudioSession } from '../../../src/infrastructure/audio/DiscordAudioSession.ts';
-import { fakeFfmpeg, oggOpus, oggOpusHeaders, type FakeFfmpeg } from '../../fixtures/audio.ts';
+import {
+  fakeFfmpeg,
+  FRAME_MS,
+  oggOpus,
+  oggOpusHeaders,
+  type FakeFfmpeg,
+} from '../../fixtures/audio.ts';
 import { RecordingLogger } from '../../fixtures/fakes.ts';
 import { FakeVoiceConnection, StreamSource } from '../../fixtures/voice.ts';
 
@@ -194,6 +201,20 @@ describe('DiscordAudioSession', () => {
 
       await expect(playback).rejects.toThrow(new AudioStreamError('Audio source stream failed'));
       expect(player.state.status).toBe(AudioPlayerStatus.Idle);
+    });
+
+    it('plays the buffered audio before reporting a source failure', async () => {
+      const frames = 50;
+      const session = createSession();
+      const source = new StreamSource(oggOpus(frames), { end: false });
+      const playback = session.play(source, new AbortController().signal);
+      await entersState(player, AudioPlayerStatus.Playing, 2000);
+      const { resource } = player.state as AudioPlayerPlayingState;
+
+      source.stream?.destroy(new Error('connection reset'));
+
+      await expect(playback).rejects.toThrow(new AudioStreamError('Audio source stream failed'));
+      expect(resource.playbackDuration).toBe(frames * FRAME_MS);
     });
 
     it('rejects when the stream stops delivering audio', async () => {
