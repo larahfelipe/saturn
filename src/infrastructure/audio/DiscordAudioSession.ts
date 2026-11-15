@@ -176,6 +176,7 @@ export class DiscordAudioSession implements AudioSession {
     this.#lifetime.abort(new VoiceConnectionError('Audio session destroyed'));
     this.#connection.off('stateChange', this.#onConnectionState);
     this.#player.off('stateChange', this.#onPlayerState);
+    this.#player.off('error', this.#onPlayerError);
     this.#player.stop(true);
     this.#subscription.unsubscribe();
     if (this.#connection.state.status !== VoiceConnectionStatus.Destroyed) {

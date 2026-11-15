@@ -253,6 +253,17 @@ describe('DiscordAudioSession', () => {
       ).rejects.toThrow(VoiceConnectionError);
     });
 
+    it('removes every listener it added', () => {
+      const events = ['stateChange', 'error'] as const;
+      const before = events.map((event) => player.listenerCount(event));
+      const connectionListeners = connection.listenerCount('stateChange');
+
+      createSession().destroy();
+
+      expect(events.map((event) => player.listenerCount(event))).toEqual(before);
+      expect(connection.listenerCount('stateChange')).toBe(connectionListeners);
+    });
+
     it('refuses a connection that is already destroyed', () => {
       connection.destroy();
 
