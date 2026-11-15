@@ -30,6 +30,7 @@ export interface VoiceChannelInfo {
 }
 
 /** Returns the voice channel behind `target`, or `undefined` if it is not a reachable voice channel. */
+/** @throws VoiceChannelUnusableError when the bot could not join or be heard there. */
 export type VoiceChannelLookup = (target: VoiceTarget) => VoiceChannelInfo | undefined;
 
 export type JoinVoiceChannel = (

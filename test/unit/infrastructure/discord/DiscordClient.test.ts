@@ -1,6 +1,7 @@
-import { Client, Events } from 'discord.js';
+import { ChannelType, Client, Collection, Events, type Guild } from 'discord.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { VoiceChannelUnusableError } from '../../../../src/application/errors.ts';
 import { CommandRegistry } from '../../../../src/infrastructure/discord/CommandRegistry.ts';
 import {
   COMMAND_DEFINITIONS,
@@ -43,6 +44,66 @@ describe('DiscordClient', () => {
     expect(create().voiceChannel({ guildId: GUILD_ID, channelId: VOICE_CHANNEL_ID })).toBe(
       undefined,
     );
+  });
+
+  describe('voice channel checks', () => {
+    const target = { guildId: GUILD_ID, channelId: VOICE_CHANNEL_ID };
+    const adapterCreator = vi.fn();
+
+    interface ChannelSetup {
+      readonly type?: ChannelType;
+      readonly afk?: boolean;
+      readonly joinable?: boolean;
+      readonly full?: boolean;
+      readonly speakable?: boolean;
+      readonly memberCached?: boolean;
+    }
+
+    function withChannel(setup: ChannelSetup = {}): DiscordClient {
+      const discord = create();
+      const channel = {
+        id: VOICE_CHANNEL_ID,
+        type: setup.type ?? ChannelType.GuildVoice,
+        bitrate: 96_000,
+        joinable: setup.joinable ?? true,
+        full: setup.full ?? false,
+        speakable: setup.speakable ?? true,
+        isVoiceBased: () => true,
+      };
+      const guild = {
+        id: GUILD_ID,
+        afkChannelId: setup.afk === true ? VOICE_CHANNEL_ID : null,
+        members: { me: setup.memberCached === false ? null : {} },
+        voiceAdapterCreator: adapterCreator,
+        channels: { cache: new Collection([[VOICE_CHANNEL_ID, channel]]) },
+      };
+      client.guilds.cache.set(GUILD_ID, guild as unknown as Guild);
+      return discord;
+    }
+
+    it('returns a channel the bot can join and speak in', () => {
+      expect(withChannel().voiceChannel(target)).toEqual({ adapterCreator, bitrate: 96_000 });
+    });
+
+    it.each([
+      ['a stage channel', { type: ChannelType.GuildStageVoice }, 'stage'],
+      ['the AFK channel', { afk: true }, 'afk'],
+      ['a full channel', { joinable: false, full: true }, 'full'],
+      ['a channel it cannot join', { joinable: false }, 'missing-permissions'],
+      ['a channel it cannot speak in', { speakable: false }, 'missing-permissions'],
+    ] as const)('refuses %s', (_, setup, problem) => {
+      const discord = withChannel(setup);
+
+      expect(() => discord.voiceChannel(target)).toThrow(VoiceChannelUnusableError);
+      expect(() => discord.voiceChannel(target)).toThrow(expect.objectContaining({ problem }));
+    });
+
+    it('leaves permissions to the join while its own member is not cached', () => {
+      expect(withChannel({ memberCached: false, joinable: false }).voiceChannel(target)).toEqual({
+        adapterCreator,
+        bitrate: 96_000,
+      });
+    });
   });
 
   it('propagates a failed login without synchronizing commands', async () => {

@@ -1,7 +1,10 @@
 import { VoiceConnectionStatus, type DiscordGatewayAdapterCreator } from '@discordjs/voice';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { VoiceConnectionError } from '../../../src/application/errors.ts';
+import {
+  VoiceChannelUnusableError,
+  VoiceConnectionError,
+} from '../../../src/application/errors.ts';
 import type { VoiceTarget } from '../../../src/application/ports/Voice.ts';
 import { DiscordAudioSession } from '../../../src/infrastructure/audio/DiscordAudioSession.ts';
 import {
@@ -31,8 +34,12 @@ describe('VoiceConnectionManager', () => {
     joins = [];
     logger = new RecordingLogger();
     manager = new VoiceConnectionManager({
-      channels: (target) =>
-        target.channelId === TARGET.channelId ? { adapterCreator, bitrate: 64_000 } : undefined,
+      channels: (target) => {
+        if (target.channelId === 'stage-1') throw new VoiceChannelUnusableError('stage');
+        return target.channelId === TARGET.channelId
+          ? { adapterCreator, bitrate: 64_000 }
+          : undefined;
+      },
       ffmpegPath: fakeFfmpeg('passthrough'),
       logger,
       joinTimeoutMs: 100,
@@ -63,6 +70,13 @@ describe('VoiceConnectionManager', () => {
     await expect(manager.connect({ ...TARGET, channelId: 'text-1' }, options())).rejects.toThrow(
       new VoiceConnectionError('Voice channel is not available'),
     );
+    expect(joins).toHaveLength(0);
+  });
+
+  it('rejects a channel the bot cannot play in without joining', async () => {
+    const error = manager.connect({ ...TARGET, channelId: 'stage-1' }, options());
+
+    await expect(error).rejects.toThrow(VoiceChannelUnusableError);
     expect(joins).toHaveLength(0);
   });
 

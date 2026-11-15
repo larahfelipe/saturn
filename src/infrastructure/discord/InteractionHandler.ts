@@ -15,7 +15,9 @@ import {
   TrackResolutionError,
   TrackUnavailableError,
   UserInputError,
+  VoiceChannelUnusableError,
   VoiceConnectionError,
+  type VoiceChannelProblem,
 } from '../../application/errors.ts';
 import type { PlaybackService } from '../../application/music/PlaybackService.ts';
 import type { Logger } from '../../application/ports/Logger.ts';
@@ -45,6 +47,13 @@ export interface InteractionHandlerOptions {
 
 const UNEXPECTED_ERROR_MESSAGE = 'Something went wrong. Please, try again later';
 
+const VOICE_CHANNEL_MESSAGES: Readonly<Record<VoiceChannelProblem, string>> = {
+  stage: 'I cannot play in stage channels. Please, join a voice channel',
+  afk: 'I cannot play in the AFK channel. Please, join another voice channel',
+  full: 'Your voice channel is full',
+  'missing-permissions': 'I need permission to connect and speak in your voice channel',
+};
+
 /** Maps errors users can act on, or that are expected from external services, to reply texts. */
 export function userErrorMessage(error: unknown): string | undefined {
   if (error instanceof InvalidTrackUrlError) {
@@ -56,6 +65,7 @@ export function userErrorMessage(error: unknown): string | undefined {
   if (error instanceof TrackUnavailableError || error instanceof TrackResolutionError) {
     return 'Something went wrong while searching your song. Please, try again later';
   }
+  if (error instanceof VoiceChannelUnusableError) return VOICE_CHANNEL_MESSAGES[error.problem];
   if (error instanceof NotInVoiceChannelError || error instanceof VoiceConnectionError) {
     return 'Something went wrong while trying to join the party. Please, try again later';
   }

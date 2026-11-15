@@ -18,6 +18,18 @@ export class NotInVoiceChannelError extends UserInputError {
   }
 }
 
+export type VoiceChannelProblem = 'stage' | 'afk' | 'full' | 'missing-permissions';
+
+/** The bot cannot join, or would not be heard in, the requester's voice channel. */
+export class VoiceChannelUnusableError extends UserInputError {
+  readonly problem: VoiceChannelProblem;
+
+  constructor(problem: VoiceChannelProblem) {
+    super(`Cannot play in this voice channel: ${problem}`);
+    this.problem = problem;
+  }
+}
+
 export class TrackUnavailableError extends ExternalServiceError {
   readonly reason: string;
 

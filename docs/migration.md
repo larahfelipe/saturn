@@ -121,6 +121,9 @@ Intentional differences from `master`; see [decisions](decisions.md).
 - New replies: `Playback was stopped before your song could be added` (stop
   during resolution), `Saturn is shutting down. Please, try again later`, and
   `Something went wrong. Please, try again later` for unexpected errors.
+- `play` refuses stage channels, the AFK channel, full channels and channels
+  where the bot lacks Connect or Speak before joining, each with its own reply.
+  Go joined them anyway: a timeout, or silence after `Now playing`.
 - Every button interaction is acknowledged. Malformed IDs, unsupported actions
   and IDs naming another guild reply with the ephemeral failure text.
 - `saturn_commands_processed_total` exports every command at zero from startup,

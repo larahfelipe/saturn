@@ -1,7 +1,17 @@
 import { once } from 'node:events';
 
-import { ActivityType, Client, Events, GatewayIntentBits, type Interaction } from 'discord.js';
+import {
+  ActivityType,
+  ChannelType,
+  Client,
+  Events,
+  GatewayIntentBits,
+  type Guild,
+  type Interaction,
+  type VoiceBasedChannel,
+} from 'discord.js';
 
+import { VoiceChannelUnusableError, type VoiceChannelProblem } from '../../application/errors.ts';
 import type { Logger } from '../../application/ports/Logger.ts';
 import type { VoiceTarget } from '../../application/ports/Voice.ts';
 import type { VoiceChannelInfo } from '../audio/VoiceConnectionManager.ts';
@@ -74,10 +84,13 @@ export class DiscordClient {
     this.#onGatewayLost = handler;
   }
 
+  /** @throws VoiceChannelUnusableError when the bot could not join or be heard there. */
   voiceChannel(target: VoiceTarget): VoiceChannelInfo | undefined {
     const guild = this.#client.guilds.cache.get(target.guildId);
     const channel = guild?.channels.cache.get(target.channelId);
     if (guild === undefined || channel?.isVoiceBased() !== true) return undefined;
+    const problem = voiceChannelProblem(guild, channel);
+    if (problem !== undefined) throw new VoiceChannelUnusableError(problem);
     return { adapterCreator: guild.voiceAdapterCreator, bitrate: channel.bitrate };
   }
 
@@ -111,4 +124,21 @@ export class DiscordClient {
     this.#stopping = true;
     await this.#client.destroy();
   }
+}
+
+/**
+ * Stage channels join the bot as a suppressed listener and the AFK channel
+ * mutes everyone, so neither can play audio.
+ */
+function voiceChannelProblem(
+  guild: Guild,
+  channel: VoiceBasedChannel,
+): VoiceChannelProblem | undefined {
+  if (channel.type === ChannelType.GuildStageVoice) return 'stage';
+  if (channel.id === guild.afkChannelId) return 'afk';
+  // The permission getters read the bot's own member; without it, let the join decide.
+  if (guild.members.me === null) return undefined;
+  if (!channel.joinable) return channel.full ? 'full' : 'missing-permissions';
+  if (!channel.speakable) return 'missing-permissions';
+  return undefined;
 }

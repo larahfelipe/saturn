@@ -9,6 +9,7 @@ import {
   PlayerUnavailableError,
   TrackResolutionError,
   TrackUnavailableError,
+  VoiceChannelUnusableError,
   VoiceConnectionError,
 } from '../../../src/application/errors.ts';
 import { PlaybackService } from '../../../src/application/music/PlaybackService.ts';
@@ -409,6 +410,19 @@ describe('userErrorMessage', () => {
     [
       new VoiceConnectionError('lost'),
       'Something went wrong while trying to join the party. Please, try again later',
+    ],
+    [
+      new VoiceChannelUnusableError('stage'),
+      'I cannot play in stage channels. Please, join a voice channel',
+    ],
+    [
+      new VoiceChannelUnusableError('afk'),
+      'I cannot play in the AFK channel. Please, join another voice channel',
+    ],
+    [new VoiceChannelUnusableError('full'), 'Your voice channel is full'],
+    [
+      new VoiceChannelUnusableError('missing-permissions'),
+      'I need permission to connect and speak in your voice channel',
     ],
     [new PlaybackCancelledError(), 'Playback was stopped before your song could be added'],
     [new PlayerUnavailableError(), 'Saturn is shutting down. Please, try again later'],
