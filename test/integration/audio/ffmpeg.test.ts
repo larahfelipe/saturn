@@ -35,6 +35,22 @@ describe('encodeOggOpus', () => {
     );
   });
 
+  it('blames FFmpeg, not the input, when FFmpeg exits before reading all input', async () => {
+    // The input is torn down as FFmpeg exits; under load that used to win the
+    // race against the exit status, so run enough encodes to expose it.
+    const runs = Array.from({ length: 24 }, () => {
+      const input = new PassThrough();
+      input.write('some audio');
+      const { completion } = encode(fakeFfmpeg('failing'), input);
+      return { input, completion };
+    });
+
+    for (const { input, completion } of runs) {
+      await expect(completion).rejects.toThrow(/^FFmpeg exited with code 1: /);
+      expect(input.destroyed).toBe(true);
+    }
+  });
+
   it('kills FFmpeg and releases the input when aborted', async () => {
     const input = new PassThrough();
     const controller = new AbortController();

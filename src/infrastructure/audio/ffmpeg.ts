@@ -1,6 +1,5 @@
 import { execFile, spawn } from 'node:child_process';
 import type { Readable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
 import { promisify } from 'node:util';
 
 import { AudioStreamError } from '../../application/errors.ts';
@@ -54,13 +53,16 @@ export function encodeOggOpus(input: Readable, options: OpusEncodeOptions): Opus
     killSignal: 'SIGKILL',
   });
 
+  // Not `pipeline`: when FFmpeg exits before reading all input, it would
+  // destroy the input with the resulting EPIPE, indistinguishable from a
+  // source failure. FFmpeg's exit status decides the outcome instead.
   let inputError: unknown;
-  input.once('error', (error) => {
-    inputError = error;
+  input.on('error', (error) => {
+    inputError ??= error;
+    child.stdin.destroy();
   });
-  // Rejects with EPIPE when FFmpeg exits before consuming all input; the exit
-  // status is what decides the outcome.
-  pipeline(input, child.stdin).catch(() => undefined);
+  child.stdin.on('error', () => undefined);
+  input.pipe(child.stdin);
 
   let stderr = '';
   child.stderr.setEncoding('utf8');
@@ -74,6 +76,7 @@ export function encodeOggOpus(input: Readable, options: OpusEncodeOptions): Opus
   });
   const exited = new Promise<[number | null, NodeJS.Signals | null]>((resolve) => {
     child.once('close', (code, exitSignal) => {
+      input.destroy();
       resolve([code, exitSignal]);
     });
   });
