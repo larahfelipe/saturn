@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   PlaybackCancelledError,
   PlayerUnavailableError,
+  QueueFullError,
   TrackUnavailableError,
   VoiceConnectionError,
 } from '../../../src/application/errors.ts';
@@ -183,6 +184,54 @@ describe('GuildPlayer', () => {
       expect(logger.at('error')).toMatchObject([
         { message: 'track playback failed', context: { trackId: 'aaaaaaaaaaa' } },
       ]);
+    });
+  });
+
+  describe('queue limit', () => {
+    beforeEach(() => {
+      player = new GuildPlayer({
+        guildId: 'guild-1',
+        resolver,
+        voice,
+        logger,
+        onIdle,
+        maxQueueLength: 2,
+      });
+    });
+
+    it('refuses requests once the queue is full', async () => {
+      await player.play(request('aaaaaaaaaaa'));
+      await player.play(request('bbbbbbbbbbb'));
+      await player.play(request('ccccccccccc'));
+
+      await expect(player.play(request('ddddddddddd'))).rejects.toThrow(QueueFullError);
+      expect(resolver.calls).toHaveLength(3);
+      expect(player.upcoming.map(({ id }) => id)).toEqual(['bbbbbbbbbbb', 'ccccccccccc']);
+    });
+
+    it('counts requests still resolving', async () => {
+      resolver.manual = true;
+      const pending = [player.play(request('aaaaaaaaaaa')), player.play(request('bbbbbbbbbbb'))];
+
+      await expect(player.play(request('ccccccccccc'))).rejects.toThrow(QueueFullError);
+      expect(resolver.calls).toHaveLength(2);
+      player.stop();
+      for (const play of pending) await expect(play).rejects.toThrow(PlaybackCancelledError);
+    });
+
+    it('accepts requests again once the queue has room', async () => {
+      await player.play(request('aaaaaaaaaaa'));
+      await player.play(request('bbbbbbbbbbb'));
+      await player.play(request('ccccccccccc'));
+      await flush();
+
+      session().current?.finish();
+      await flush();
+
+      await expect(player.play(request('ddddddddddd'))).resolves.toMatchObject({
+        status: 'queued',
+        position: 2,
+      });
     });
   });
 

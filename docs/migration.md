@@ -124,6 +124,9 @@ Intentional differences from `master`; see [decisions](decisions.md).
 - `play` refuses stage channels, the AFK channel, full channels and channels
   where the bot lacks Connect or Speak before joining, each with its own reply.
   Go joined them anyway: a timeout, or silence after `Now playing`.
+- A guild's queue holds at most 100 songs; beyond that `play` replies
+  `The queue is full (100 songs). Please, try again later`. Go's queue was
+  unbounded.
 - Every button interaction is acknowledged. Malformed IDs, unsupported actions
   and IDs naming another guild reply with the ephemeral failure text.
 - `saturn_commands_processed_total` exports every command at zero from startup,

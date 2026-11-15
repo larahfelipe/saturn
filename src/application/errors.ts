@@ -58,6 +58,15 @@ export class VoiceConnectionError extends ExternalServiceError {}
 
 export class AudioStreamError extends ExternalServiceError {}
 
+export class QueueFullError extends UserInputError {
+  readonly limit: number;
+
+  constructor(limit: number) {
+    super(`The queue already holds ${limit} songs`);
+    this.limit = limit;
+  }
+}
+
 /** A pending request was cancelled because playback was stopped. */
 export class PlaybackCancelledError extends SaturnError {
   constructor() {

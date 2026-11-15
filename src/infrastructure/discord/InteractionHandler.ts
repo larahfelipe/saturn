@@ -12,6 +12,7 @@ import {
   NotInVoiceChannelError,
   PlaybackCancelledError,
   PlayerUnavailableError,
+  QueueFullError,
   TrackResolutionError,
   TrackUnavailableError,
   UserInputError,
@@ -68,6 +69,9 @@ export function userErrorMessage(error: unknown): string | undefined {
   if (error instanceof VoiceChannelUnusableError) return VOICE_CHANNEL_MESSAGES[error.problem];
   if (error instanceof NotInVoiceChannelError || error instanceof VoiceConnectionError) {
     return 'Something went wrong while trying to join the party. Please, try again later';
+  }
+  if (error instanceof QueueFullError) {
+    return `The queue is full (${error.limit} songs). Please, try again later`;
   }
   if (error instanceof PlaybackCancelledError) {
     return 'Playback was stopped before your song could be added';

@@ -8,7 +8,12 @@ import {
 } from '../../domain/music/PlaybackState.ts';
 import type { Track } from '../../domain/music/Track.ts';
 import { TrackQueue } from '../../domain/music/TrackQueue.ts';
-import { PlaybackCancelledError, PlayerUnavailableError, VoiceConnectionError } from '../errors.ts';
+import {
+  PlaybackCancelledError,
+  PlayerUnavailableError,
+  QueueFullError,
+  VoiceConnectionError,
+} from '../errors.ts';
 import type { Logger } from '../ports/Logger.ts';
 import type { ResolvedTrack, TrackResolver } from '../ports/TrackResolver.ts';
 import type { AudioSession, VoiceConnector } from '../ports/Voice.ts';
@@ -23,11 +28,16 @@ export type PlayResult =
   | { readonly status: 'playing'; readonly track: Track }
   | { readonly status: 'queued'; readonly track: Track; readonly position: number };
 
+/** Default for `GuildPlayerOptions.maxQueueLength`. */
+export const MAX_QUEUE_LENGTH = 100;
+
 export interface GuildPlayerOptions {
   readonly guildId: string;
   readonly resolver: TrackResolver;
   readonly voice: VoiceConnector;
   readonly logger: Logger;
+  /** Queued tracks plus requests in flight beyond which `play` is refused. */
+  readonly maxQueueLength?: number;
   /** Called when the player has no playback and no pending requests left. */
   readonly onIdle?: () => void;
 }
@@ -46,6 +56,7 @@ export class GuildPlayer {
   readonly #resolver: TrackResolver;
   readonly #voice: VoiceConnector;
   readonly #logger: Logger;
+  readonly #maxQueueLength: number;
   readonly #onIdle: (() => void) | undefined;
 
   readonly #queue = new TrackQueue<ResolvedTrack>();
@@ -62,6 +73,7 @@ export class GuildPlayer {
     this.#resolver = options.resolver;
     this.#voice = options.voice;
     this.#logger = options.logger;
+    this.#maxQueueLength = options.maxQueueLength ?? MAX_QUEUE_LENGTH;
     this.#onIdle = options.onIdle;
   }
 
@@ -88,11 +100,15 @@ export class GuildPlayer {
   }
 
   /**
-   * @throws PlayerUnavailableError when disposed, PlaybackCancelledError when
-   *   stopped before completion, or a resolver / voice connector error.
+   * @throws PlayerUnavailableError when disposed, QueueFullError, PlaybackCancelledError
+   *   when stopped before completion, or a resolver / voice connector error.
    */
   async play(request: PlayRequest): Promise<PlayResult> {
     if (this.#disposed) throw new PlayerUnavailableError();
+    // Counting requests in flight keeps the queue within the limit once they land.
+    if (this.#queue.size + this.#pending >= this.#maxQueueLength) {
+      throw new QueueFullError(this.#maxQueueLength);
+    }
     const epoch = this.#epoch.signal;
     this.#pending++;
     try {

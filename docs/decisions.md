@@ -113,6 +113,9 @@ structurally:
 - **Players exist only while needed.** The registry drops a player once it
   has no playback and no pending requests. An idle guild holds no memory,
   connection or process.
+- **Bounded queues.** A guild holds at most 100 queued songs, counting
+  requests still resolving. Further `play` requests are refused before any
+  YouTube lookup.
 - **One owner per resource.** The audio session owns the voice connection. A
   track's abort signal owns its FFmpeg process (spawned with that signal and
   killed with `SIGKILL`) and destroys the source stream. Every exit path

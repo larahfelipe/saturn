@@ -2,12 +2,13 @@ import { PlayerUnavailableError } from '../errors.ts';
 import type { Logger } from '../ports/Logger.ts';
 import type { TrackResolver } from '../ports/TrackResolver.ts';
 import type { VoiceConnector } from '../ports/Voice.ts';
-import { GuildPlayer } from './GuildPlayer.ts';
+import { GuildPlayer, MAX_QUEUE_LENGTH } from './GuildPlayer.ts';
 
 export interface PlayerRegistryOptions {
   readonly resolver: TrackResolver;
   readonly voice: VoiceConnector;
   readonly logger: Logger;
+  readonly maxQueueLength?: number;
 }
 
 /**
@@ -54,6 +55,7 @@ export class PlayerRegistry {
       resolver: this.#options.resolver,
       voice: this.#options.voice,
       logger: this.#options.logger.child({ guildId }),
+      maxQueueLength: this.#options.maxQueueLength ?? MAX_QUEUE_LENGTH,
       onIdle: () => {
         this.#release(guildId, player);
       },
