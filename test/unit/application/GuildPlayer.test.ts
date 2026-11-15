@@ -131,7 +131,7 @@ describe('GuildPlayer', () => {
       expect(onIdle).toHaveBeenCalledOnce();
     });
 
-    it('preserves arrival order for concurrent requests', async () => {
+    it('resolves concurrent requests in parallel and enqueues them in arrival order', async () => {
       resolver.manual = true;
       const results = [
         player.play(request('aaaaaaaaaaa')),
@@ -140,8 +140,8 @@ describe('GuildPlayer', () => {
       ];
       await flush();
 
-      expect(resolver.calls).toHaveLength(1);
-      for (let index = 0; index < 3; index++) {
+      expect(resolver.calls).toHaveLength(3);
+      for (const index of [2, 1, 0]) {
         const call = resolver.calls[index];
         call?.deferred.resolve(call.result);
         await flush();
@@ -153,6 +153,22 @@ describe('GuildPlayer', () => {
         { status: 'queued', position: 2, track: { id: 'ccccccccccc' } },
       ]);
       expect(voice.calls).toHaveLength(1);
+    });
+
+    it('fails only the request whose lookup failed while waiting its turn', async () => {
+      resolver.manual = true;
+      const first = player.play(request('aaaaaaaaaaa'));
+      const second = player.play(request('bbbbbbbbbbb'));
+      await flush();
+
+      resolver.calls[1]?.deferred.reject(new TrackUnavailableError('PRIVATE'));
+      await flush();
+      const call = resolver.calls[0];
+      call?.deferred.resolve(call.result);
+
+      await expect(first).resolves.toMatchObject({ status: 'playing' });
+      await expect(second).rejects.toThrow(TrackUnavailableError);
+      expect(player.upcoming).toEqual([]);
     });
 
     it('skips a track whose stream fails and logs the failure', async () => {
@@ -315,7 +331,7 @@ describe('GuildPlayer', () => {
 
       await expect(first).rejects.toThrow(PlaybackCancelledError);
       await expect(second).rejects.toThrow(PlaybackCancelledError);
-      expect(resolver.calls).toHaveLength(1);
+      expect(resolver.calls.every(({ signal }) => signal.aborted)).toBe(true);
     });
 
     it('rejects other controls but stops while waiting for a request', async () => {

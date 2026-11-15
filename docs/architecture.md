@@ -75,8 +75,9 @@ module-level mutable state. The ports are where the tests substitute fakes.
 Discord ─interaction→ DiscordClient ─→ InteractionHandler
   defer reply (before any I/O, inside Discord's 3 s window)
   → play handler → PlaybackService.play(guild, url, user, voice channel)
-    → PlayerRegistry.acquire(guild) → GuildPlayer.play     (serialized per guild)
-      1. TrackResolver.resolve(url)          metadata + lazy AudioSource
+    → PlayerRegistry.acquire(guild) → GuildPlayer.play
+      1. TrackResolver.resolve(url)          metadata + lazy AudioSource, starts at once
+      ── wait for earlier requests of the guild (arrival order) ──
       2. VoiceConnector.connect(channel)     only when not connected yet
       3. TrackQueue.enqueue → position
       4. start the playback loop if nothing is playing

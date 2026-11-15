@@ -89,10 +89,13 @@ interaction can run. Go's implementation had races between stop/skip,
 in-flight resolution and stream completion. The TypeScript design removes them
 structurally:
 
-- **`play` requests are serialized per guild.** Each runs resolve → connect →
-  enqueue to completion before the next starts, chained on a promise tail.
+- **`play` requests are ordered per guild.** Lookups start at once and run in
+  parallel, so a slow one does not delay the others. Connecting and enqueueing
+  then run one request at a time, in arrival order, chained on a promise tail.
   Queue positions are assigned atomically by `enqueue`, and guilds never wait
   on each other.
+- **Lookups have a deadline.** A YouTube lookup can take several requests, each
+  limited to 10 s by ytdl; the whole lookup is limited to 20 s.
 - **Controls are synchronous.** `pause`, `resume`, `skip` and `stop` change
   state immediately and never queue behind a slow request.
 - **Epochs.** Each activation of a player owns an `AbortController`. `stop`,

@@ -35,9 +35,9 @@ export interface GuildPlayerOptions {
 /**
  * Playback coordinator for one guild.
  *
- * Play requests run one at a time, in arrival order (resolve, connect,
- * enqueue). Controls are synchronous state changes, so they never wait behind
- * a slow request. Each activation owns an epoch `AbortController`; stopping
+ * Play requests resolve concurrently, then connect and enqueue one at a time,
+ * in arrival order. Controls are synchronous state changes, so they never wait
+ * behind a slow request. Each activation owns an epoch `AbortController`; stopping
  * aborts it, which cancels in-flight resolution, connection and playback, and
  * makes every continuation of that epoch a no-op.
  */
@@ -96,7 +96,11 @@ export class GuildPlayer {
     const epoch = this.#epoch.signal;
     this.#pending++;
     try {
-      return await this.#serialize(() => this.#play(request, epoch));
+      const { url, requestedBy } = request;
+      const resolution = this.#resolver.resolve({ url, requestedBy }, epoch);
+      // Awaited in turn by #play; a rejection must not go unhandled until then.
+      resolution.catch(() => undefined);
+      return await this.#serialize(() => this.#play(request, resolution, epoch));
     } finally {
       this.#pending--;
       if (this.#pending === 0 && this.#state.status === 'waiting') this.#finish();
@@ -138,10 +142,13 @@ export class GuildPlayer {
     if (!this.isIdle) this.#halt(new PlayerUnavailableError());
   }
 
-  async #play(request: PlayRequest, epoch: AbortSignal): Promise<PlayResult> {
+  async #play(
+    request: PlayRequest,
+    resolution: Promise<ResolvedTrack>,
+    epoch: AbortSignal,
+  ): Promise<PlayResult> {
     epoch.throwIfAborted();
-    const { url, requestedBy } = request;
-    const resolved = await this.#resolver.resolve({ url, requestedBy }, epoch);
+    const resolved = await resolution;
     epoch.throwIfAborted();
 
     const session = this.#session ?? (await this.#connect(request.voiceChannelId, epoch));
