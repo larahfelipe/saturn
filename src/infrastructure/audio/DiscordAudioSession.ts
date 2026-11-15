@@ -1,9 +1,11 @@
 import type { Readable } from 'node:stream';
+import { setTimeout as sleep } from 'node:timers/promises';
 
 import {
   AudioPlayerStatus,
   createAudioResource,
   StreamType,
+  VoiceConnectionDisconnectReason,
   VoiceConnectionStatus,
   type AudioPlayer,
   type AudioPlayerError,
@@ -29,13 +31,20 @@ export interface DiscordAudioSessionOptions {
   readonly bitrateKbps: number;
   readonly logger: Logger;
   readonly onLost: (error: Error) => void;
-  /** How long a disconnected connection may take to start reconnecting. */
+  /** How long Discord may take to reconnect a connection it closed (moved channel). */
   readonly reconnectTimeoutMs: number;
   /** How long a reconnecting connection may take to become ready again. */
   readonly readyTimeoutMs: number;
+  /** Wait before the first rejoin; each further attempt waits that much longer. */
+  readonly rejoinDelayMs: number;
   /** How long a track may take to deliver its first audio. */
   readonly startTimeoutMs: number;
 }
+
+/** Disconnects in a row a recovery handles before the session is lost. */
+const MAX_RECONNECT_ATTEMPTS = 5;
+/** Discord closed the connection: kicked, moved to another channel, or channel deleted. */
+const CLOSE_CODE_DISCONNECTED = 4014;
 
 interface ActiveTrack {
   readonly resource: AudioResource;
@@ -59,10 +68,12 @@ export class DiscordAudioSession implements AudioSession {
   readonly #onLost: (error: Error) => void;
   readonly #reconnectTimeoutMs: number;
   readonly #readyTimeoutMs: number;
+  readonly #rejoinDelayMs: number;
   readonly #startTimeoutMs: number;
 
   readonly #lifetime = new AbortController();
   #active: ActiveTrack | undefined;
+  #recovering = false;
   /** Requested pause; reapplied when the player (re)enters the playing state. */
   #paused = false;
 
@@ -76,6 +87,7 @@ export class DiscordAudioSession implements AudioSession {
     this.#onLost = options.onLost;
     this.#reconnectTimeoutMs = options.reconnectTimeoutMs;
     this.#readyTimeoutMs = options.readyTimeoutMs;
+    this.#rejoinDelayMs = options.rejoinDelayMs;
     this.#startTimeoutMs = options.startTimeoutMs;
 
     const subscription = this.#connection.subscribe(this.#player);
@@ -191,31 +203,65 @@ export class DiscordAudioSession implements AudioSession {
   };
 
   readonly #onConnectionState = (_: VoiceConnectionState, next: VoiceConnectionState): void => {
-    if (next.status === VoiceConnectionStatus.Disconnected) void this.#recover();
-    else if (next.status === VoiceConnectionStatus.Destroyed) {
+    if (next.status === VoiceConnectionStatus.Destroyed) {
       this.#lose(new VoiceConnectionError('Voice connection was destroyed'));
+    } else if (next.status !== VoiceConnectionStatus.Ready && !this.#recovering) {
+      void this.#recover();
     }
   };
 
   /**
-   * A disconnect is transient when the connection starts signalling or
-   * connecting again (rejoin, channel move); otherwise the session is lost.
+   * Brings the connection back to ready, or loses the session. After close
+   * code 4014 only Discord can reconnect it (channel move); any other
+   * disconnect, such as the gateway being unavailable, is retried with
+   * `rejoin()`, waiting longer before each attempt.
    */
   async #recover(): Promise<void> {
+    this.#recovering = true;
     const lifetime = this.#lifetime.signal;
+    const within = (ms: number): AbortSignal =>
+      AbortSignal.any([lifetime, AbortSignal.timeout(ms)]);
+    let attempts = 0;
     try {
-      await waitForStatus(
-        this.#connection,
-        [VoiceConnectionStatus.Signalling, VoiceConnectionStatus.Connecting],
-        AbortSignal.any([lifetime, AbortSignal.timeout(this.#reconnectTimeoutMs)]),
-      );
-      await waitForStatus(
-        this.#connection,
-        [VoiceConnectionStatus.Ready],
-        AbortSignal.any([lifetime, AbortSignal.timeout(this.#readyTimeoutMs)]),
-      );
+      for (;;) {
+        const state = this.#connection.state;
+        if (state.status === VoiceConnectionStatus.Ready) return;
+        if (state.status !== VoiceConnectionStatus.Disconnected) {
+          await waitForStatus(
+            this.#connection,
+            [VoiceConnectionStatus.Ready, VoiceConnectionStatus.Disconnected],
+            within(this.#readyTimeoutMs),
+          );
+          continue;
+        }
+        if (++attempts > MAX_RECONNECT_ATTEMPTS) {
+          throw new VoiceConnectionError('Voice connection did not recover');
+        }
+        if (
+          state.reason === VoiceConnectionDisconnectReason.WebSocketClose &&
+          state.closeCode === CLOSE_CODE_DISCONNECTED
+        ) {
+          await waitForStatus(
+            this.#connection,
+            [
+              VoiceConnectionStatus.Signalling,
+              VoiceConnectionStatus.Connecting,
+              VoiceConnectionStatus.Ready,
+            ],
+            within(this.#reconnectTimeoutMs),
+          );
+        } else {
+          await sleep(attempts * this.#rejoinDelayMs, undefined, { signal: lifetime });
+          if (this.#connection.state.status === VoiceConnectionStatus.Disconnected) {
+            this.#logger.warn({ attempt: attempts }, 'voice connection rejoining');
+            this.#connection.rejoin();
+          }
+        }
+      }
     } catch (error) {
       this.#lose(new VoiceConnectionError('Voice connection lost', { cause: error }));
+    } finally {
+      this.#recovering = false;
     }
   }
 

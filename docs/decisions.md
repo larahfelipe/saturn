@@ -116,8 +116,11 @@ structurally:
   killed with `SIGKILL`) and destroys the source stream. Every exit path
   (finished, failed, skipped, stopped, shut down) goes through the same
   cleanup.
-- **Voice recovery.** A disconnect counts as transient if the connection starts
-  reconnecting within 5 s and becomes ready within 15 s. Otherwise the session
+- **Voice recovery.** After close code 4014 (kicked, moved or channel deleted)
+  only a channel move brings the connection back, so Discord must start
+  reconnecting it within 5 s. Any other disconnect, such as the gateway being
+  briefly unavailable, is retried with `rejoin()` after 2, 4, 6, 8 and 10 s. A
+  reconnecting connection must become ready within 15 s. Otherwise the session
   is destroyed and the player stops. Joining a channel times out after 15 s.
 - **Shutdown order:** players first, while the gateway is still up so voice
   disconnects are delivered, then the gateway, then the metrics server. Each

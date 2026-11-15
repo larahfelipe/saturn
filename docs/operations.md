@@ -103,6 +103,7 @@ Messages worth alerting or searching on:
 | `command failed`                                    | warn         | YouTube or voice failure reported to the user                      |
 | `command failed`, `interaction failed`              | error        | Unexpected error; the user got a generic reply                     |
 | `track playback failed`                             | error        | Stream or FFmpeg failure; the track was skipped                    |
+| `voice connection rejoining`                        | warn         | Voice disconnected; retrying (`attempt` 1–5)                       |
 | `voice connection lost`                             | warn         | Voice did not recover; the guild's playback stopped                |
 | `shutting down`, `shutdown complete`                | info         | Shutdown reason and exit code                                      |
 | `shutdown step failed` / `timed out`, `forced exit` | error / warn | Shutdown did not complete cleanly                                  |
@@ -163,6 +164,6 @@ process is needed.
 | `Something went wrong while searching your song`              | YouTube refused or the video is unavailable. `command failed` shows the code, e.g. `BOT_CHECK` (datacenter IP), `PRIVATE`, or `timed out` after 20 s.   |
 | `…trying to join the party`                                   | User not in a voice channel, bot lacks View Channels/Connect/Speak, or voice did not become ready within 15 s.                                          |
 | Tracks skip right after starting                              | `track playback failed`: the message includes FFmpeg's last error line or the stream error. `Audio stream did not start`: no audio arrived within 20 s. |
-| Bot leaves voice unexpectedly                                 | `voice connection lost`: kicked, channel deleted, or voice did not start reconnecting within 5 s and become ready within 15 s.                          |
+| Bot leaves voice unexpectedly                                 | `voice connection lost`: kicked, channel deleted, five rejoin attempts over 30 s failed, or a reconnect did not become ready within 15 s.               |
 | `/health` shows `-1ms`                                        | No heartbeat acknowledged yet after connecting. Retry after a minute.                                                                                   |
 | Discord shows "The application did not respond"               | Another instance uses the same token, or the process is overloaded or stopped. Check for `failed to respond to interaction`.                            |

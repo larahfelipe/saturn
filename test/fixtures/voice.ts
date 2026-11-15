@@ -1,7 +1,12 @@
 import { EventEmitter } from 'node:events';
 import { PassThrough, type Readable } from 'node:stream';
 
-import { VoiceConnectionStatus, type AudioPlayer, type VoiceConnection } from '@discordjs/voice';
+import {
+  VoiceConnectionDisconnectReason,
+  VoiceConnectionStatus,
+  type AudioPlayer,
+  type VoiceConnection,
+} from '@discordjs/voice';
 
 import type { AudioSource } from '../../src/application/ports/TrackResolver.ts';
 
@@ -11,17 +16,41 @@ export interface FakeSubscription {
   unsubscribe(): void;
 }
 
+export interface FakeDisconnect {
+  readonly reason?: VoiceConnectionDisconnectReason;
+  readonly closeCode?: number;
+}
+
 /** The part of `VoiceConnection` the audio adapters use, driven by the test. */
 export class FakeVoiceConnection extends EventEmitter {
-  state: { status: VoiceConnectionStatus } = { status: VoiceConnectionStatus.Signalling };
+  state: { status: VoiceConnectionStatus } & FakeDisconnect = {
+    status: VoiceConnectionStatus.Signalling,
+  };
   readonly subscriptions: FakeSubscription[] = [];
+  /** When each `rejoin()` call happened, from `performance.now()`. */
+  readonly rejoins: number[] = [];
+  /** How many `rejoin()` calls fail, like the real adapter while its gateway shard is down. */
+  failingRejoins = 0;
   destroyCount = 0;
 
-  setStatus(status: VoiceConnectionStatus): void {
+  setStatus(status: VoiceConnectionStatus, disconnect: FakeDisconnect = {}): void {
     const previous = this.state;
-    this.state = { status };
+    this.state = { status, ...disconnect };
     this.emit('stateChange', previous, this.state);
     this.emit(status, previous, this.state);
+  }
+
+  rejoin(): boolean {
+    if (this.state.status === VoiceConnectionStatus.Destroyed) return false;
+    this.rejoins.push(performance.now());
+    if (this.rejoins.length > this.failingRejoins) {
+      this.setStatus(VoiceConnectionStatus.Signalling);
+      return true;
+    }
+    this.setStatus(VoiceConnectionStatus.Disconnected, {
+      reason: VoiceConnectionDisconnectReason.AdapterUnavailable,
+    });
+    return false;
   }
 
   subscribe(player: AudioPlayer): FakeSubscription | undefined {

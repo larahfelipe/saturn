@@ -5,10 +5,11 @@ import {
   createAudioPlayer,
   entersState,
   NoSubscriberBehavior,
+  VoiceConnectionDisconnectReason,
   VoiceConnectionStatus,
   type AudioPlayer,
 } from '@discordjs/voice';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AudioStreamError, VoiceConnectionError } from '../../../src/application/errors.ts';
 import { DiscordAudioSession } from '../../../src/infrastructure/audio/DiscordAudioSession.ts';
@@ -18,6 +19,7 @@ import { FakeVoiceConnection, StreamSource } from '../../fixtures/voice.ts';
 
 const RECONNECT_TIMEOUT_MS = 50;
 const READY_TIMEOUT_MS = 100;
+const REJOIN_DELAY_MS = 10;
 const START_TIMEOUT_MS = 200;
 
 describe('DiscordAudioSession', () => {
@@ -25,19 +27,24 @@ describe('DiscordAudioSession', () => {
   let player: AudioPlayer;
   let statuses: AudioPlayerStatus[];
   let lost: Error[];
+  let sessions: DiscordAudioSession[];
+  let logger: RecordingLogger;
 
   function createSession(ffmpeg: FakeFfmpeg = 'passthrough'): DiscordAudioSession {
-    return new DiscordAudioSession({
+    const session = new DiscordAudioSession({
       connection: connection.asConnection(),
       player,
       ffmpegPath: fakeFfmpeg(ffmpeg),
       bitrateKbps: 64,
-      logger: new RecordingLogger(),
+      logger,
       onLost: (error) => lost.push(error),
       reconnectTimeoutMs: RECONNECT_TIMEOUT_MS,
       readyTimeoutMs: READY_TIMEOUT_MS,
+      rejoinDelayMs: REJOIN_DELAY_MS,
       startTimeoutMs: START_TIMEOUT_MS,
     });
+    sessions.push(session);
+    return session;
   }
 
   beforeEach(() => {
@@ -50,9 +57,12 @@ describe('DiscordAudioSession', () => {
     statuses = [];
     player.on('stateChange', (_, next) => statuses.push(next.status));
     lost = [];
+    sessions = [];
+    logger = new RecordingLogger();
   });
 
   afterEach(() => {
+    for (const session of sessions) session.destroy();
     player.stop(true);
   });
 
@@ -251,10 +261,25 @@ describe('DiscordAudioSession', () => {
   });
 
   describe('connection recovery', () => {
-    it('keeps the session when the connection reconnects', async () => {
+    const closedByDiscord = {
+      reason: VoiceConnectionDisconnectReason.WebSocketClose,
+      closeCode: 4014,
+    };
+    const gatewayUnavailable = { reason: VoiceConnectionDisconnectReason.AdapterUnavailable };
+
+    /** Lower bounds only: timers never fire early, but may fire late under load. */
+    function expectGrowingGaps(times: readonly number[]): void {
+      times.slice(1).forEach((time, index) => {
+        expect(time - (times[index] ?? 0)).toBeGreaterThanOrEqual(
+          (index + 2) * REJOIN_DELAY_MS - 2,
+        );
+      });
+    }
+
+    it('keeps the session when Discord moves it to another channel', async () => {
       createSession();
 
-      connection.setStatus(VoiceConnectionStatus.Disconnected);
+      connection.setStatus(VoiceConnectionStatus.Disconnected, closedByDiscord);
       await sleep(RECONNECT_TIMEOUT_MS / 2);
       connection.setStatus(VoiceConnectionStatus.Connecting);
       await sleep(READY_TIMEOUT_MS / 2);
@@ -262,27 +287,116 @@ describe('DiscordAudioSession', () => {
       await sleep(READY_TIMEOUT_MS + RECONNECT_TIMEOUT_MS);
 
       expect(lost).toEqual([]);
+      expect(connection.rejoins).toEqual([]);
       expect(connection.destroyCount).toBe(0);
     });
 
-    it('reports the session lost when no reconnect starts', async () => {
+    it('reports the session lost when Discord closes it and does not reconnect', async () => {
       const session = createSession();
       const playback = session.play(new StreamSource(oggOpus(500)), new AbortController().signal);
       await entersState(player, AudioPlayerStatus.Playing, 2000);
 
-      connection.setStatus(VoiceConnectionStatus.Disconnected);
+      connection.setStatus(VoiceConnectionStatus.Disconnected, closedByDiscord);
       await sleep(RECONNECT_TIMEOUT_MS * 2);
 
       expect(lost).toHaveLength(1);
       expect(lost[0]).toBeInstanceOf(VoiceConnectionError);
+      expect(connection.rejoins).toEqual([]);
       expect(connection.destroyCount).toBe(1);
       await expect(playback).resolves.toBeUndefined();
+    });
+
+    it('rejoins after any other disconnect', async () => {
+      createSession();
+
+      connection.setStatus(VoiceConnectionStatus.Disconnected, gatewayUnavailable);
+      await vi.waitFor(() => {
+        expect(connection.rejoins).toHaveLength(1);
+      });
+      connection.setStatus(VoiceConnectionStatus.Ready);
+      await sleep(READY_TIMEOUT_MS * 2);
+
+      expect(lost).toEqual([]);
+      expect(connection.destroyCount).toBe(0);
+    });
+
+    it('retries rejoining, waiting longer each time, until the gateway accepts', async () => {
+      createSession();
+      connection.failingRejoins = 3;
+
+      connection.setStatus(VoiceConnectionStatus.Disconnected, gatewayUnavailable);
+      await vi.waitFor(() => {
+        expect(connection.state.status).toBe(VoiceConnectionStatus.Signalling);
+      });
+      connection.setStatus(VoiceConnectionStatus.Ready);
+      await sleep(READY_TIMEOUT_MS * 2);
+
+      expect(connection.rejoins).toHaveLength(4);
+      expectGrowingGaps(connection.rejoins);
+      expect(lost).toEqual([]);
+      expect(logger.at('warn').map(({ message, context }) => [message, context])).toEqual(
+        [1, 2, 3, 4].map((attempt) => ['voice connection rejoining', { attempt }]),
+      );
+    });
+
+    it('reports the session lost after five failed rejoins', async () => {
+      createSession();
+      connection.failingRejoins = Infinity;
+
+      connection.setStatus(VoiceConnectionStatus.Disconnected, gatewayUnavailable);
+      await vi.waitFor(() => {
+        expect(lost).toHaveLength(1);
+      });
+
+      expect(lost[0]).toBeInstanceOf(VoiceConnectionError);
+      expect(connection.rejoins).toHaveLength(5);
+      expectGrowingGaps(connection.rejoins);
+      expect(connection.destroyCount).toBe(1);
+    });
+
+    it('runs one recovery at a time', async () => {
+      createSession();
+      connection.failingRejoins = 1;
+
+      connection.setStatus(VoiceConnectionStatus.Disconnected, gatewayUnavailable);
+      connection.setStatus(VoiceConnectionStatus.Disconnected, gatewayUnavailable);
+      await vi.waitFor(() => {
+        expect(connection.state.status).toBe(VoiceConnectionStatus.Signalling);
+      });
+      connection.setStatus(VoiceConnectionStatus.Ready);
+      await sleep(REJOIN_DELAY_MS * 3);
+
+      expect(connection.rejoins).toHaveLength(2);
+      expectGrowingGaps(connection.rejoins);
+    });
+
+    it('stops recovering once destroyed', async () => {
+      const session = createSession();
+
+      connection.setStatus(VoiceConnectionStatus.Disconnected, gatewayUnavailable);
+      session.destroy();
+      await sleep(REJOIN_DELAY_MS * 3);
+
+      expect(connection.rejoins).toEqual([]);
+      expect(lost).toEqual([]);
+    });
+
+    it('keeps the session when the connection reconnects on its own', async () => {
+      createSession();
+
+      connection.setStatus(VoiceConnectionStatus.Signalling);
+      connection.setStatus(VoiceConnectionStatus.Connecting);
+      await sleep(READY_TIMEOUT_MS / 2);
+      connection.setStatus(VoiceConnectionStatus.Ready);
+      await sleep(READY_TIMEOUT_MS * 2);
+
+      expect(lost).toEqual([]);
+      expect(connection.rejoins).toEqual([]);
     });
 
     it('reports the session lost when a reconnect never completes', async () => {
       createSession();
 
-      connection.setStatus(VoiceConnectionStatus.Disconnected);
       connection.setStatus(VoiceConnectionStatus.Signalling);
       await sleep(READY_TIMEOUT_MS * 2);
 
