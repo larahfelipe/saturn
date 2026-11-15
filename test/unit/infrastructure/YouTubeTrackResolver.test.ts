@@ -182,7 +182,22 @@ describe('YouTubeTrackResolver', () => {
     controller.abort(reason);
 
     await expect(pending).rejects.toBe(reason);
-    expect(client.infoCalls[0]?.options?.signal).toBe(controller.signal);
+    expect(client.infoCalls[0]?.options?.signal?.aborted).toBe(true);
+  });
+
+  it('gives up on a lookup that exceeds the deadline', async () => {
+    resolver = new YouTubeTrackResolver(client, { timeoutMs: 20 });
+    client.getInfoImpl = (_, options) =>
+      new Promise((_resolve, reject) => {
+        options?.signal?.addEventListener('abort', () => {
+          reject(new Error('aborted by client'));
+        });
+      });
+
+    await expect(resolver.resolve(request, new AbortController().signal)).rejects.toMatchObject({
+      name: 'TrackResolutionError',
+      reason: 'timed out',
+    });
   });
 
   it('opens a stream of the selected format on demand', async () => {

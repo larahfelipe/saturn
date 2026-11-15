@@ -50,6 +50,13 @@ export const READ_AHEAD_BYTES = 1024 * 1024;
  */
 export const YOUTUBE_REQUEST_TIMEOUT_MS = 10_000;
 
+/** Limit for a whole lookup, which can take several requests. */
+export const RESOLVE_TIMEOUT_MS = 20_000;
+
+export interface YouTubeTrackResolverOptions {
+  readonly timeoutMs?: number;
+}
+
 const UNAVAILABLE_CODES: ReadonlySet<YtdlErrorCode> = new Set([
   YtdlErrorCode.NOT_FOUND,
   YtdlErrorCode.PRIVATE,
@@ -77,19 +84,24 @@ export function parseYouTubeVideoUrl(input: string): string {
 
 export class YouTubeTrackResolver implements TrackResolver {
   readonly #client: YouTubeClient;
+  readonly #timeoutMs: number;
 
-  constructor(client: YouTubeClient) {
+  constructor(client: YouTubeClient, options: YouTubeTrackResolverOptions = {}) {
     this.#client = client;
+    this.#timeoutMs = options.timeoutMs ?? RESOLVE_TIMEOUT_MS;
   }
 
   async resolve(request: TrackRequest, signal: AbortSignal): Promise<ResolvedTrack> {
     const videoId = parseYouTubeVideoUrl(request.url);
 
+    const lookup = AbortSignal.any([signal, AbortSignal.timeout(this.#timeoutMs)]);
     let info: VideoInfo;
     try {
-      info = await this.#client.getInfo(videoId, { signal });
+      info = await this.#client.getInfo(videoId, { signal: lookup });
     } catch (error) {
-      throw signal.aborted ? signal.reason : toResolutionError(error);
+      if (signal.aborted) throw signal.reason;
+      if (lookup.aborted) throw new TrackResolutionError('timed out', { cause: error });
+      throw toResolutionError(error);
     }
 
     const format = selectAudioFormat(info.formats);
