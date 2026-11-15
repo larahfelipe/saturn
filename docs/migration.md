@@ -115,6 +115,12 @@ Intentional differences from `master`; see [decisions](decisions.md).
   64 kbit/s on channels above 128 kbit/s when the source was below 128 kbit/s.
 - `play` defers before validating the URL, so an invalid URL edits the deferred
   reply instead of replying directly.
+- Concurrent `play` requests of a guild are enqueued in the order they
+  arrived. Go enqueued each one when its lookup finished.
+- A YouTube lookup is abandoned after 20 s with the search failure reply. Go's
+  lookups had no deadline.
+- When the queue runs out while another `play` request is still being looked
+  up, the bot stays in the channel for it. Go left and joined again.
 - Stream failures surface when a track starts, not at request time: they are
   logged and the queue advances, so the `…while retrieving your song…` reply is
   gone.
@@ -160,9 +166,12 @@ in my voice channel to do that`. Go accepted them from anyone.
 | No audio formats                          | `No suitable audio track…` reply                                         |
 | Missing thumbnail                         | Embed without thumbnail                                                  |
 | Stream failure mid-queue                  | Error logged, next track starts                                          |
-| Voice connection failure / disconnect     | Join error reply; on disconnect, reconnect attempt, then player disposal |
+| Voice connection failure / disconnect     | Join error reply; on disconnect, up to five rejoins, then playback stops |
 | Concurrent `play` requests                | Looked up in parallel, enqueued in arrival order; unique positions       |
-| Rapid pause/unpause, concurrent controls  | Serialized; final state matches last operation                           |
+| Request flood                             | Per-user limit and a 100-song queue limit, refused before any lookup     |
+| Rapid pause/unpause, concurrent controls  | Applied in order; final state matches last operation                     |
+| Pause or resume between two tracks        | Refused with the idle reply                                              |
+| Control from outside the bot's channel    | Refused; only listeners control playback                                 |
 | Stop during resolution                    | Resolution aborted; no track starts afterwards                           |
 | Skip while the track is ending            | Exactly one advancement                                                  |
 | Interaction timeout                       | `play` defers before any I/O                                             |

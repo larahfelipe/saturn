@@ -58,7 +58,7 @@ module-level mutable state. The ports are where the tests substitute fakes.
   recovers it from transient disconnects.
 - **`InteractionHandler`** routes slash commands and playback buttons to
   handlers, acknowledges each interaction exactly once, maps errors to replies
-  and counts commands.
+  and counts commands. Deferred commands of a guild run in arrival order.
 - **`CommandRegistry`** pairs the command definitions (data sent to Discord)
   with their handlers (execution) and synchronizes the definitions.
 - **`DiscordClient`** wraps the discord.js `Client`: login, command
@@ -75,9 +75,11 @@ module-level mutable state. The ports are where the tests substitute fakes.
 ```text
 Discord ─interaction→ DiscordClient ─→ InteractionHandler
   defer reply (before any I/O, inside Discord's 3 s window)
+  ── wait for earlier play interactions of the guild (arrival order) ──
   → play handler → PlaybackService.play(guild, url, user, voice channel)
+    refuse if the user is in no voice channel or over the request limit
     → PlayerRegistry.acquire(guild) → GuildPlayer.play
-      refuse if the bot is in another voice channel
+      refuse if the bot is in another voice channel or the queue is full
       1. TrackResolver.resolve(url)          metadata + lazy AudioSource, starts at once
       ── wait for earlier requests of the guild (arrival order) ──
       2. VoiceConnector.connect(channel)     only when not connected yet
