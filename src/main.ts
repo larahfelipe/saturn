@@ -87,6 +87,9 @@ async function main(): Promise<void> {
     exit: (code) => process.exit(code),
   });
   shutdown.install(process);
+  discord.onGatewayLost(() => {
+    void shutdown.run('discord gateway lost', 1);
+  });
 
   try {
     await verifyFfmpeg(config.ffmpegPath);

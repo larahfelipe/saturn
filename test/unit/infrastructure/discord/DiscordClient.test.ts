@@ -1,4 +1,4 @@
-import { Client } from 'discord.js';
+import { Client, Events } from 'discord.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { CommandRegistry } from '../../../../src/infrastructure/discord/CommandRegistry.ts';
@@ -19,13 +19,15 @@ function commands(): CommandRegistry {
 
 describe('DiscordClient', () => {
   let discord: DiscordClient;
+  let client: Client;
+  let logger: RecordingLogger;
 
   function create(): DiscordClient {
-    discord = new DiscordClient({
-      token: 'test-token',
-      activityStatus: undefined,
-      logger: new RecordingLogger(),
-    });
+    const on = vi.spyOn(Client.prototype, 'on');
+    logger = new RecordingLogger();
+    discord = new DiscordClient({ token: 'test-token', activityStatus: undefined, logger });
+    client = on.mock.contexts[0] as Client;
+    on.mockRestore();
     return discord;
   }
 
@@ -53,6 +55,39 @@ describe('DiscordClient', () => {
 
     expect(login).toHaveBeenCalledWith('test-token');
     expect(sync).not.toHaveBeenCalled();
+  });
+
+  it('reports a gateway close that discord.js will not reconnect from', () => {
+    const lost: number[] = [];
+    create().onGatewayLost((code) => lost.push(code));
+
+    client.emit(Events.ShardDisconnect, new CloseEvent('close', { code: 4004 }), 0);
+
+    expect(lost).toEqual([4004]);
+    expect(logger.contextOf('error', 'discord gateway closed permanently')).toEqual({
+      shardId: 0,
+      code: 4004,
+    });
+  });
+
+  it('logs gateway reconnects', () => {
+    create();
+
+    client.emit(Events.ShardReconnecting, 0);
+
+    expect(logger.contextOf('warn', 'discord gateway reconnecting')).toEqual({ shardId: 0 });
+  });
+
+  it('ignores gateway closes caused by stopping', async () => {
+    const lost: number[] = [];
+    create().onGatewayLost((code) => lost.push(code));
+    await discord.stop();
+
+    client.emit(Events.ShardReconnecting, 0);
+    client.emit(Events.ShardDisconnect, new CloseEvent('close', { code: 4004 }), 0);
+
+    expect(lost).toEqual([]);
+    expect(logger.entries).toEqual([]);
   });
 
   it('stops idempotently', async () => {

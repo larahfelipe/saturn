@@ -96,7 +96,8 @@ Messages worth alerting or searching on:
 | `invalid configuration`                             | error        | Startup stopped; the error names the variables                     |
 | `startup failed`                                    | error        | FFmpeg check, metrics port or Discord login failed; exiting with 1 |
 | `discord ready`, `slash commands synchronized`      | info         | Connected and serving                                              |
-| `discord gateway disconnected` / `resumed`          | warn / info  | Gateway connection dropped / recovered                             |
+| `discord gateway reconnecting` / `resumed`          | warn / info  | Gateway connection dropped / recovered                             |
+| `discord gateway closed permanently`                | error        | Discord refused the session (e.g. token reset); exiting with 1     |
 | `command rejected`                                  | info         | User error (invalid URL, not in a voice channel)                   |
 | `command failed`                                    | warn         | YouTube or voice failure reported to the user                      |
 | `command failed`, `interaction failed`              | error        | Unexpected error; the user got a generic reply                     |
@@ -140,9 +141,10 @@ dropped.
 Exit codes:
 
 - **0**: clean shutdown after a signal.
-- **1**: invalid configuration, startup failure, a failed or timed-out
-  shutdown step, an uncaught exception or unhandled rejection, or a second
-  signal during shutdown (forced exit).
+- **1**: invalid configuration, startup failure, a gateway close Discord does
+  not allow reconnecting from, a failed or timed-out shutdown step, an
+  uncaught exception or unhandled rejection, or a second signal during
+  shutdown (forced exit).
 
 Node runs as PID 1 in the container and handles signals itself, so no init
 process is needed.

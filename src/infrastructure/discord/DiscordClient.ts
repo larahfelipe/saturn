@@ -22,6 +22,8 @@ export class DiscordClient {
   readonly #token: string;
   readonly #activityStatus: string | undefined;
   readonly #logger: Logger;
+  #onGatewayLost: ((code: number) => void) | undefined;
+  #stopping = false;
 
   constructor(options: DiscordClientOptions) {
     this.#token = options.token;
@@ -33,8 +35,15 @@ export class DiscordClient {
     this.#client.on(Events.Warn, (message) => {
       this.#logger.warn({ detail: message }, 'discord client warning');
     });
+    // discord.js emits this only for close codes it does not reconnect from.
     this.#client.on(Events.ShardDisconnect, (event, shardId) => {
-      this.#logger.warn({ shardId, code: event.code }, 'discord gateway disconnected');
+      if (this.#stopping) return;
+      this.#logger.error({ shardId, code: event.code }, 'discord gateway closed permanently');
+      this.#onGatewayLost?.(event.code);
+    });
+    this.#client.on(Events.ShardReconnecting, (shardId) => {
+      if (this.#stopping) return;
+      this.#logger.warn({ shardId }, 'discord gateway reconnecting');
     });
     this.#client.on(Events.ShardResume, (shardId) => {
       this.#logger.info({ shardId }, 'discord gateway resumed');
@@ -58,6 +67,11 @@ export class DiscordClient {
     this.#client.on(Events.InteractionCreate, (interaction) => {
       void handler(interaction);
     });
+  }
+
+  /** Called when the gateway closes with a code that rules out reconnecting, such as an invalid token. */
+  onGatewayLost(handler: (code: number) => void): void {
+    this.#onGatewayLost = handler;
   }
 
   voiceChannel(target: VoiceTarget): VoiceChannelInfo | undefined {
@@ -94,6 +108,7 @@ export class DiscordClient {
 
   /** Closes the gateway connection. Idempotent. */
   async stop(): Promise<void> {
+    this.#stopping = true;
     await this.#client.destroy();
   }
 }
