@@ -151,17 +151,17 @@ process is needed.
 
 ## Troubleshooting
 
-| Symptom                                                       | Likely cause and action                                                                                                                               |
-| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Exits with `invalid configuration`                            | `BOT_TOKEN` missing or `APP_ENVIRONMENT` not `development`/`production`. The log names the variable.                                                  |
-| `startup failed` with `FfmpegUnavailableError`                | FFmpeg not found or built without libopus. Install it or set `FFMPEG_PATH`.                                                                           |
-| `startup failed` with `TokenInvalid` or HTTP 401              | Wrong or reset token. Copy a fresh one from the Developer Portal.                                                                                     |
-| `startup failed` with `EAI_AGAIN`, `ENOTFOUND` or `ETIMEDOUT` | No DNS or outbound access to Discord.                                                                                                                 |
-| `startup failed` with `EADDRINUSE`                            | Port 8080 is taken.                                                                                                                                   |
-| Commands missing in Discord                                   | Bot invited without `applications.commands`, or synchronization failed (see `startup failed`). Reload the Discord client to refresh its command list. |
-| `Something went wrong while searching your song`              | YouTube refused or the video is unavailable. `command failed` shows the code, e.g. `BOT_CHECK` (datacenter IP), `PRIVATE`.                            |
-| `…trying to join the party`                                   | User not in a voice channel, bot lacks View Channels/Connect/Speak, or voice did not become ready within 15 s.                                        |
-| Tracks skip right after starting                              | `track playback failed`: the message includes FFmpeg's last error line or the stream error.                                                           |
-| Bot leaves voice unexpectedly                                 | `voice connection lost`: kicked, channel deleted, or voice did not start reconnecting within 5 s and become ready within 15 s.                        |
-| `/health` shows `-1ms`                                        | No heartbeat acknowledged yet after connecting. Retry after a minute.                                                                                 |
-| Discord shows "The application did not respond"               | Another instance uses the same token, or the process is overloaded or stopped. Check for `failed to respond to interaction`.                          |
+| Symptom                                                       | Likely cause and action                                                                                                                                 |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Exits with `invalid configuration`                            | `BOT_TOKEN` missing or `APP_ENVIRONMENT` not `development`/`production`. The log names the variable.                                                    |
+| `startup failed` with `FfmpegUnavailableError`                | FFmpeg not found or built without libopus. Install it or set `FFMPEG_PATH`.                                                                             |
+| `startup failed` with `TokenInvalid` or HTTP 401              | Wrong or reset token. Copy a fresh one from the Developer Portal.                                                                                       |
+| `startup failed` with `EAI_AGAIN`, `ENOTFOUND` or `ETIMEDOUT` | No DNS or outbound access to Discord.                                                                                                                   |
+| `startup failed` with `EADDRINUSE`                            | Port 8080 is taken.                                                                                                                                     |
+| Commands missing in Discord                                   | Bot invited without `applications.commands`, or synchronization failed (see `startup failed`). Reload the Discord client to refresh its command list.   |
+| `Something went wrong while searching your song`              | YouTube refused or the video is unavailable. `command failed` shows the code, e.g. `BOT_CHECK` (datacenter IP), `PRIVATE`.                              |
+| `…trying to join the party`                                   | User not in a voice channel, bot lacks View Channels/Connect/Speak, or voice did not become ready within 15 s.                                          |
+| Tracks skip right after starting                              | `track playback failed`: the message includes FFmpeg's last error line or the stream error. `Audio stream did not start`: no audio arrived within 20 s. |
+| Bot leaves voice unexpectedly                                 | `voice connection lost`: kicked, channel deleted, or voice did not start reconnecting within 5 s and become ready within 15 s.                          |
+| `/health` shows `-1ms`                                        | No heartbeat acknowledged yet after connecting. Retry after a minute.                                                                                   |
+| Discord shows "The application did not respond"               | Another instance uses the same token, or the process is overloaded or stopped. Check for `failed to respond to interaction`.                            |

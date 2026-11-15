@@ -18,6 +18,7 @@ import { FakeVoiceConnection, StreamSource } from '../../fixtures/voice.ts';
 
 const RECONNECT_TIMEOUT_MS = 50;
 const READY_TIMEOUT_MS = 100;
+const START_TIMEOUT_MS = 200;
 
 describe('DiscordAudioSession', () => {
   let connection: FakeVoiceConnection;
@@ -35,6 +36,7 @@ describe('DiscordAudioSession', () => {
       onLost: (error) => lost.push(error),
       reconnectTimeoutMs: RECONNECT_TIMEOUT_MS,
       readyTimeoutMs: READY_TIMEOUT_MS,
+      startTimeoutMs: START_TIMEOUT_MS,
     });
   }
 
@@ -192,6 +194,24 @@ describe('DiscordAudioSession', () => {
 
       await expect(playback).rejects.toThrow(new AudioStreamError('Audio stream stalled'));
       expect(source.stream?.destroyed).toBe(true);
+    });
+
+    it('rejects when the stream delivers no audio before the start deadline', async () => {
+      const session = createSession();
+      const source = new StreamSource(Buffer.alloc(0), { end: false });
+
+      await expect(session.play(source, new AbortController().signal)).rejects.toThrow(
+        new AudioStreamError('Audio stream did not start'),
+      );
+      expect(player.state.status).toBe(AudioPlayerStatus.Idle);
+      expect(source.stream?.destroyed).toBe(true);
+    });
+
+    it('keeps playing past the start deadline once audio arrived', async () => {
+      const session = createSession();
+      const source = new StreamSource(oggOpus(25));
+
+      await expect(session.play(source, new AbortController().signal)).resolves.toBeUndefined();
     });
 
     it('rejects when the audio cannot be demuxed', async () => {

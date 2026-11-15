@@ -33,10 +33,13 @@ export interface DiscordAudioSessionOptions {
   readonly reconnectTimeoutMs: number;
   /** How long a reconnecting connection may take to become ready again. */
   readonly readyTimeoutMs: number;
+  /** How long a track may take to deliver its first audio. */
+  readonly startTimeoutMs: number;
 }
 
 interface ActiveTrack {
   readonly resource: AudioResource;
+  started(): void;
   ended(): void;
   failed(error: AudioPlayerError): void;
 }
@@ -56,6 +59,7 @@ export class DiscordAudioSession implements AudioSession {
   readonly #onLost: (error: Error) => void;
   readonly #reconnectTimeoutMs: number;
   readonly #readyTimeoutMs: number;
+  readonly #startTimeoutMs: number;
 
   readonly #lifetime = new AbortController();
   #active: ActiveTrack | undefined;
@@ -72,6 +76,7 @@ export class DiscordAudioSession implements AudioSession {
     this.#onLost = options.onLost;
     this.#reconnectTimeoutMs = options.reconnectTimeoutMs;
     this.#readyTimeoutMs = options.readyTimeoutMs;
+    this.#startTimeoutMs = options.startTimeoutMs;
 
     const subscription = this.#connection.subscribe(this.#player);
     if (subscription === undefined) {
@@ -98,6 +103,12 @@ export class DiscordAudioSession implements AudioSession {
     };
     stop.addEventListener('abort', finish, { once: true });
 
+    // The player counts missed frames only once playing, so a stream that
+    // never delivers its first packet would otherwise buffer forever.
+    const startTimer = setTimeout(() => {
+      reject(new AudioStreamError('Audio stream did not start'));
+    }, this.#startTimeoutMs);
+
     let input: Readable | undefined;
     let resource: AudioResource | undefined;
     try {
@@ -112,6 +123,9 @@ export class DiscordAudioSession implements AudioSession {
       resource = playing;
       this.#active = {
         resource: playing,
+        started: () => {
+          clearTimeout(startTimer);
+        },
         ended: () => {
           if (playing.playStream.readableEnded) completion.then(finish, reject);
           else reject(new AudioStreamError('Audio stream stalled'));
@@ -123,6 +137,7 @@ export class DiscordAudioSession implements AudioSession {
       this.#player.play(playing);
       await promise;
     } finally {
+      clearTimeout(startTimer);
       stop.removeEventListener('abort', finish);
       this.#active = undefined;
       track.abort();
@@ -157,7 +172,10 @@ export class DiscordAudioSession implements AudioSession {
   }
 
   readonly #onPlayerState = (previous: AudioPlayerState, next: AudioPlayerState): void => {
-    if (next.status === AudioPlayerStatus.Playing && this.#paused) this.#player.pause();
+    if (next.status === AudioPlayerStatus.Playing) {
+      if (next.resource === this.#active?.resource) this.#active.started();
+      if (this.#paused) this.#player.pause();
+    }
     if (
       next.status === AudioPlayerStatus.Idle &&
       previous.status !== AudioPlayerStatus.Idle &&

@@ -42,6 +42,7 @@ export interface VoiceConnectionManagerOptions {
   readonly logger: Logger;
   readonly joinTimeoutMs?: number;
   readonly reconnectTimeoutMs?: number;
+  readonly trackStartTimeoutMs?: number;
   readonly join?: JoinVoiceChannel;
 }
 
@@ -52,6 +53,7 @@ export class VoiceConnectionManager implements VoiceConnector {
   readonly #logger: Logger;
   readonly #joinTimeoutMs: number;
   readonly #reconnectTimeoutMs: number;
+  readonly #trackStartTimeoutMs: number;
   readonly #join: JoinVoiceChannel;
 
   constructor(options: VoiceConnectionManagerOptions) {
@@ -60,6 +62,7 @@ export class VoiceConnectionManager implements VoiceConnector {
     this.#logger = options.logger;
     this.#joinTimeoutMs = options.joinTimeoutMs ?? 15_000;
     this.#reconnectTimeoutMs = options.reconnectTimeoutMs ?? 5_000;
+    this.#trackStartTimeoutMs = options.trackStartTimeoutMs ?? 20_000;
     this.#join = options.join ?? joinVoiceChannel;
   }
 
@@ -96,6 +99,7 @@ export class VoiceConnectionManager implements VoiceConnector {
         onLost,
         reconnectTimeoutMs: this.#reconnectTimeoutMs,
         readyTimeoutMs: this.#joinTimeoutMs,
+        startTimeoutMs: this.#trackStartTimeoutMs,
       });
     } catch (error) {
       if (connection.state.status !== VoiceConnectionStatus.Destroyed) connection.destroy();
