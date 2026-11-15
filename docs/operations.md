@@ -115,7 +115,7 @@ format. Other paths return 404, other methods 405.
 | Metric                                     | Type    | Description                                                                      |
 | ------------------------------------------ | ------- | -------------------------------------------------------------------------------- |
 | `saturn_commands_processed_total{command}` | counter | Slash commands received, per command. Starts at 0 for each. Buttons not counted. |
-| `saturn_active_players`                    | gauge   | Guilds holding playback resources (connecting, playing or paused).               |
+| `saturn_active_players`                    | gauge   | Guilds holding playback resources (connecting, playing, paused or waiting).      |
 | `process_*`, `nodejs_*`                    | various | Node.js runtime and process metrics.                                             |
 
 ```yaml

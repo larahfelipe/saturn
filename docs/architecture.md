@@ -79,7 +79,7 @@ Discord ─interaction→ DiscordClient ─→ InteractionHandler
       1. TrackResolver.resolve(url)          metadata + lazy AudioSource
       2. VoiceConnector.connect(channel)     only when not connected yet
       3. TrackQueue.enqueue → position
-      4. start the playback loop if the player was idle
+      4. start the playback loop if nothing is playing
   ← "Now playing" or "Queued at position n" embed with control buttons
 ```
 
@@ -90,7 +90,9 @@ signal)`. `DiscordAudioSession` opens the source stream, spawns FFmpeg, and
 wraps FFmpeg's Ogg/Opus output in an audio resource. When the resource ends or
 fails, the loop advances. A failed track is logged and skipped. When the queue
 is empty, the player releases the session (FFmpeg gone, voice left), goes idle,
-and the registry drops it.
+and the registry drops it. If a `play` request is still in flight at that
+moment, the player keeps the session and waits for it instead, so the bot does
+not leave and rejoin the channel; it leaves once no request remains.
 
 ### Controls
 

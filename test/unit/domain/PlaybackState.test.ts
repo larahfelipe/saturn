@@ -13,14 +13,16 @@ import {
 const connecting: PlaybackState<string> = { status: 'connecting' };
 const playing: PlaybackState<string> = { status: 'playing', current: 'a' };
 const paused: PlaybackState<string> = { status: 'paused', current: 'a' };
+const waiting: PlaybackState<string> = { status: 'waiting' };
 const stopping: PlaybackState<string> = { status: 'stopping' };
 
-const allStates = [IDLE, connecting, playing, paused, stopping] as const;
+const allStates = [IDLE, connecting, playing, paused, waiting, stopping] as const;
 const allEvents: PlaybackEvent<string>[] = [
   { type: 'connect' },
   { type: 'start', track: 'b' },
   { type: 'pause' },
   { type: 'resume' },
+  { type: 'wait' },
   { type: 'finish' },
   { type: 'stop' },
   { type: 'stopped' },
@@ -36,6 +38,11 @@ describe('playback state transitions', () => {
     [paused, { type: 'pause' }, paused],
     [paused, { type: 'resume' }, playing],
     [playing, { type: 'resume' }, playing],
+    [playing, { type: 'wait' }, waiting],
+    [paused, { type: 'wait' }, waiting],
+    [waiting, { type: 'start', track: 'b' }, { status: 'playing', current: 'b' }],
+    [waiting, { type: 'finish' }, IDLE],
+    [waiting, { type: 'stop' }, stopping],
     [connecting, { type: 'finish' }, IDLE],
     [playing, { type: 'finish' }, IDLE],
     [paused, { type: 'finish' }, IDLE],
@@ -55,21 +62,29 @@ describe('playback state transitions', () => {
     [IDLE, 'start'],
     [IDLE, 'pause'],
     [IDLE, 'resume'],
+    [IDLE, 'wait'],
     [IDLE, 'finish'],
     [IDLE, 'stop'],
     [IDLE, 'stopped'],
     [connecting, 'connect'],
     [connecting, 'pause'],
     [connecting, 'resume'],
+    [connecting, 'wait'],
     [connecting, 'stopped'],
     [playing, 'connect'],
     [playing, 'stopped'],
     [paused, 'connect'],
     [paused, 'stopped'],
+    [waiting, 'connect'],
+    [waiting, 'pause'],
+    [waiting, 'resume'],
+    [waiting, 'wait'],
+    [waiting, 'stopped'],
     [stopping, 'connect'],
     [stopping, 'start'],
     [stopping, 'pause'],
     [stopping, 'resume'],
+    [stopping, 'wait'],
     [stopping, 'finish'],
     [stopping, 'stop'],
   ] as const)('rejects %o + %s', (state, type) => {
@@ -85,7 +100,7 @@ describe('playback state transitions', () => {
       allEvents.filter((event) => canTransition(state, event)).map(() => state),
     );
 
-    expect(accepted).toHaveLength(15);
+    expect(accepted).toHaveLength(20);
   });
 
   it('reports the rejected transition', () => {
@@ -110,6 +125,6 @@ describe('playback state transitions', () => {
   });
 
   it('treats every non-idle state as active', () => {
-    expect(allStates.map(isActive)).toEqual([false, true, true, true, true]);
+    expect(allStates.map(isActive)).toEqual([false, true, true, true, true, true]);
   });
 });

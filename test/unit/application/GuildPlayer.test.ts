@@ -40,6 +40,18 @@ describe('GuildPlayer', () => {
     return current;
   }
 
+  /** Ends the only track while a second request is still resolving. */
+  async function drainWhileResolving(): Promise<{ second: Promise<unknown> }> {
+    await player.play(request('aaaaaaaaaaa'));
+    await flush();
+    resolver.manual = true;
+    const second = player.play(request('bbbbbbbbbbb'));
+    await flush();
+    session().current?.finish();
+    await flush();
+    return { second };
+  }
+
   function playingId(): string | undefined {
     return player.state.status === 'playing' || player.state.status === 'paused'
       ? player.state.current.id
@@ -84,6 +96,36 @@ describe('GuildPlayer', () => {
 
       session().current?.finish();
       await flush();
+      expect(player.state.status).toBe('idle');
+      expect(session().destroyCount).toBe(1);
+      expect(onIdle).toHaveBeenCalledOnce();
+    });
+
+    it('keeps the connection when the queue drains with a request in flight', async () => {
+      const { second } = await drainWhileResolving();
+
+      expect(player.state.status).toBe('waiting');
+      expect(session().destroyed).toBe(false);
+      expect(onIdle).not.toHaveBeenCalled();
+
+      const call = resolver.calls[1];
+      call?.deferred.resolve(call.result);
+
+      await expect(second).resolves.toMatchObject({
+        status: 'playing',
+        track: { id: 'bbbbbbbbbbb' },
+      });
+      expect(voice.calls).toHaveLength(1);
+      expect(session().playbacks).toHaveLength(2);
+      expect(playingId()).toBe('bbbbbbbbbbb');
+    });
+
+    it('disconnects once the request it kept the connection for fails', async () => {
+      const { second } = await drainWhileResolving();
+
+      resolver.calls[1]?.deferred.reject(new TrackUnavailableError('NOT_FOUND'));
+
+      await expect(second).rejects.toThrow(TrackUnavailableError);
       expect(player.state.status).toBe('idle');
       expect(session().destroyCount).toBe(1);
       expect(onIdle).toHaveBeenCalledOnce();
@@ -274,6 +316,19 @@ describe('GuildPlayer', () => {
       await expect(first).rejects.toThrow(PlaybackCancelledError);
       await expect(second).rejects.toThrow(PlaybackCancelledError);
       expect(resolver.calls).toHaveLength(1);
+    });
+
+    it('rejects other controls but stops while waiting for a request', async () => {
+      const { second } = await drainWhileResolving();
+
+      expect(player.pause()).toBe(false);
+      expect(player.resume()).toBe(false);
+      expect(player.skip()).toBe(false);
+      expect(player.stop()).toBe(true);
+
+      await expect(second).rejects.toThrow(PlaybackCancelledError);
+      expect(player.state.status).toBe('idle');
+      expect(session().destroyCount).toBe(1);
     });
 
     it('cancels a voice connection in progress', async () => {

@@ -99,7 +99,8 @@ export class GuildPlayer {
       return await this.#serialize(() => this.#play(request, epoch));
     } finally {
       this.#pending--;
-      this.#notifyIfIdle();
+      if (this.#pending === 0 && this.#state.status === 'waiting') this.#finish();
+      else this.#notifyIfIdle();
     }
   }
 
@@ -147,7 +148,7 @@ export class GuildPlayer {
     epoch.throwIfAborted();
     const position = this.#queue.enqueue(resolved);
 
-    if (this.#state.status === 'connecting') {
+    if (this.#state.status === 'connecting' || this.#state.status === 'waiting') {
       this.#runQueue(session, epoch).catch((error: unknown) => {
         this.#logger.error({ err: error }, 'playback loop failed');
         if (!epoch.aborted) this.#halt(new PlaybackCancelledError());
@@ -187,7 +188,8 @@ export class GuildPlayer {
     while (!epoch.aborted) {
       const entry = this.#queue.dequeue();
       if (entry === undefined) {
-        this.#finish();
+        if (this.#pending > 0) this.#wait();
+        else this.#finish();
         return;
       }
 
@@ -212,6 +214,12 @@ export class GuildPlayer {
     this.#setState(event);
     apply(this.#session);
     return true;
+  }
+
+  /** Queue drained with requests in flight: keep the connection for them. */
+  #wait(): void {
+    this.#track = undefined;
+    this.#setState({ type: 'wait' });
   }
 
   /** Queue drained: release the connection and go idle. */

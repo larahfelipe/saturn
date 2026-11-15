@@ -5,6 +5,7 @@ export type PlaybackState<T> =
   | { readonly status: 'connecting' }
   | { readonly status: 'playing'; readonly current: T }
   | { readonly status: 'paused'; readonly current: T }
+  | { readonly status: 'waiting' }
   | { readonly status: 'stopping' };
 
 export type PlaybackStatus = PlaybackState<unknown>['status'];
@@ -14,6 +15,7 @@ export type PlaybackEvent<T> =
   | { readonly type: 'start'; readonly track: T }
   | { readonly type: 'pause' }
   | { readonly type: 'resume' }
+  | { readonly type: 'wait' }
   | { readonly type: 'finish' }
   | { readonly type: 'stop' }
   | { readonly type: 'stopped' };
@@ -24,11 +26,13 @@ export const IDLE: PlaybackState<never> = Object.freeze({ status: 'idle' });
  * Pure transition function of the guild playback lifecycle:
  *
  *   idle ─connect→ connecting ─start→ playing ⇄ paused
- *   connecting | playing | paused ─finish→ idle
- *   connecting | playing | paused ─stop→ stopping ─stopped→ idle
+ *   playing | paused ─wait→ waiting ─start→ playing
+ *   connecting | playing | paused | waiting ─finish→ idle
+ *   connecting | playing | paused | waiting ─stop→ stopping ─stopped→ idle
  *
- * `start` from playing or paused advances to the next track. Pausing a paused
- * player and resuming a playing one are accepted no-ops.
+ * `start` from playing or paused advances to the next track. `waiting` keeps
+ * the connection between tracks while requests are still in flight. Pausing a
+ * paused player and resuming a playing one are accepted no-ops.
  *
  * @throws InvalidPlaybackTransitionError for any other combination.
  */
@@ -61,6 +65,10 @@ function apply<T>(state: PlaybackState<T>, event: PlaybackEvent<T>): PlaybackSta
       return state.status === 'playing' || state.status === 'paused'
         ? { status: 'playing', current: state.current }
         : undefined;
+    case 'wait':
+      return state.status === 'playing' || state.status === 'paused'
+        ? { status: 'waiting' }
+        : undefined;
     case 'finish':
       return isRunning(state) ? IDLE : undefined;
     case 'stop':
@@ -71,5 +79,10 @@ function apply<T>(state: PlaybackState<T>, event: PlaybackEvent<T>): PlaybackSta
 }
 
 function isRunning(state: PlaybackState<unknown>): boolean {
-  return state.status === 'connecting' || state.status === 'playing' || state.status === 'paused';
+  return (
+    state.status === 'connecting' ||
+    state.status === 'playing' ||
+    state.status === 'paused' ||
+    state.status === 'waiting'
+  );
 }
