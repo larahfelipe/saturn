@@ -2,8 +2,9 @@
 
 Behavioral contract of the Go implementation on `master` (`d837df6`), the
 parity matrix, and the acceptance status of the TypeScript reimplementation on
-`nodejs-stale`. Remove this file together with the Go sources once parity is
-validated against a real Discord application.
+`stale-nodejs`. The Go sources are no longer on this branch; compare against
+`master`. Remove this file once parity is validated against a real Discord
+application.
 
 ## Reference behavior (Go, `master`)
 
