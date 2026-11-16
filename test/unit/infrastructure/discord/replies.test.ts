@@ -44,7 +44,7 @@ describe('embeds', () => {
       author: {
         name: 'Now playing',
         icon_url:
-          'https://github.com/larahfelipe/saturn/blob/stale-master/src/assets/cd.gif?raw=true',
+          'https://github.com/larahfelipe/saturn/blob/04d648edc74dcac7089d665e297b68c767b6ada3/src/assets/cd.gif?raw=true',
       },
       title: track.title,
       url: track.url,

@@ -39,8 +39,9 @@ const COLORS = {
   playing: 0x1ed760,
 } as const;
 
+/** Pinned to the legacy commit that has the image, so the link survives branch changes. */
 const NOW_PLAYING_ICON =
-  'https://github.com/larahfelipe/saturn/blob/stale-master/src/assets/cd.gif?raw=true';
+  'https://github.com/larahfelipe/saturn/blob/04d648edc74dcac7089d665e297b68c767b6ada3/src/assets/cd.gif?raw=true';
 
 const CONTROL_BUTTONS: readonly {
   readonly control: PlaybackControl;
