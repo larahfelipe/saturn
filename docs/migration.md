@@ -1,12 +1,12 @@
 # Go → TypeScript migration record
 
-Behavioral contract of the Go implementation on `master` (`d837df6`), the
+Behavioral contract of the Go implementation on `stale-go` (`d837df6`), the
 parity matrix, and the acceptance status of the TypeScript reimplementation on
-`stale-nodejs`. The Go sources are no longer on this branch; compare against
-`master`. Remove this file once parity is validated against a real Discord
+`develop`. The Go sources are no longer on this branch; compare against
+`stale-go`. Remove this file once parity is validated against a real Discord
 application.
 
-## Reference behavior (Go, `master`)
+## Reference behavior (Go, `stale-go`)
 
 ### Commands
 
@@ -106,7 +106,7 @@ never acknowledged. The guild comes from the custom ID, not the interaction.
 
 ## Behavior changes
 
-Intentional differences from `master`; see [decisions](decisions.md).
+Intentional differences from `stale-go`; see [decisions](decisions.md).
 
 - Durations render as `m:ss` / `h:mm:ss` instead of Go's `3m33s`.
 - Logs go to stdout only; the `.logs/app.log` file sink is dropped.
@@ -155,7 +155,7 @@ in my voice channel to do that`. Go accepted them from anyone.
 - The Docker image is based on Debian 13 instead of 12, so it ships FFmpeg 7.1
   instead of 5.1, and runs as `node` (uid 1000) from `/app`.
 - A GitHub Actions workflow runs the checks, the real-FFmpeg tests and a Docker
-  image smoke test; `master` has no CI.
+  image smoke test; `stale-go` has no CI.
 
 ## Edge cases
 

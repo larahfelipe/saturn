@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/larahfelipe/saturn">
-    <img src="https://github.com/larahfelipe/saturn/blob/master/.github/logo.png" alt="Saturn Logo">
+    <img src=".github/logo.png" alt="Saturn Logo">
   </a>
 </p>
 
@@ -14,7 +14,7 @@
   <a href="https://discord.js.org/">
     <img src="https://img.shields.io/static/v1?label=built%20with&message=discord.js&color=5965E0&labelColor=121214" alt="discord.js">
   </a>
-  <a href="https://github.com/larahfelipe/saturn/blob/master/LICENSE">
+  <a href="LICENSE">
     <img src="https://img.shields.io/static/v1?label=license&message=GPL-3.0&color=5965E0&labelColor=121214" alt="License">
   </a>
 </p>
