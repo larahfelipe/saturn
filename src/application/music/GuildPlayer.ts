@@ -1,0 +1,314 @@
+import {
+  canTransition,
+  IDLE,
+  isActive,
+  transition,
+  type PlaybackEvent,
+  type PlaybackState,
+} from '../../domain/music/PlaybackState.ts';
+import type { Track } from '../../domain/music/Track.ts';
+import { TrackQueue } from '../../domain/music/TrackQueue.ts';
+import {
+  NotListeningError,
+  PlaybackCancelledError,
+  PlayerUnavailableError,
+  QueueFullError,
+  VoiceConnectionError,
+} from '../errors.ts';
+import type { Logger } from '../ports/Logger.ts';
+import type { ResolvedTrack, TrackResolver } from '../ports/TrackResolver.ts';
+import type { AudioSession, VoiceConnector } from '../ports/Voice.ts';
+
+export interface PlayRequest {
+  readonly url: string;
+  readonly requestedBy: string;
+  readonly voiceChannelId: string;
+}
+
+export type PlayResult =
+  | { readonly status: 'playing'; readonly track: Track }
+  | { readonly status: 'queued'; readonly track: Track; readonly position: number };
+
+/** Default for `GuildPlayerOptions.maxQueueLength`. */
+export const MAX_QUEUE_LENGTH = 100;
+
+export interface GuildPlayerOptions {
+  readonly guildId: string;
+  readonly resolver: TrackResolver;
+  readonly voice: VoiceConnector;
+  readonly logger: Logger;
+  /** Queued tracks plus requests in flight beyond which `play` is refused. */
+  readonly maxQueueLength?: number;
+  /** Called when the player has no playback and no pending requests left. */
+  readonly onIdle?: () => void;
+}
+
+/**
+ * Playback coordinator for one guild.
+ *
+ * Play requests resolve concurrently, then connect and enqueue one at a time,
+ * in arrival order. Controls are synchronous state changes, so they never wait
+ * behind a slow request. Each activation owns an epoch `AbortController`; stopping
+ * aborts it, which cancels in-flight resolution, connection and playback, and
+ * makes every continuation of that epoch a no-op.
+ */
+export class GuildPlayer {
+  readonly guildId: string;
+  readonly #resolver: TrackResolver;
+  readonly #voice: VoiceConnector;
+  readonly #logger: Logger;
+  readonly #maxQueueLength: number;
+  readonly #onIdle: (() => void) | undefined;
+
+  readonly #queue = new TrackQueue<ResolvedTrack>();
+  #state: PlaybackState<Track> = IDLE;
+  #session: AudioSession | undefined;
+  /** The channel being joined; the session's channel takes over once connected. */
+  #target: string | undefined;
+  #epoch = new AbortController();
+  #track: AbortController | undefined;
+  #pending = 0;
+  #tail: Promise<unknown> = Promise.resolve();
+  #disposed = false;
+
+  constructor(options: GuildPlayerOptions) {
+    this.guildId = options.guildId;
+    this.#resolver = options.resolver;
+    this.#voice = options.voice;
+    this.#logger = options.logger;
+    this.#maxQueueLength = options.maxQueueLength ?? MAX_QUEUE_LENGTH;
+    this.#onIdle = options.onIdle;
+  }
+
+  get state(): PlaybackState<Track> {
+    return this.#state;
+  }
+
+  get upcoming(): readonly Track[] {
+    return this.#queue.snapshot().map(({ track }) => track);
+  }
+
+  /** Whether the player holds playback resources. */
+  get isActive(): boolean {
+    return isActive(this.#state);
+  }
+
+  /** Whether the player has neither playback nor pending requests. */
+  get isIdle(): boolean {
+    return !this.isActive && this.#pending === 0;
+  }
+
+  get isDisposed(): boolean {
+    return this.#disposed;
+  }
+
+  /** The voice channel the player is connected or connecting to. */
+  get channelId(): string | undefined {
+    return this.#session?.channelId ?? this.#target;
+  }
+
+  /** @throws NotListeningError when the player plays in a channel other than `voiceChannelId`. */
+  assertListener(voiceChannelId: string | undefined): void {
+    const channelId = this.channelId;
+    if (channelId !== undefined && channelId !== voiceChannelId) throw new NotListeningError();
+  }
+
+  /**
+   * @throws PlayerUnavailableError when disposed, NotListeningError when the
+   *   requester is not in the player's channel on arrival or by its turn,
+   *   QueueFullError, PlaybackCancelledError when stopped before completion, or
+   *   a resolver / voice connector error.
+   */
+  async play(request: PlayRequest): Promise<PlayResult> {
+    if (this.#disposed) throw new PlayerUnavailableError();
+    this.assertListener(request.voiceChannelId);
+    // Counting requests in flight keeps the queue within the limit once they land.
+    if (this.#queue.size + this.#pending >= this.#maxQueueLength) {
+      throw new QueueFullError(this.#maxQueueLength);
+    }
+    const epoch = this.#epoch.signal;
+    this.#pending++;
+    try {
+      const { url, requestedBy } = request;
+      const resolution = this.#resolver.resolve({ url, requestedBy }, epoch);
+      // Awaited in turn by #play; a rejection must not go unhandled until then.
+      resolution.catch(() => undefined);
+      return await this.#serialize(() => this.#play(request, resolution, epoch));
+    } finally {
+      this.#pending--;
+      if (this.#pending === 0 && this.#state.status === 'waiting') this.#finish();
+      else this.#notifyIfIdle();
+    }
+  }
+
+  pause(): boolean {
+    return this.#control({ type: 'pause' }, (session) => session.pause());
+  }
+
+  resume(): boolean {
+    return this.#control({ type: 'resume' }, (session) => session.resume());
+  }
+
+  skip(): boolean {
+    if (this.#disposed || (this.#state.status !== 'playing' && this.#state.status !== 'paused')) {
+      return false;
+    }
+    this.#track?.abort();
+    return true;
+  }
+
+  /** Stops playback, clears the queue, cancels pending requests and disconnects. */
+  stop(): boolean {
+    if (this.#disposed || this.isIdle) return false;
+    this.#halt(new PlaybackCancelledError());
+    return true;
+  }
+
+  /** Releases every resource; the player rejects all further work. Idempotent. */
+  dispose(): void {
+    if (this.#disposed) return;
+    this.#disposed = true;
+    if (!this.isIdle) this.#halt(new PlayerUnavailableError());
+  }
+
+  async #play(
+    request: PlayRequest,
+    resolution: Promise<ResolvedTrack>,
+    epoch: AbortSignal,
+  ): Promise<PlayResult> {
+    epoch.throwIfAborted();
+    const resolved = await resolution;
+    epoch.throwIfAborted();
+
+    const session = this.#session ?? (await this.#connect(request.voiceChannelId, epoch));
+    epoch.throwIfAborted();
+    // An earlier request may have connected elsewhere, or Discord moved the bot.
+    this.assertListener(request.voiceChannelId);
+    const position = this.#queue.enqueue(resolved);
+
+    if (this.#state.status === 'connecting' || this.#state.status === 'waiting') {
+      this.#runQueue(session, epoch).catch((error: unknown) => {
+        this.#logger.error({ err: error }, 'playback loop failed');
+        if (!epoch.aborted) this.#halt(new PlaybackCancelledError());
+      });
+      return { status: 'playing', track: resolved.track };
+    }
+    return { status: 'queued', track: resolved.track, position };
+  }
+
+  async #connect(channelId: string, epoch: AbortSignal): Promise<AudioSession> {
+    this.#setState({ type: 'connect' });
+    this.#target = channelId;
+    let session: AudioSession;
+    try {
+      session = await this.#voice.connect(
+        { guildId: this.guildId, channelId },
+        {
+          signal: epoch,
+          onLost: (error) => {
+            this.#handleLost(epoch, error);
+          },
+        },
+      );
+    } catch (error) {
+      epoch.throwIfAborted();
+      this.#target = undefined;
+      this.#setState({ type: 'finish' });
+      throw error;
+    }
+    if (epoch.aborted) {
+      session.destroy();
+      epoch.throwIfAborted();
+    }
+    this.#session = session;
+    return session;
+  }
+
+  async #runQueue(session: AudioSession, epoch: AbortSignal): Promise<void> {
+    while (!epoch.aborted) {
+      const entry = this.#queue.dequeue();
+      if (entry === undefined) {
+        if (this.#pending > 0) this.#wait();
+        else this.#finish();
+        return;
+      }
+
+      this.#setState({ type: 'start', track: entry.track });
+      const track = new AbortController();
+      this.#track = track;
+      const signal = AbortSignal.any([epoch, track.signal]);
+      try {
+        await session.play(entry.source, signal);
+      } catch (error) {
+        if (!signal.aborted) {
+          this.#logger.error({ err: error, trackId: entry.track.id }, 'track playback failed');
+        }
+      }
+    }
+  }
+
+  /** Changes state only if the session applied the control. */
+  #control(event: PlaybackEvent<Track>, apply: (session: AudioSession) => boolean): boolean {
+    if (this.#disposed || this.#session === undefined || !canTransition(this.#state, event)) {
+      return false;
+    }
+    if (!apply(this.#session)) return false;
+    this.#setState(event);
+    return true;
+  }
+
+  /** Queue drained with requests in flight: keep the connection for them. */
+  #wait(): void {
+    this.#track = undefined;
+    this.#setState({ type: 'wait' });
+  }
+
+  /** Queue drained: release the connection and go idle. */
+  #finish(): void {
+    this.#track = undefined;
+    this.#session?.destroy();
+    this.#session = undefined;
+    this.#target = undefined;
+    this.#setState({ type: 'finish' });
+    this.#notifyIfIdle();
+  }
+
+  #halt(reason: Error): void {
+    const epoch = this.#epoch;
+    this.#epoch = new AbortController();
+    epoch.abort(reason);
+
+    this.#queue.clear();
+    this.#track = undefined;
+    if (canTransition(this.#state, { type: 'stop' })) this.#setState({ type: 'stop' });
+    this.#session?.destroy();
+    this.#session = undefined;
+    this.#target = undefined;
+    if (this.#state.status === 'stopping') this.#setState({ type: 'stopped' });
+    this.#notifyIfIdle();
+  }
+
+  #handleLost(epoch: AbortSignal, error: Error): void {
+    if (epoch.aborted || epoch !== this.#epoch.signal) return;
+    this.#logger.warn({ err: error }, 'voice connection lost');
+    this.#halt(new VoiceConnectionError('Voice connection lost', { cause: error }));
+  }
+
+  #setState(event: PlaybackEvent<Track>): void {
+    const previous = this.#state.status;
+    this.#state = transition(this.#state, event);
+    if (previous !== this.#state.status) {
+      this.#logger.debug({ from: previous, to: this.#state.status }, 'playback state changed');
+    }
+  }
+
+  #notifyIfIdle(): void {
+    if (!this.#disposed && this.isIdle) this.#onIdle?.();
+  }
+
+  #serialize<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.#tail.then(operation);
+    this.#tail = result.catch(() => undefined);
+    return result;
+  }
+}
