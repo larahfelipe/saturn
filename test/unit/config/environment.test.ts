@@ -15,6 +15,7 @@ describe('loadConfig', () => {
       activityStatus: undefined,
       environment: 'production',
       ffmpegPath: 'ffmpeg',
+      youtubeCookieFile: undefined,
     });
   });
 
@@ -24,6 +25,7 @@ describe('loadConfig', () => {
       BOT_ACTIVITY_STATUS: ' Hello, earth! ',
       APP_ENVIRONMENT: 'development',
       FFMPEG_PATH: '/usr/bin/ffmpeg',
+      YOUTUBE_COOKIE_FILE: ' /run/secrets/youtube-cookies.txt ',
     });
 
     expect(config.botToken).toBe(TOKEN);
@@ -31,6 +33,7 @@ describe('loadConfig', () => {
       activityStatus: 'Hello, earth!',
       environment: 'development',
       ffmpegPath: '/usr/bin/ffmpeg',
+      youtubeCookieFile: '/run/secrets/youtube-cookies.txt',
     });
   });
 
@@ -40,12 +43,14 @@ describe('loadConfig', () => {
       BOT_ACTIVITY_STATUS: '  ',
       APP_ENVIRONMENT: '',
       FFMPEG_PATH: ' ',
+      YOUTUBE_COOKIE_FILE: '',
     });
 
     expect(config).toEqual({
       activityStatus: undefined,
       environment: 'production',
       ffmpegPath: 'ffmpeg',
+      youtubeCookieFile: undefined,
     });
   });
 

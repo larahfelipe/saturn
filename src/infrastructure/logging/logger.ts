@@ -3,7 +3,10 @@ import pino from 'pino';
 import type { AppEnvironment } from '../../config/environment.ts';
 
 /** Keys that may carry credentials, at the top level or one object deep. */
-const REDACTED_PATHS = ['token', 'botToken', 'authorization'].flatMap((key) => [key, `*.${key}`]);
+const REDACTED_PATHS = ['token', 'botToken', 'authorization', 'cookie'].flatMap((key) => [
+  key,
+  `*.${key}`,
+]);
 
 /**
  * JSON logs on stdout. Development lowers the level to `debug`; `npm run dev`

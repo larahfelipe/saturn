@@ -48,8 +48,9 @@ describe('createLogger', () => {
         token: 'a',
         botToken: 'b',
         authorization: 'c',
+        cookie: 'f',
         config: { botToken: 'd', environment: 'production' },
-        headers: { authorization: 'e' },
+        headers: { authorization: 'e', cookie: 'g' },
       },
       'secrets',
     );
@@ -58,10 +59,11 @@ describe('createLogger', () => {
       token: '[Redacted]',
       botToken: '[Redacted]',
       authorization: '[Redacted]',
+      cookie: '[Redacted]',
       config: { botToken: '[Redacted]', environment: 'production' },
-      headers: { authorization: '[Redacted]' },
+      headers: { authorization: '[Redacted]', cookie: '[Redacted]' },
     });
-    expect(JSON.stringify(destination.lines)).not.toMatch(/"[a-e]"/);
+    expect(JSON.stringify(destination.lines)).not.toMatch(/"[a-g]"/);
   });
 
   it('serializes errors with their causes', () => {

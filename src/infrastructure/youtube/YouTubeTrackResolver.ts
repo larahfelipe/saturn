@@ -171,6 +171,9 @@ function selectArtwork(thumbnails: readonly Thumbnail[]): string | undefined {
 
 function toResolutionError(error: unknown): Error {
   if (!YtdlError.is(error)) return new TrackResolutionError('request failed', { cause: error });
+  // ytdl reports the signed-out clients' verdict, so a rejected cookie only shows in the attempts.
+  if (error.attempts.some(({ code }) => code === YtdlErrorCode.AUTH_FAILED))
+    return new TrackResolutionError(YtdlErrorCode.AUTH_FAILED, { cause: error });
   if (UNAVAILABLE_CODES.has(error.code))
     return new TrackUnavailableError(error.code, { cause: error });
   if (error.code === YtdlErrorCode.NO_FORMAT) return new NoAudioFormatError({ cause: error });

@@ -107,3 +107,30 @@ jobs:
             echo "The bot token was logged."
             exit 1
           fi
+
+      - name: Check YouTube cookie file
+        run: |
+          printf 'PREF=ci-placeholder-pref; SID=ci-placeholder-sid\n' > "$RUNNER_TEMP/signed-out.txt"
+          printf 'SAPISID=ci-placeholder-sapisid; SID=ci-placeholder-sid\n' > "$RUNNER_TEMP/signed-in.txt"
+          chmod a+r "$RUNNER_TEMP"/signed-*.txt
+
+          # Exits with 1 and logs each expected message, but no cookie value, token or file path.
+          check_cookie() {
+            status=0
+            docker run --rm --network none --env BOT_TOKEN=ci-placeholder-token \
+              --env YOUTUBE_COOKIE_FILE=/run/secrets/youtube-cookies \
+              --volume "$RUNNER_TEMP/$1:/run/secrets/youtube-cookies:ro" \
+              saturn:ci > cookie.log 2>&1 || status=$?
+            cat cookie.log
+            test "$status" -eq 1
+            for message in "${@:2}"; do
+              grep -q "\"msg\":\"$message\"" cookie.log
+            done
+            if grep -q -E 'ci-placeholder|/run/secrets' cookie.log; then
+              echo "A credential or the cookie file path was logged."
+              exit 1
+            fi
+          }
+
+          check_cookie signed-out.txt 'invalid configuration'
+          check_cookie signed-in.txt 'youtube cookie loaded' 'startup failed'

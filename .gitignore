@@ -1,5 +1,6 @@
 .DS_Store
 .env
+*cookie*.txt
 .antigravitycli
 node_modules/
 dist/

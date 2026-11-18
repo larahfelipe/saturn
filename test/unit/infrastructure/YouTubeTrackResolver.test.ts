@@ -158,6 +158,33 @@ describe('YouTubeTrackResolver', () => {
     expect((error as Error).cause).toBe(cause);
   });
 
+  it.each([YtdlErrorCode.BOT_CHECK, YtdlErrorCode.AGE_RESTRICTED])(
+    'reports a rejected cookie behind %s',
+    async (code) => {
+      const cause = new YtdlError(code, 'upstream', {
+        attempts: [
+          { client: 'visionos', signedIn: false, step: 'playability', code, reason: 'refused' },
+          {
+            client: 'tv',
+            signedIn: true,
+            step: 'playability',
+            code: YtdlErrorCode.AUTH_FAILED,
+            reason: 'treated as logged out',
+          },
+        ],
+      });
+      client.getInfoImpl = () => Promise.reject(cause);
+
+      const error: unknown = await resolver
+        .resolve(request, new AbortController().signal)
+        .catch((caught: unknown) => caught);
+
+      expect(error).toBeInstanceOf(TrackResolutionError);
+      expect((error as Error).message).toBe('Track resolution failed: AUTH_FAILED');
+      expect((error as Error).cause).toBe(cause);
+    },
+  );
+
   it('wraps unexpected request failures', async () => {
     const cause = new TypeError('fetch failed');
     client.getInfoImpl = () => Promise.reject(cause);

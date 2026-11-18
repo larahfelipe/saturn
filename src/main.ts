@@ -1,4 +1,4 @@
-import { Ytdl } from '@distube/ytdl-core';
+import type { Ytdl } from '@distube/ytdl-core';
 
 import { PlaybackService } from './application/music/PlaybackService.ts';
 import { PlayerRegistry } from './application/music/PlayerRegistry.ts';
@@ -14,30 +14,39 @@ import { createLogger, flushLogger } from './infrastructure/logging/logger.ts';
 import { Metrics } from './infrastructure/metrics/Metrics.ts';
 import { MetricsServer } from './infrastructure/metrics/MetricsServer.ts';
 import {
-  YOUTUBE_REQUEST_TIMEOUT_MS,
-  YouTubeTrackResolver,
-} from './infrastructure/youtube/YouTubeTrackResolver.ts';
+  createYouTubeClient,
+  YouTubeCookieError,
+} from './infrastructure/youtube/createYouTubeClient.ts';
+import { YouTubeTrackResolver } from './infrastructure/youtube/YouTubeTrackResolver.ts';
 import { GracefulShutdown } from './lifecycle/GracefulShutdown.ts';
 
 const METRICS_PORT = 8080;
 
-function readConfig(): Config | undefined {
+interface Setup {
+  readonly config: Config;
+  readonly youtube: Ytdl;
+}
+
+async function configure(): Promise<Setup | undefined> {
   try {
-    return loadConfig(process.env);
+    const config = loadConfig(process.env);
+    return { config, youtube: await createYouTubeClient(config.youtubeCookieFile) };
   } catch (error) {
-    if (!(error instanceof ConfigurationError)) throw error;
+    if (!(error instanceof ConfigurationError || error instanceof YouTubeCookieError)) throw error;
     createLogger('production').error({ err: error }, 'invalid configuration');
     return undefined;
   }
 }
 
 async function main(): Promise<void> {
-  const config = readConfig();
-  if (config === undefined) {
+  const setup = await configure();
+  if (setup === undefined) {
     process.exitCode = 1;
     return;
   }
+  const { config, youtube } = setup;
   const logger = createLogger(config.environment);
+  if (config.youtubeCookieFile !== undefined) logger.info({}, 'youtube cookie loaded');
 
   const discord = new DiscordClient({
     token: config.botToken,
@@ -45,7 +54,7 @@ async function main(): Promise<void> {
     logger,
   });
   const registry = new PlayerRegistry({
-    resolver: new YouTubeTrackResolver(new Ytdl({ timeoutMs: YOUTUBE_REQUEST_TIMEOUT_MS })),
+    resolver: new YouTubeTrackResolver(youtube),
     voice: new VoiceConnectionManager({
       channels: (target) => discord.voiceChannel(target),
       ffmpegPath: config.ffmpegPath,

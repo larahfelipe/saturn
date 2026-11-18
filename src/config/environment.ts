@@ -10,6 +10,8 @@ export interface Config {
   readonly activityStatus: string | undefined;
   readonly environment: AppEnvironment;
   readonly ffmpegPath: string;
+  /** Path to the cookie of a signed-in YouTube session; the cookie itself is read at startup. */
+  readonly youtubeCookieFile: string | undefined;
 }
 
 export class ConfigurationError extends SaturnError {}
@@ -39,6 +41,7 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): C
     activityStatus: value(env.BOT_ACTIVITY_STATUS),
     environment,
     ffmpegPath: value(env.FFMPEG_PATH) ?? 'ffmpeg',
+    youtubeCookieFile: value(env.YOUTUBE_COOKIE_FILE),
   };
   Object.defineProperty(config, 'botToken', { value: botToken, enumerable: false });
   return Object.freeze(config as Config);
