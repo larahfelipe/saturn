@@ -120,6 +120,8 @@ Intentional differences from `stale-go`; see [decisions](decisions.md).
   arrived. Go enqueued each one when its lookup finished.
 - A YouTube lookup is abandoned after 20 s with the search failure reply. Go's
   lookups had no deadline.
+- YouTube lookups can use a signed-in session from `YOUTUBE_COOKIE_FILE`, for
+  hosts YouTube answers with `BOT_CHECK`. Go always looked videos up signed out.
 - When the queue runs out while another `play` request is still being looked
   up, the bot stays in the channel for it. Go left and joined again.
 - Stream failures surface when a track starts, not at request time: they are
@@ -214,4 +216,5 @@ host:
 - `watch?v=aaaaaaaaaaa`: `YtdlError` `NOT_FOUND`.
 - Further requests from the same host failed with `BOT_CHECK` ("Sign in to
   confirm you're not a bot"), a datacenter IP restriction rather than a library
-  fault. Real playback must be validated from a residential or allowed network.
+  fault. Real playback must be validated from a residential or allowed network,
+  or with [YouTube sign-in](operations.md#youtube-sign-in).

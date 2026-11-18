@@ -15,7 +15,7 @@ src/
 │   ├── ports/           TrackResolver, Voice (VoiceConnector, AudioSession), Logger
 │   └── errors.ts        Errors the application reports to adapters
 ├── infrastructure/
-│   ├── youtube/         YouTubeTrackResolver (TrackResolver over @distube/ytdl-core)
+│   ├── youtube/         YouTubeTrackResolver (TrackResolver over @distube/ytdl-core), cookie sign-in
 │   ├── audio/           VoiceConnectionManager, DiscordAudioSession, FFmpeg encoding
 │   ├── discord/         DiscordClient, InteractionHandler, commands, replies
 │   ├── logging/         pino logger factory
@@ -26,14 +26,14 @@ src/
 └── main.ts              Composition root
 ```
 
-| Layer          | Responsibility                                                                                                    | May import                    |
-| -------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------- |
-| Domain         | Pure rules: track validity, FIFO positions, the playback state machine. No I/O, no timers.                        | `shared`                      |
-| Application    | Playback use cases and per-guild coordination. Talks to the outside world only through the interfaces in `ports`. | `domain`, `shared`            |
-| Infrastructure | Adapters implementing the ports, plus Discord, logging and metrics concerns. No playback rules.                   | `application`, `domain`, libs |
-| Config         | Turns environment variables into a validated, frozen `Config`.                                                    | `shared`                      |
-| Lifecycle      | Ordered, time-boxed shutdown driven by process signals.                                                           | `application/ports`           |
-| `main.ts`      | Builds every object, wires them together and starts the process. The only module that knows all others.           | everything                    |
+| Layer          | Responsibility                                                                                                    | May import                              |
+| -------------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| Domain         | Pure rules: track validity, FIFO positions, the playback state machine. No I/O, no timers.                        | `shared`                                |
+| Application    | Playback use cases and per-guild coordination. Talks to the outside world only through the interfaces in `ports`. | `domain`, `shared`                      |
+| Infrastructure | Adapters implementing the ports, plus Discord, logging and metrics concerns. No playback rules.                   | `application`, `domain`, `shared`, libs |
+| Config         | Turns environment variables into a validated, frozen `Config`.                                                    | `shared`                                |
+| Lifecycle      | Ordered, time-boxed shutdown driven by process signals.                                                           | `application/ports`                     |
+| `main.ts`      | Builds every object, wires them together and starts the process. The only module that knows all others.           | everything                              |
 
 Dependencies are passed through constructors; there is no container and no
 module-level mutable state. The ports are where the tests substitute fakes.

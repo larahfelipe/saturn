@@ -43,12 +43,13 @@ The image runs `node dist/main.js` as the unprivileged `node` user from
 
 ## Environment variables
 
-| Variable              | Required | Default      | Description                                             |
-| --------------------- | -------- | ------------ | ------------------------------------------------------- |
-| `BOT_TOKEN`           | yes      |              | Discord bot token. Never logged.                        |
-| `BOT_ACTIVITY_STATUS` | no       | none         | Custom status text shown on the bot's profile.          |
-| `APP_ENVIRONMENT`     | no       | `production` | `production` (info logs) or `development` (debug logs). |
-| `FFMPEG_PATH`         | no       | `ffmpeg`     | FFmpeg binary, resolved through `PATH` when not a path. |
+| Variable              | Required | Default      | Description                                                                              |
+| --------------------- | -------- | ------------ | ---------------------------------------------------------------------------------------- |
+| `BOT_TOKEN`           | yes      |              | Discord bot token. Never logged.                                                         |
+| `BOT_ACTIVITY_STATUS` | no       | none         | Custom status text shown on the bot's profile.                                           |
+| `APP_ENVIRONMENT`     | no       | `production` | `production` (info logs) or `development` (debug logs).                                  |
+| `FFMPEG_PATH`         | no       | `ffmpeg`     | FFmpeg binary, resolved through `PATH` when not a path.                                  |
+| `YOUTUBE_COOKIE_FILE` | no       | none         | File with a signed-in YouTube session's cookie. See [YouTube sign-in](#youtube-sign-in). |
 
 Values are trimmed, and blank values count as unset. Invalid configuration
 stops the process with exit code 1 and an `invalid configuration` log naming
@@ -62,9 +63,56 @@ each offending variable, never its value. The metrics port is fixed at 8080.
   the `test:ffmpeg` suite is verified against.
 - Outbound network: HTTPS and WSS to Discord, UDP to Discord voice servers,
   HTTPS to YouTube. YouTube may refuse datacenter IP addresses with
-  `BOT_CHECK`; run from a network YouTube accepts.
+  `BOT_CHECK`; run from a network YouTube accepts, or
+  [sign in](#youtube-sign-in).
 - One FFmpeg child process and up to 1 MiB of buffered source audio per
   guild that is playing.
+
+## YouTube sign-in
+
+YouTube asks some visitors to sign in, datacenter IP addresses especially, and
+lookups then fail with `BOT_CHECK`. With `YOUTUBE_COOKIE_FILE` set, lookups use
+a signed-in session instead. It is off by default.
+
+1. Use a throwaway Google account: YouTube may suspend accounts it sees used
+   by bots. Age-verify it if the bot should play age-restricted videos.
+2. Sign in to YouTube in a private browser window and save its cookies to a
+   file, in either format:
+   - A Netscape `cookies.txt` export, from a browser extension such as
+     Get cookies.txt LOCALLY, allowed to run in private windows. Only
+     `youtube.com` cookies are used.
+   - The `cookie` request header of a `youtube.com/youtubei/` request, copied
+     from the Network tab of the browser's developer tools. A leading `Cookie:`
+     is ignored.
+3. Close the private window without signing out. Signing out ends the session
+   the cookie belongs to.
+
+Mount the file read-only and point the variable at it:
+
+```bash
+chmod 600 youtube-cookies.txt && sudo chown 1000 youtube-cookies.txt
+docker run -d --name saturn \
+  --restart unless-stopped \
+  --stop-timeout 20 \
+  --env-file .env \
+  --env YOUTUBE_COOKIE_FILE=/run/secrets/youtube-cookies \
+  --volume "$PWD/youtube-cookies.txt:/run/secrets/youtube-cookies:ro" \
+  -p 127.0.0.1:8080:8080 \
+  saturn
+```
+
+- The container runs as `node` (uid 1000), which must be able to read the
+  file. Otherwise startup fails with `could not be read (EACCES)`.
+- The file is read once at startup and checked without contacting YouTube. A
+  file that cannot be read, is empty, or has no `SAPISID` or
+  `__Secure-3PAPISID` cookie stops the process with `invalid configuration`.
+  A usable file logs `youtube cookie loaded`.
+- YouTube can expire the session or end it, for example after a password
+  change. Lookups then fail with `AUTH_FAILED` in `command failed`: export a
+  fresh cookie, replace the file and restart.
+- The cookie grants access to the account. Keep it out of the repository
+  (`.gitignore` covers `*cookie*.txt`) and out of the environment, where
+  `docker inspect` shows it. It is never logged.
 
 ## Logging
 
@@ -85,8 +133,8 @@ One JSON object per line on stdout, written by pino:
   development from debug (`playback state changed`, `shutdown step completed`).
 - Context fields include `guildId`, `channelId`, `command`, `trackId` and
   `err` (`type`, `message`, `stack`, and the `cause` chain in the message).
-- Keys named `token`, `botToken` or `authorization`, at the top level or one
-  object deep, are replaced with `[Redacted]`.
+- Keys named `token`, `botToken`, `authorization` or `cookie`, at the top
+  level or one object deep, are replaced with `[Redacted]`.
 - `npm run dev` pretty-prints the logs. For production, collect stdout with the
   container runtime.
 
@@ -96,6 +144,7 @@ Messages worth alerting or searching on:
 | --------------------------------------------------- | ------------ | ------------------------------------------------------------------ |
 | `invalid configuration`                             | error        | Startup stopped; the error names the variables                     |
 | `startup failed`                                    | error        | FFmpeg check, metrics port or Discord login failed; exiting with 1 |
+| `youtube cookie loaded`                             | info         | Lookups use the session from `YOUTUBE_COOKIE_FILE`                 |
 | `discord ready`, `slash commands synchronized`      | info         | Connected and serving                                              |
 | `discord gateway reconnecting` / `resumed`          | warn / info  | Gateway connection dropped / recovered                             |
 | `discord gateway closed permanently`                | error        | Discord refused the session (e.g. token reset); exiting with 1     |
@@ -153,19 +202,19 @@ process is needed.
 
 ## Troubleshooting
 
-| Symptom                                                       | Likely cause and action                                                                                                                                 |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Exits with `invalid configuration`                            | `BOT_TOKEN` missing or `APP_ENVIRONMENT` not `development`/`production`. The log names the variable.                                                    |
-| `startup failed` with `FfmpegUnavailableError`                | FFmpeg not found or built without libopus. Install it or set `FFMPEG_PATH`.                                                                             |
-| `startup failed` with `TokenInvalid` or HTTP 401              | Wrong or reset token. Copy a fresh one from the Developer Portal.                                                                                       |
-| `startup failed` with `EAI_AGAIN`, `ENOTFOUND` or `ETIMEDOUT` | No DNS or outbound access to Discord.                                                                                                                   |
-| `startup failed` with `EADDRINUSE`                            | Port 8080 is taken.                                                                                                                                     |
-| Commands missing in Discord                                   | Bot invited without `applications.commands`, or synchronization failed (see `startup failed`). Reload the Discord client to refresh its command list.   |
-| `Something went wrong while searching your song`              | YouTube refused or the video is unavailable. `command failed` shows the code, e.g. `BOT_CHECK` (datacenter IP), `PRIVATE`, or `timed out` after 20 s.   |
-| `…trying to join the party`                                   | User not in a voice channel, or voice did not become ready within 15 s.                                                                                 |
-| `I need permission to connect and speak…`                     | Grant the bot View Channels, Connect and Speak in that channel. Stage, AFK and full channels have their own replies.                                    |
-| `You need to be in my voice channel…`                         | The member is not in the bot's voice channel. Only listeners control playback; disconnect the bot through Discord to stop it from elsewhere.            |
-| Tracks skip right after starting                              | `track playback failed`: the message includes FFmpeg's last error line or the stream error. `Audio stream did not start`: no audio arrived within 20 s. |
-| Bot leaves voice unexpectedly                                 | `voice connection lost`: kicked, channel deleted, five rejoin attempts over 30 s failed, or a reconnect did not become ready within 15 s.               |
-| `/health` shows `-1ms`                                        | No heartbeat acknowledged yet after connecting. Retry after a minute.                                                                                   |
-| Discord shows "The application did not respond"               | Another instance uses the same token, or the process is overloaded or stopped. Check for `failed to respond to interaction`.                            |
+| Symptom                                                       | Likely cause and action                                                                                                                                                                                    |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Exits with `invalid configuration`                            | `BOT_TOKEN` missing, `APP_ENVIRONMENT` not `development`/`production`, or the `YOUTUBE_COOKIE_FILE` file unreadable, empty or signed out. The log names the variable.                                      |
+| `startup failed` with `FfmpegUnavailableError`                | FFmpeg not found or built without libopus. Install it or set `FFMPEG_PATH`.                                                                                                                                |
+| `startup failed` with `TokenInvalid` or HTTP 401              | Wrong or reset token. Copy a fresh one from the Developer Portal.                                                                                                                                          |
+| `startup failed` with `EAI_AGAIN`, `ENOTFOUND` or `ETIMEDOUT` | No DNS or outbound access to Discord.                                                                                                                                                                      |
+| `startup failed` with `EADDRINUSE`                            | Port 8080 is taken.                                                                                                                                                                                        |
+| Commands missing in Discord                                   | Bot invited without `applications.commands`, or synchronization failed (see `startup failed`). Reload the Discord client to refresh its command list.                                                      |
+| `Something went wrong while searching your song`              | YouTube refused or the video is unavailable. `command failed` shows the code, e.g. `BOT_CHECK` ([sign in](#youtube-sign-in)), `AUTH_FAILED` (export a fresh cookie), `PRIVATE`, or `timed out` after 20 s. |
+| `…trying to join the party`                                   | User not in a voice channel, or voice did not become ready within 15 s.                                                                                                                                    |
+| `I need permission to connect and speak…`                     | Grant the bot View Channels, Connect and Speak in that channel. Stage, AFK and full channels have their own replies.                                                                                       |
+| `You need to be in my voice channel…`                         | The member is not in the bot's voice channel. Only listeners control playback; disconnect the bot through Discord to stop it from elsewhere.                                                               |
+| Tracks skip right after starting                              | `track playback failed`: the message includes FFmpeg's last error line or the stream error. `Audio stream did not start`: no audio arrived within 20 s.                                                    |
+| Bot leaves voice unexpectedly                                 | `voice connection lost`: kicked, channel deleted, five rejoin attempts over 30 s failed, or a reconnect did not become ready within 15 s.                                                                  |
+| `/health` shows `-1ms`                                        | No heartbeat acknowledged yet after connecting. Retry after a minute.                                                                                                                                      |
+| Discord shows "The application did not respond"               | Another instance uses the same token, or the process is overloaded or stopped. Check for `failed to respond to interaction`.                                                                               |

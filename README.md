@@ -93,7 +93,8 @@ BOT_ACTIVITY_STATUS=Hello, earth!
 APP_ENVIRONMENT=production
 ```
 
-Only `BOT_TOKEN` is required. See [operations](docs/operations.md#environment-variables) for every variable.
+Only `BOT_TOKEN` is required. See [operations](docs/operations.md#environment-variables) for every variable,
+and [YouTube sign-in](docs/operations.md#youtube-sign-in) if YouTube refuses your server with `BOT_CHECK`.
 
 ---
 

@@ -56,8 +56,9 @@ node-vibrant dependencies of the historical TypeScript branch.
 
 **YouTube risk.** Extraction depends on YouTube's undocumented behavior.
 Expect breakage when YouTube changes, and `BOT_CHECK` refusals from datacenter
-IP addresses. Keep `@distube/ytdl-core` current, and swap the resolver if it
-stops being maintained.
+IP addresses. An optional signed-in cookie answers YouTube's request to sign
+in, at the risk of YouTube suspending the account. Keep `@distube/ytdl-core` current, and swap the
+resolver if it stops being maintained.
 
 ## Playback engine
 
@@ -161,6 +162,13 @@ structurally:
 Environment variables only, read and validated once at startup. Errors name
 the invalid variables without echoing their values. The token is a
 non-enumerable property, so logging or serializing the config cannot reveal it.
+
+The YouTube cookie is the exception: the variable names a file. Netscape
+exports span many lines, and the environment shows in `docker inspect`. The
+file is read once at startup and checked without network access for the
+`SAPISID` or `__Secure-3PAPISID` cookie that ytdl signs requests with. Errors
+name the variable, never the path or content, and ytdl redacts the cookie from
+its own errors. Replacing an expired cookie takes a restart.
 
 ## Container image
 
