@@ -1,37 +1,30 @@
-FROM node:16-slim AS builder
+# syntax=docker/dockerfile:1
 
-WORKDIR /usr/src/app
+ARG NODE_IMAGE=node:26.13.1-trixie-slim
 
-COPY package.json yarn.lock ./
+FROM ${NODE_IMAGE} AS base
+WORKDIR /app
 
-RUN yarn install --frozen-lockfile
+FROM base AS build
+COPY package.json package-lock.json .npmrc ./
+RUN npm ci --ignore-scripts
+COPY tsconfig.json tsconfig.build.json ./
+COPY src ./src
+RUN npm run build
 
-COPY . .
+FROM base AS production-dependencies
+COPY package.json package-lock.json .npmrc ./
+RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 
-RUN yarn build
-
-FROM node:16-slim
-
-ARG NODE_ENV=production
-
-ENV NODE_ENV=${NODE_ENV}
-
-WORKDIR /usr/src/app
-
-COPY package.json yarn.lock ./
-
-RUN apt-get update && apt-get install -y openssl ffmpeg && apt-get clean autoclean
-
-RUN yarn install --frozen-lockfile --production
-
-COPY --from=builder /usr/src/app/dist ./dist
-
-COPY --from=builder /usr/src/app/prisma ./prisma
-
-COPY .env ./.env
-
-RUN yarn prisma generate
-
+FROM base AS runtime
+ENV NODE_ENV=production
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ffmpeg \
+  && rm -rf /var/lib/apt/lists/*
+COPY --from=production-dependencies /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+COPY package.json ./
+USER node
 EXPOSE 8080
-
-CMD ["node", "dist/index.js"]
+STOPSIGNAL SIGTERM
+CMD ["node", "dist/main.js"]

@@ -1,138 +1,197 @@
 <p align="center">
   <a href="https://github.com/larahfelipe/saturn">
-    <img src="https://github.com/larahfelipe/saturn/blob/master/.github/saturn-logo.png">
+    <img src=".github/logo.png" alt="Saturn Logo">
   </a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/larahfelipe/saturn/releases">
-    <img src="https://img.shields.io/static/v1?label=version&message=5.x&color=5965E0&labelColor=121214" alt="Version">
+  <a href="https://nodejs.org/">
+    <img src="https://img.shields.io/static/v1?label=runtime&message=Node.js%2026&color=5965E0&labelColor=121214" alt="Node.js 26">
   </a>
   <a href="https://www.typescriptlang.org/">
     <img src="https://img.shields.io/static/v1?label=built%20with&message=TypeScript&color=5965E0&labelColor=121214" alt="TypeScript">
   </a>
-  <a href="https://nodejs.org/en/">
-    <img src="https://img.shields.io/static/v1?label=built%20with&message=Node.js&color=5965E0&labelColor=121214" alt="Node.js">
+  <a href="https://discord.js.org/">
+    <img src="https://img.shields.io/static/v1?label=built%20with&message=discord.js&color=5965E0&labelColor=121214" alt="discord.js">
   </a>
-  <a href="https://github.com/discordjs/discord.js/">
-    <img src="https://img.shields.io/static/v1?label=built%20with&message=Discord.js&color=5965E0&labelColor=121214" alt="Discord.js">
-  </a>
-  <a href="https://github.com/larahfelipe/saturn/blob/master/LICENSE">
-    <img src="https://img.shields.io/static/v1?label=license&message=GPL-v3.0&color=5965E0&labelColor=121214" alt="License">
-  </a>
-  <a href="https://github.com/larahfelipe/saturn/actions/workflows/ci.yml">
-    <img src="https://github.com/larahfelipe/saturn/actions/workflows/ci.yml/badge.svg" alt="GitHub Actions">
+  <a href="LICENSE">
+    <img src="https://img.shields.io/static/v1?label=license&message=GPL-3.0&color=5965E0&labelColor=121214" alt="License">
   </a>
 </p>
 
-## Overview
+---
 
-Saturn is a comprehensive, fully modular, multipurpose Discord bot that caters to both users and developers. It's an ideal choice for effectively managing your server and enhancing the overall experience for you and your community. All of this and much more, bundled together on the most captivating planet in our solar system!
+## Table of Contents
 
-## Usage
+- [About](#about)
+- [Features](#features)
+- [Commands](#commands)
+- [Prerequisites](#prerequisites)
+- [Configuration](#configuration)
+- [Installation](#installation)
+  - [Docker Setup (Recommended)](#docker-setup-recommended)
+  - [Manual Setup](#manual-setup)
+- [YouTube Sign-in (Optional)](#youtube-sign-in-optional)
+- [Documentation](#documentation)
+- [License](#license)
 
-Saturn is a _self-hosted_ bot, which means you'll be responsible for hosting and maintaining your own instance. You can choose to set it up on your local machine or opt for a cloud platform. One recommended cloud platform is Heroku, known for its seamless compatibility with apps like Saturn.
+---
 
-Please be aware that uploading this bot to services like "discordbotlist" or "top.gg" is strictly prohibited. Saturn is intended for personal community hosting only.
+## About
 
-In this step-by-step guide, we will focus on setting up Saturn on your local machine. Each section's title provides a brief description of the upcoming steps. With that, let's get started.
+**Saturn** is a self-hosted Discord music bot built with TypeScript, Node.js and
+`discord.js`. It is designed for private or community use only.
 
-### Getting started
+> ⚠️ **Notice:** Listing this bot publicly on services like top.gg or discordbotlist.com is prohibited.
 
-Before we begin, make sure that you have `git`, `node`, and `npm` installed.
+---
 
-Also, I highly recommend using Docker to run this Discord bot because it offers several advantages. Docker provides a standardized environment for your application, ensuring that it runs consistently across different systems. This can greatly simplify deployment and eliminate potential compatibility issues, and I've ensured that everything necessary for the bot to work properly is included in the Dockerfile.
+## Features
 
-### Clone this repo and navigate to it
+- **Multi-Guild Isolation**: Each server has its own queue, playback state and voice connection.
+- **YouTube Playback**: Audio is streamed through FFmpeg and encoded to Opus at the voice channel's bitrate.
+- **Playback Controls**: Slash commands plus Pause, Resume, Skip and Stop buttons on every track.
+- **Observability**: Prometheus metrics on `:8080/metrics` and structured JSON logs.
+- **Graceful Shutdown**: Voice connections, streams and FFmpeg processes are released on `SIGTERM`/`SIGINT`.
+- **Hardened Container**: Multi-stage Docker build running as a non-root user with production dependencies only.
 
+---
+
+## Commands
+
+Commands are registered as native Discord slash commands and work in servers only.
+While the bot is in a voice channel, only members in that channel can add songs or control playback.
+
+| Command   | Arguments           | Description                               |
+| :-------- | :------------------ | :---------------------------------------- |
+| `play`    | `url:<youtube-url>` | Play a YouTube video's audio, or queue it |
+| `pause`   | None                | Pause playback                            |
+| `unpause` | None                | Resume playback                           |
+| `skip`    | None                | Skip the current track                    |
+| `stop`    | None                | Stop playback and clear the queue         |
+| `help`    | None                | List the available commands               |
+| `ping`    | None                | Check bot responsiveness                  |
+| `health`  | None                | Show the gateway heartbeat latency        |
+
+---
+
+## Prerequisites
+
+- A Discord application and bot token from the [Discord Developer Portal](https://discord.com/developers/applications).
+  Invite the bot with the `bot` and `applications.commands` scopes and the View Channels, Connect and Speak permissions.
+  No privileged gateway intents are needed.
+- **Docker** (recommended), or **Node.js 26** and **FFmpeg** with the `libopus` encoder.
+
+---
+
+## Configuration
+
+Copy `.env.example` to `.env` and set the values:
+
+```env
+BOT_TOKEN=your-discord-bot-token
+BOT_ACTIVITY_STATUS=Hello, earth!
+APP_ENVIRONMENT=production
 ```
+
+Only `BOT_TOKEN` is required. See [operations](docs/operations.md#environment-variables) for every variable,
+and [YouTube Sign-in](#youtube-sign-in-optional) if YouTube refuses your server with `BOT_CHECK`.
+
+---
+
+## Installation
+
+Clone the repository and enter the directory before choosing an installation option:
+
+```bash
 git clone https://github.com/larahfelipe/saturn.git && cd saturn
 ```
 
-### Preparing the environment
+### Docker Setup (Recommended)
 
-Locate the `.env.example` file within the project's folder and open it using your preferred text editor.
+1. Build the image:
 
-Ensure you have your bot token and application ID ready. If you're unsure how to obtain these, visit the [Discord Developers Portal](https://discord.com/developers/), create a new app, copy your application ID, and navigate to the "Bot" section to copy your generated token.
+   ```bash
+   docker build -t saturn .
+   ```
 
-Next, input your credentials and the `GUILD_ID`. Once you've completed this step, rename the `.env.example` file to `.env`.
+2. Run the container, passing the environment variables:
 
-```bash
-BOT_TOKEN=
-BOT_APP_ID=
-GUILD_ID=
-```
+   ```bash
+   docker run -d --name saturn --restart unless-stopped --stop-timeout 20 --env-file .env saturn
+   ```
 
-Saturn also offers database integration through Prisma, which is an Object-Relational Mapping (ORM). I have already implemented an integration that stores all the errors encountered by the bot during its runtime. This can be valuable for debugging purposes. To enable this feature, you must set the `DATABASE_URL` environment variable to your database's URL, which is also provided in the `.env.example` file.
+   Add `-p 127.0.0.1:8080:8080` to expose the metrics endpoint.
 
-```bash
-DATABASE_URL=
-```
+### Manual Setup
 
-### Setting up automatically via Docker (recommended)
+1. Install FFmpeg:
+   - **Debian/Ubuntu**:
+     ```bash
+     sudo apt update && sudo apt install -y ffmpeg
+     ```
+   - **macOS**:
+     ```bash
+     brew install ffmpeg
+     ```
 
-Ensure you have Docker installed on your machine before proceeding. To check if Docker is properly installed, run the following command:
+2. Install dependencies, build and start:
+   ```bash
+   npm ci
+   npm run build
+   npm start
+   ```
 
-```
-docker -v
-```
+---
 
-If you get an output saying something like the Docker version, then you're good to go. Otherwise, please refer to the Docker documentation for installation instructions.
+## YouTube Sign-in (Optional)
 
-Once you have Docker installed, run the following command to build the image:
+YouTube asks some servers to sign in, datacenter IP addresses especially. The bot then replies that something went wrong
+while searching the song, and the `command failed` log shows `BOT_CHECK`. Saturn can look up videos with a signed-in
+session instead:
 
-```
-docker build -t saturn .
-```
+1. Sign in to YouTube in a private browser window with a throwaway Google account, since YouTube may suspend accounts it
+   sees used by bots. Age-verify the account if the bot should play age-restricted videos.
+2. Export the window's cookies to `youtube-cookies.txt` in the Netscape format, with a browser extension such as
+   Get cookies.txt LOCALLY, allowed to run in private windows.
+3. Close the private window **without signing out**. Signing out ends the session the cookie belongs to.
+4. Point `YOUTUBE_COOKIE_FILE` at the file:
+   - **Docker**: mount the file read-only. The container runs as uid 1000, which must be able to read it:
 
-After the image is built, you can run the container using the following command:
+     ```bash
+     chmod 600 youtube-cookies.txt && sudo chown 1000 youtube-cookies.txt
+     docker run -d --name saturn --restart unless-stopped --stop-timeout 20 --env-file .env \
+       --env YOUTUBE_COOKIE_FILE=/run/secrets/youtube-cookies \
+       --volume "$PWD/youtube-cookies.txt:/run/secrets/youtube-cookies:ro" \
+       saturn
+     ```
 
-```
-docker run -d --name saturn saturn
-```
+   - **Manual setup**: add the file's absolute path to `.env`:
 
-Ensure that the container is running by executing the following command:
+     ```env
+     YOUTUBE_COOKIE_FILE=/path/to/youtube-cookies.txt
+     ```
 
-```
-docker ps -a
-```
+On startup, the log shows `youtube cookie loaded`. When the session expires, lookups fail with `AUTH_FAILED` in the
+`command failed` log: export a fresh cookie, replace the file and restart the bot.
 
-If the container is running, you should be able to see it in the list of container with the status "Up".
+> ⚠️ **Notice:** The cookie grants access to the Google account. Never commit it (`.gitignore` covers `*cookie*.txt`)
+> and never put its content in the environment.
 
-For the Docker setup, that's it! However, if you prefer to set up the bot manually, please refer to the next section.
+See [YouTube sign-in](docs/operations.md#youtube-sign-in) for the other accepted cookie format and more details.
 
-### Setting up manually
+---
 
-If you intend to use the music function, you must install `ffmpeg` on your system. The installation process varies depending on your operating system. For instance, if you are using Ubuntu, you can install it using the following command. Alternatively, refer to the FFmpeg documentation for installation instructions tailored to your specific OS.
+## Documentation
 
-```
-sudo apt install ffmpeg -y
-```
+- [Architecture](docs/architecture.md): layers, components and data flows.
+- [Decisions](docs/decisions.md): design decisions and trade-offs.
+- [Development](docs/development.md): local setup, commands, tests and conventions.
+- [Operations](docs/operations.md): deployment, logging, metrics, shutdown and troubleshooting.
+- [Migration](docs/migration.md): Go → TypeScript migration record and parity status.
 
-Once you have `ffmpeg` installed, you can proceed to install the project dependencies by running the following command:
+---
 
-```
--- Using npm:
-npm install
+## License
 
--- Using yarn:
-yarn
-```
-
-After the installation is complete, you can start the bot by running the following command:
-
-```
--- Using npm:
-npm run dev
-
--- Using yarn:
-yarn dev
-```
-
-## Final considerations
-
-That's all there is to it! Thank you for choosing Saturn, and enjoy using it!
-
-Additionally, if you wish to contribute to this project, we welcome pull requests with open arms. Please don't hesitate to open one if you'd like to get involved.
-
-> **This project is licensed under a [GNU General Public License v3.0 License](https://github.com/larahfelipe/saturn/blob/master/LICENSE)**
+Saturn is licensed under the GPL-3.0 License. See the `LICENSE` file for details.
