@@ -26,6 +26,5 @@ COPY --from=build /app/dist ./dist
 COPY package.json ./
 USER node
 EXPOSE 8080
-# Node runs as PID 1 and handles SIGTERM itself, shutting down gracefully.
 STOPSIGNAL SIGTERM
 CMD ["node", "dist/main.js"]

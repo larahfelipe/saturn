@@ -5,46 +5,28 @@ import type { VoiceConnector } from '../ports/Voice.ts';
 import { GuildPlayer, MAX_QUEUE_LENGTH } from './GuildPlayer.ts';
 
 export interface PlayerRegistryOptions {
-  readonly resolver: TrackResolver;
-  readonly voice: VoiceConnector;
   readonly logger: Logger;
   readonly maxQueueLength?: number;
+  readonly resolver: TrackResolver;
+  readonly voice: VoiceConnector;
 }
 
-/**
- * Owns one `GuildPlayer` per guild. Players are created on demand and
- * disposed as soon as they become idle, so no idle player keeps state or
- * resources alive.
- */
 export class PlayerRegistry {
+  get isClosed(): boolean {
+    return this.#closed;
+  }
+  get size(): number {
+    return this.#players.size;
+  }
+
+  #closed = false;
   readonly #options: PlayerRegistryOptions;
   readonly #players = new Map<string, GuildPlayer>();
-  #closed = false;
 
   constructor(options: PlayerRegistryOptions) {
     this.#options = options;
   }
 
-  get size(): number {
-    return this.#players.size;
-  }
-
-  get isClosed(): boolean {
-    return this.#closed;
-  }
-
-  /** Number of players holding playback resources. */
-  activeCount(): number {
-    let count = 0;
-    for (const player of this.#players.values()) if (player.isActive) count++;
-    return count;
-  }
-
-  get(guildId: string): GuildPlayer | undefined {
-    return this.#players.get(guildId);
-  }
-
-  /** @throws PlayerUnavailableError once the registry is closed. */
   acquire(guildId: string): GuildPlayer {
     if (this.#closed) throw new PlayerUnavailableError();
     const existing = this.#players.get(guildId);
@@ -52,24 +34,33 @@ export class PlayerRegistry {
 
     const player: GuildPlayer = new GuildPlayer({
       guildId,
-      resolver: this.#options.resolver,
-      voice: this.#options.voice,
       logger: this.#options.logger.child({ guildId }),
       maxQueueLength: this.#options.maxQueueLength ?? MAX_QUEUE_LENGTH,
       onIdle: () => {
         this.#release(guildId, player);
       },
+      resolver: this.#options.resolver,
+      voice: this.#options.voice,
     });
     this.#players.set(guildId, player);
     return player;
   }
 
-  /** Rejects new players and disposes every existing one. Idempotent. */
+  activeCount(): number {
+    let count = 0;
+    for (const player of this.#players.values()) if (player.isActive) count++;
+    return count;
+  }
+
   close(): void {
     this.#closed = true;
-    const players = [...this.#players.values()];
+    const players = this.#players.values().toArray();
     this.#players.clear();
     for (const player of players) player.dispose();
+  }
+
+  get(guildId: string): GuildPlayer | undefined {
+    return this.#players.get(guildId);
   }
 
   #release(guildId: string, player: GuildPlayer): void {

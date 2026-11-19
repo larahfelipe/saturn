@@ -1,116 +1,66 @@
-import {
-  ButtonStyle,
-  ComponentType,
-  type APIActionRowComponent,
-  type APIButtonComponent,
-  type APIEmbed,
-} from 'discord.js';
+import { ButtonStyle, ComponentType } from 'discord.js';
+import type { APIActionRowComponent, APIButtonComponent, APIEmbed } from 'discord.js';
 
 import type { Track } from '../../domain/music/Track.ts';
 
-/** A Discord response, independent of how the interaction is acknowledged. */
+export interface BotProfile {
+  readonly avatarUrl: string | undefined;
+  readonly username: string;
+}
+
+export type PlaybackControl = 'pause' | 'skip' | 'stop' | 'unpause';
+
 export interface Reply {
+  readonly components?: readonly APIActionRowComponent<APIButtonComponent>[];
   readonly content?: string;
   readonly embeds?: readonly APIEmbed[];
-  readonly components?: readonly APIActionRowComponent<APIButtonComponent>[];
   readonly ephemeral?: boolean;
 }
-
-export interface BotProfile {
-  readonly username: string;
-  readonly avatarUrl: string | undefined;
-}
-
-export type PlaybackControl = 'pause' | 'unpause' | 'skip' | 'stop';
 
 export const IDLE_MESSAGE = 'There is no song playing right now';
 export const CONTROL_FAILED_MESSAGE = 'Command could not be completed (player might be idle)';
 export const CONTROL_MESSAGES: Readonly<Record<PlaybackControl, string>> = {
   pause: 'Playback paused ⏸️',
-  unpause: 'Playback resumed ▶️',
   skip: 'Song skipped ⏭️',
   stop: 'Playback stopped 🛑',
+  unpause: 'Playback resumed ▶️',
 };
 
 const COLORS = {
-  standard: 0x6e76e5,
-  error: 0xfb3640,
-  queued: 0xffb319,
-  playing: 0x1ed760,
+  error: 0xfb_36_40,
+  playing: 0x1e_d7_60,
+  queued: 0xff_b3_19,
+  standard: 0x6e_76_e5,
 } as const;
 
-/** Pinned to the legacy commit that has the image, so the link survives branch changes. */
 const NOW_PLAYING_ICON =
   'https://github.com/larahfelipe/saturn/blob/04d648edc74dcac7089d665e297b68c767b6ada3/src/assets/cd.gif?raw=true';
 
 const CONTROL_BUTTONS: readonly {
   readonly control: PlaybackControl;
-  readonly label: string;
   readonly emoji: string;
+  readonly label: string;
   readonly style:
-    ButtonStyle.Primary | ButtonStyle.Secondary | ButtonStyle.Success | ButtonStyle.Danger;
+    ButtonStyle.Danger | ButtonStyle.Primary | ButtonStyle.Secondary | ButtonStyle.Success;
 }[] = [
-  { control: 'pause', label: 'Pause', emoji: '⏸️', style: ButtonStyle.Secondary },
-  { control: 'unpause', label: 'Resume', emoji: '▶️', style: ButtonStyle.Success },
-  { control: 'skip', label: 'Skip', emoji: '⏭️', style: ButtonStyle.Primary },
-  { control: 'stop', label: 'Stop', emoji: '🛑', style: ButtonStyle.Danger },
+  { control: 'pause', emoji: '⏸️', label: 'Pause', style: ButtonStyle.Secondary },
+  { control: 'unpause', emoji: '▶️', label: 'Resume', style: ButtonStyle.Success },
+  { control: 'skip', emoji: '⏭️', label: 'Skip', style: ButtonStyle.Primary },
+  { control: 'stop', emoji: '🛑', label: 'Stop', style: ButtonStyle.Danger },
 ];
 
 const CONTROLS: ReadonlySet<string> = new Set(CONTROL_BUTTONS.map(({ control }) => control));
 
-export function standardEmbed(bot: BotProfile, description: string, now = new Date()): APIEmbed {
-  return {
-    author: { name: bot.username, ...avatar(bot) },
-    description,
-    footer: { text: 'From space' },
-    timestamp: now.toISOString(),
-    color: COLORS.standard,
-  };
-}
-
 export function errorEmbed(bot: BotProfile, description: string, now = new Date()): APIEmbed {
   return {
     author: { name: '❌ Oops, a wild error appeared! 😱', ...avatar(bot) },
+    color: COLORS.error,
     description,
     footer: { text: 'Please try again later' },
     timestamp: now.toISOString(),
-    color: COLORS.error,
   };
 }
 
-function avatar(bot: BotProfile): { icon_url?: string } {
-  return bot.avatarUrl === undefined ? {} : { icon_url: bot.avatarUrl };
-}
-
-export function nowPlayingEmbed(track: Track): APIEmbed {
-  return {
-    ...trackDetails(track),
-    author: { name: 'Now playing', icon_url: NOW_PLAYING_ICON },
-    description: `Requested by <@${track.requestedBy}> Enjoy!`,
-    color: COLORS.playing,
-  };
-}
-
-export function queuedEmbed(track: Track, position: number, now = new Date()): APIEmbed {
-  return {
-    ...trackDetails(track),
-    author: { name: 'Queued' },
-    description: `Added to the queue by <@${track.requestedBy}> at position ${position}`,
-    timestamp: now.toISOString(),
-    color: COLORS.queued,
-  };
-}
-
-function trackDetails(track: Track): APIEmbed {
-  return {
-    title: track.title,
-    url: track.url,
-    ...(track.artworkUrl === undefined ? {} : { thumbnail: { url: track.artworkUrl } }),
-    footer: { text: `Duration: ${formatDuration(track.durationMs)}` },
-  };
-}
-
-/** `m:ss`, or `h:mm:ss` from one hour. */
 export function formatDuration(durationMs: number): string {
   const totalSeconds = Math.floor(durationMs / 1000);
   const hours = Math.floor(totalSeconds / 3600);
@@ -121,20 +71,15 @@ export function formatDuration(durationMs: number): string {
     : `${minutes}:${seconds}`;
 }
 
-export function playbackControls(guildId: string): APIActionRowComponent<APIButtonComponent> {
+export function nowPlayingEmbed(track: Track): APIEmbed {
   return {
-    type: ComponentType.ActionRow,
-    components: CONTROL_BUTTONS.map(({ control, label, emoji, style }) => ({
-      type: ComponentType.Button,
-      custom_id: `${control}_${guildId}`,
-      label,
-      emoji: { name: emoji },
-      style,
-    })),
+    ...trackDetails(track),
+    author: { icon_url: NOW_PLAYING_ICON, name: 'Now playing' },
+    color: COLORS.playing,
+    description: `Requested by <@${track.requestedBy}> Enjoy!`,
   };
 }
 
-/** Parses a `<control>_<guildId>` button ID; `undefined` when malformed or unsupported. */
 export function parseControlId(
   customId: string,
 ): { readonly control: PlaybackControl; readonly guildId: string } | undefined {
@@ -146,6 +91,52 @@ export function parseControlId(
   return { control, guildId };
 }
 
+export function playbackControls(guildId: string): APIActionRowComponent<APIButtonComponent> {
+  return {
+    components: CONTROL_BUTTONS.map(({ control, emoji, label, style }) => ({
+      custom_id: `${control}_${guildId}`,
+      emoji: { name: emoji },
+      label,
+      style,
+      type: ComponentType.Button,
+    })),
+    type: ComponentType.ActionRow,
+  };
+}
+
+export function queuedEmbed(track: Track, position: number, now = new Date()): APIEmbed {
+  return {
+    ...trackDetails(track),
+    author: { name: 'Queued' },
+    color: COLORS.queued,
+    description: `Added to the queue by <@${track.requestedBy}> at position ${position}`,
+    timestamp: now.toISOString(),
+  };
+}
+
+export function standardEmbed(bot: BotProfile, description: string, now = new Date()): APIEmbed {
+  return {
+    author: { name: bot.username, ...avatar(bot) },
+    color: COLORS.standard,
+    description,
+    footer: { text: 'From space' },
+    timestamp: now.toISOString(),
+  };
+}
+
+function avatar(bot: BotProfile): { icon_url?: string } {
+  return bot.avatarUrl === undefined ? {} : { icon_url: bot.avatarUrl };
+}
+
 function isControl(value: string): value is PlaybackControl {
   return CONTROLS.has(value);
+}
+
+function trackDetails(track: Track): APIEmbed {
+  return {
+    title: track.title,
+    url: track.url,
+    ...(track.artworkUrl !== undefined && { thumbnail: { url: track.artworkUrl } }),
+    footer: { text: `Duration: ${formatDuration(track.durationMs)}` },
+  };
 }

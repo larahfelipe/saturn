@@ -1,24 +1,24 @@
 import { once } from 'node:events';
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { createServer } from 'node:http';
+import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
 import type { Logger } from '../../application/ports/Logger.ts';
+
+export interface MetricsServerOptions {
+  readonly logger: Logger;
+  readonly source: MetricsSource;
+}
 
 export interface MetricsSource {
   readonly contentType: string;
   render(): Promise<string>;
 }
 
-export interface MetricsServerOptions {
-  readonly source: MetricsSource;
-  readonly logger: Logger;
-}
-
-/** Serves `GET /metrics` for Prometheus scrapes. */
 export class MetricsServer {
-  readonly #source: MetricsSource;
   readonly #logger: Logger;
   readonly #server: Server;
+  readonly #source: MetricsSource;
 
   constructor(options: MetricsServerOptions) {
     this.#source = options.source;
@@ -28,22 +28,20 @@ export class MetricsServer {
     });
   }
 
-  /** Listens on every interface. Pass port 0 to pick a free port. */
-  async listen(port: number): Promise<AddressInfo> {
-    this.#server.listen(port);
-    await once(this.#server, 'listening');
-    const address = this.#server.address() as AddressInfo;
-    this.#logger.info({ port: address.port }, 'metrics endpoint listening');
-    return address;
-  }
-
-  /** Stops listening and drops open connections, including idle keep-alive ones. Idempotent. */
   async close(): Promise<void> {
     if (!this.#server.listening) return;
     const closed = once(this.#server, 'close');
     this.#server.close();
     this.#server.closeAllConnections();
     await closed;
+  }
+
+  async listen(port: number): Promise<AddressInfo> {
+    this.#server.listen(port);
+    await once(this.#server, 'listening');
+    const address = this.#server.address() as AddressInfo;
+    this.#logger.info({ port: address.port }, 'metrics endpoint listening');
+    return address;
   }
 
   async #handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
@@ -54,7 +52,7 @@ export class MetricsServer {
     }
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       response
-        .writeHead(405, { 'Content-Type': 'text/plain', Allow: 'GET, HEAD' })
+        .writeHead(405, { Allow: 'GET, HEAD', 'Content-Type': 'text/plain' })
         .end('Method Not Allowed\n');
       return;
     }

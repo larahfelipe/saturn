@@ -1,17 +1,22 @@
 import type { CommandDefinition, CommandName } from './commandDefinitions.ts';
 import type { CommandHandler } from './commands.ts';
 
-export interface Command extends CommandHandler {
-  readonly definition: CommandDefinition;
-}
-
-/** The subset of discord.js `ApplicationCommandManager` used to synchronize commands. */
 export interface ApplicationCommandSink {
   set(commands: readonly CommandDefinition[]): Promise<unknown>;
 }
 
-/** Pairs each slash command definition with the handler that executes it. */
+export interface Command extends CommandHandler {
+  readonly definition: CommandDefinition;
+}
+
 export class CommandRegistry {
+  get definitions(): CommandDefinition[] {
+    return this.#commands
+      .values()
+      .map(({ definition }) => definition)
+      .toArray();
+  }
+
   readonly #commands = new Map<string, Command>();
 
   constructor(
@@ -26,15 +31,10 @@ export class CommandRegistry {
     }
   }
 
-  get definitions(): CommandDefinition[] {
-    return [...this.#commands.values()].map(({ definition }) => definition);
-  }
-
   get(name: string): Command | undefined {
     return this.#commands.get(name);
   }
 
-  /** Overwrites the application's global commands, removing any that are no longer defined. */
   async sync(sink: ApplicationCommandSink): Promise<void> {
     await sink.set(this.definitions);
   }

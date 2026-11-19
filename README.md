@@ -31,6 +31,7 @@
 - [Installation](#installation)
   - [Docker Setup (Recommended)](#docker-setup-recommended)
   - [Manual Setup](#manual-setup)
+- [YouTube Sign-in (Optional)](#youtube-sign-in-optional)
 - [Documentation](#documentation)
 - [License](#license)
 
@@ -94,7 +95,7 @@ APP_ENVIRONMENT=production
 ```
 
 Only `BOT_TOKEN` is required. See [operations](docs/operations.md#environment-variables) for every variable,
-and [YouTube sign-in](docs/operations.md#youtube-sign-in) if YouTube refuses your server with `BOT_CHECK`.
+and [YouTube Sign-in](#youtube-sign-in-optional) if YouTube refuses your server with `BOT_CHECK`.
 
 ---
 
@@ -140,6 +141,44 @@ git clone https://github.com/larahfelipe/saturn.git && cd saturn
    npm run build
    npm start
    ```
+
+---
+
+## YouTube Sign-in (Optional)
+
+YouTube asks some servers to sign in, datacenter IP addresses especially. The bot then replies that something went wrong
+while searching the song, and the `command failed` log shows `BOT_CHECK`. Saturn can look up videos with a signed-in
+session instead:
+
+1. Sign in to YouTube in a private browser window with a throwaway Google account, since YouTube may suspend accounts it
+   sees used by bots. Age-verify the account if the bot should play age-restricted videos.
+2. Export the window's cookies to `youtube-cookies.txt` in the Netscape format, with a browser extension such as
+   Get cookies.txt LOCALLY, allowed to run in private windows.
+3. Close the private window **without signing out**. Signing out ends the session the cookie belongs to.
+4. Point `YOUTUBE_COOKIE_FILE` at the file:
+   - **Docker**: mount the file read-only. The container runs as uid 1000, which must be able to read it:
+
+     ```bash
+     chmod 600 youtube-cookies.txt && sudo chown 1000 youtube-cookies.txt
+     docker run -d --name saturn --restart unless-stopped --stop-timeout 20 --env-file .env \
+       --env YOUTUBE_COOKIE_FILE=/run/secrets/youtube-cookies \
+       --volume "$PWD/youtube-cookies.txt:/run/secrets/youtube-cookies:ro" \
+       saturn
+     ```
+
+   - **Manual setup**: add the file's absolute path to `.env`:
+
+     ```env
+     YOUTUBE_COOKIE_FILE=/path/to/youtube-cookies.txt
+     ```
+
+On startup, the log shows `youtube cookie loaded`. When the session expires, lookups fail with `AUTH_FAILED` in the
+`command failed` log: export a fresh cookie, replace the file and restart the bot.
+
+> ⚠️ **Notice:** The cookie grants access to the Google account. Never commit it (`.gitignore` covers `*cookie*.txt`)
+> and never put its content in the environment.
+
+See [YouTube sign-in](docs/operations.md#youtube-sign-in) for the other accepted cookie format and more details.
 
 ---
 

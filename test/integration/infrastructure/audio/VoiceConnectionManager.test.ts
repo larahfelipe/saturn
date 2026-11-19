@@ -1,33 +1,34 @@
-import { VoiceConnectionStatus, type DiscordGatewayAdapterCreator } from '@discordjs/voice';
+import { VoiceConnectionStatus } from '@discordjs/voice';
+import type { DiscordGatewayAdapterCreator } from '@discordjs/voice';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
   VoiceChannelUnusableError,
   VoiceConnectionError,
-} from '../../../src/application/errors.ts';
-import type { VoiceTarget } from '../../../src/application/ports/Voice.ts';
-import { DiscordAudioSession } from '../../../src/infrastructure/audio/DiscordAudioSession.ts';
-import {
-  VoiceConnectionManager,
-  type JoinVoiceChannel,
-} from '../../../src/infrastructure/audio/VoiceConnectionManager.ts';
-import { fakeFfmpeg } from '../../fixtures/audio.ts';
-import { flush, RecordingLogger } from '../../fixtures/fakes.ts';
-import { FakeVoiceConnection } from '../../fixtures/voice.ts';
+} from '../../../../src/application/errors.ts';
+import type { VoiceTarget } from '../../../../src/application/ports/Voice.ts';
+import { DiscordAudioSession } from '../../../../src/infrastructure/audio/DiscordAudioSession.ts';
+import { VoiceConnectionManager } from '../../../../src/infrastructure/audio/VoiceConnectionManager.ts';
+import type { JoinVoiceChannel } from '../../../../src/infrastructure/audio/VoiceConnectionManager.ts';
+import { fakeFfmpeg } from '../../../fixtures/audio.ts';
+import { flush, RecordingLogger } from '../../../fixtures/fakes.ts';
+import { FakeVoiceConnection } from '../../../fixtures/voice.ts';
 
-const TARGET: VoiceTarget = { guildId: 'guild-1', channelId: 'voice-1' };
+const TARGET: VoiceTarget = { channelId: 'voice-1', guildId: 'guild-1' };
 const adapterCreator: DiscordGatewayAdapterCreator = () => ({
-  sendPayload: () => true,
   destroy: () => undefined,
+  sendPayload: () => true,
 });
 
-describe('VoiceConnectionManager', () => {
+function options(signal = new AbortController().signal) {
+  return { onLost: () => undefined, signal };
+}
+
+describe(VoiceConnectionManager, () => {
   let connections: FakeVoiceConnection[];
   let joins: Parameters<JoinVoiceChannel>[0][];
   let logger: RecordingLogger;
   let manager: VoiceConnectionManager;
-
-  const options = (signal = new AbortController().signal) => ({ signal, onLost: () => undefined });
 
   beforeEach(() => {
     connections = [];
@@ -41,14 +42,14 @@ describe('VoiceConnectionManager', () => {
           : undefined;
       },
       ffmpegPath: fakeFfmpeg('passthrough'),
-      logger,
-      joinTimeoutMs: 100,
       join: (config) => {
         joins.push(config);
         const connection = new FakeVoiceConnection();
         connections.push(connection);
         return connection.asConnection();
       },
+      joinTimeoutMs: 100,
+      logger,
     });
   });
 
@@ -121,10 +122,11 @@ describe('VoiceConnectionManager', () => {
     await flush();
     connections[0]?.emit('error', new Error('udp socket closed'));
     connections[0]?.setStatus(VoiceConnectionStatus.Ready);
-    (await pending).destroy();
+    const session = await pending;
+    session.destroy();
 
     expect(logger.at('warn')).toMatchObject([
-      { message: 'voice connection error', context: { guildId: 'guild-1', channelId: 'voice-1' } },
+      { context: { channelId: 'voice-1', guildId: 'guild-1' }, message: 'voice connection error' },
     ]);
   });
 });

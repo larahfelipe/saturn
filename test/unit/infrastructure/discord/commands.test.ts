@@ -7,8 +7,8 @@ import { COMMAND_DEFINITIONS } from '../../../../src/infrastructure/discord/comm
 import {
   createCommandHandlers,
   runControl,
-  type CommandContext,
 } from '../../../../src/infrastructure/discord/commands.ts';
+import type { CommandContext } from '../../../../src/infrastructure/discord/commands.ts';
 import { playbackControls } from '../../../../src/infrastructure/discord/replies.ts';
 import {
   FakeResolver,
@@ -19,15 +19,15 @@ import {
 } from '../../../fixtures/fakes.ts';
 
 const GUILD_ID = '123456789012345678';
-const BOT = { username: 'Saturn', avatarUrl: undefined };
+const BOT = { avatarUrl: undefined, username: 'Saturn' };
 
 function context(overrides: Partial<CommandContext> & { url?: string } = {}): CommandContext {
   const { url = trackUrl('aaaaaaaaaaa'), ...rest } = overrides;
   return {
     guildId: GUILD_ID,
+    option: (name) => (name === 'url' ? url : undefined),
     userId: '42',
     voiceChannelId: 'voice-1',
-    option: (name) => (name === 'url' ? url : undefined),
     ...rest,
   };
 }
@@ -41,16 +41,16 @@ describe('command handlers', () => {
   beforeEach(() => {
     voice = new FakeVoiceConnector();
     registry = new PlayerRegistry({
+      logger: new RecordingLogger(),
       resolver: new FakeResolver(),
       voice,
-      logger: new RecordingLogger(),
     });
     playback = new PlaybackService(registry);
     handlers = createCommandHandlers({
-      playback,
-      definitions: COMMAND_DEFINITIONS,
       bot: () => BOT,
+      definitions: COMMAND_DEFINITIONS,
       heartbeatLatency: () => 37,
+      playback,
     });
   });
 
@@ -61,16 +61,16 @@ describe('command handlers', () => {
       const reply = await handlers.play.execute(context());
 
       expect(reply).toMatchObject({
+        components: [playbackControls(GUILD_ID)],
         embeds: [
           {
             author: { name: 'Now playing' },
-            title: 'Track aaaaaaaaaaa',
             description: 'Requested by <@42> Enjoy!',
+            title: 'Track aaaaaaaaaaa',
           },
         ],
-        components: [playbackControls(GUILD_ID)],
       });
-      expect(voice.calls[0]?.target).toEqual({ guildId: GUILD_ID, channelId: 'voice-1' });
+      expect(voice.calls[0]?.target).toEqual({ channelId: 'voice-1', guildId: GUILD_ID });
     });
 
     it('reports the queue position when a track is already playing', async () => {
@@ -81,8 +81,8 @@ describe('command handlers', () => {
       expect(reply.embeds).toEqual([
         expect.objectContaining({
           author: { name: 'Queued' },
-          title: 'Track bbbbbbbbbbb',
           description: 'Added to the queue by <@42> at position 1',
+          title: 'Track bbbbbbbbbbb',
         }),
       ]);
     });
@@ -125,7 +125,9 @@ describe('command handlers', () => {
     await handlers.play.execute(context({ url: trackUrl('bbbbbbbbbbb') }));
     await flush();
 
-    expect(await handlers.pause.execute(context())).toEqual({ content: 'Playback paused ⏸️' });
+    expect(await handlers.pause.execute(context())).toEqual({
+      content: 'Playback paused ⏸️',
+    });
     expect(registry.get(GUILD_ID)?.state.status).toBe('paused');
     expect(await handlers.unpause.execute(context())).toEqual({
       content: 'Playback resumed ▶️',
@@ -133,7 +135,9 @@ describe('command handlers', () => {
     expect(await handlers.skip.execute(context())).toEqual({ content: 'Song skipped ⏭️' });
     await flush();
     expect(registry.get(GUILD_ID)?.state).toMatchObject({ current: { id: 'bbbbbbbbbbb' } });
-    expect(await handlers.stop.execute(context())).toEqual({ content: 'Playback stopped 🛑' });
+    expect(await handlers.stop.execute(context())).toEqual({
+      content: 'Playback stopped 🛑',
+    });
     expect(registry.size).toBe(0);
     expect(voice.lastSession?.destroyed).toBe(true);
   });
@@ -169,16 +173,18 @@ describe('command handlers', () => {
   });
 });
 
-describe('runControl', () => {
+describe(runControl, () => {
   it('maps each control to its playback use case', () => {
     const calls: string[] = [];
+    const record = (call: string): boolean => {
+      calls.push(call);
+      return true;
+    };
     const playback = {
-      pause: (guildId: string, channelId?: string) =>
-        calls.push(`pause ${guildId} ${channelId}`) > 0,
-      resume: (guildId: string, channelId?: string) =>
-        calls.push(`resume ${guildId} ${channelId}`) > 0,
-      skip: (guildId: string, channelId?: string) => calls.push(`skip ${guildId} ${channelId}`) > 0,
-      stop: (guildId: string, channelId?: string) => calls.push(`stop ${guildId} ${channelId}`) > 0,
+      pause: (guildId: string, channelId?: string) => record(`pause ${guildId} ${channelId}`),
+      resume: (guildId: string, channelId?: string) => record(`resume ${guildId} ${channelId}`),
+      skip: (guildId: string, channelId?: string) => record(`skip ${guildId} ${channelId}`),
+      stop: (guildId: string, channelId?: string) => record(`stop ${guildId} ${channelId}`),
     } as unknown as PlaybackService;
 
     for (const control of ['pause', 'unpause', 'skip', 'stop'] as const) {

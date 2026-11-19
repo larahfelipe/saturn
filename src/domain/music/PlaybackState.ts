@@ -1,26 +1,34 @@
 import { InvalidPlaybackTransitionError } from './errors.ts';
 
+export type PlaybackEvent<T> =
+  | { readonly track: T; readonly type: 'start' }
+  | { readonly type: 'connect' }
+  | { readonly type: 'finish' }
+  | { readonly type: 'pause' }
+  | { readonly type: 'resume' }
+  | { readonly type: 'stop' }
+  | { readonly type: 'stopped' }
+  | { readonly type: 'wait' };
+
 export type PlaybackState<T> =
-  | { readonly status: 'idle' }
+  | { readonly current: T; readonly status: 'paused' }
+  | { readonly current: T; readonly status: 'playing' }
   | { readonly status: 'connecting' }
-  | { readonly status: 'playing'; readonly current: T }
-  | { readonly status: 'paused'; readonly current: T }
-  | { readonly status: 'waiting' }
-  | { readonly status: 'stopping' };
+  | { readonly status: 'idle' }
+  | { readonly status: 'stopping' }
+  | { readonly status: 'waiting' };
 
 export type PlaybackStatus = PlaybackState<unknown>['status'];
 
-export type PlaybackEvent<T> =
-  | { readonly type: 'connect' }
-  | { readonly type: 'start'; readonly track: T }
-  | { readonly type: 'pause' }
-  | { readonly type: 'resume' }
-  | { readonly type: 'wait' }
-  | { readonly type: 'finish' }
-  | { readonly type: 'stop' }
-  | { readonly type: 'stopped' };
-
 export const IDLE: PlaybackState<never> = Object.freeze({ status: 'idle' });
+
+export function canTransition<T>(state: PlaybackState<T>, event: PlaybackEvent<T>): boolean {
+  return apply(state, event) !== undefined;
+}
+
+export function isActive(state: PlaybackState<unknown>): boolean {
+  return state.status !== 'idle';
+}
 
 /**
  * Pure transition function of the guild playback lifecycle:
@@ -42,39 +50,38 @@ export function transition<T>(state: PlaybackState<T>, event: PlaybackEvent<T>):
   return next;
 }
 
-export function canTransition<T>(state: PlaybackState<T>, event: PlaybackEvent<T>): boolean {
-  return apply(state, event) !== undefined;
-}
-
-/** Whether the player holds playback resources (from connecting until stopped). */
-export function isActive(state: PlaybackState<unknown>): boolean {
-  return state.status !== 'idle';
-}
-
 function apply<T>(state: PlaybackState<T>, event: PlaybackEvent<T>): PlaybackState<T> | undefined {
   switch (event.type) {
-    case 'connect':
+    case 'connect': {
       return state.status === 'idle' ? { status: 'connecting' } : undefined;
-    case 'start':
-      return isRunning(state) ? { status: 'playing', current: event.track } : undefined;
-    case 'pause':
+    }
+    case 'finish': {
+      return isRunning(state) ? IDLE : undefined;
+    }
+    case 'pause': {
       return state.status === 'playing' || state.status === 'paused'
-        ? { status: 'paused', current: state.current }
+        ? { current: state.current, status: 'paused' }
         : undefined;
-    case 'resume':
+    }
+    case 'resume': {
       return state.status === 'playing' || state.status === 'paused'
-        ? { status: 'playing', current: state.current }
+        ? { current: state.current, status: 'playing' }
         : undefined;
-    case 'wait':
+    }
+    case 'start': {
+      return isRunning(state) ? { current: event.track, status: 'playing' } : undefined;
+    }
+    case 'stop': {
+      return isRunning(state) ? { status: 'stopping' } : undefined;
+    }
+    case 'stopped': {
+      return state.status === 'stopping' ? IDLE : undefined;
+    }
+    case 'wait': {
       return state.status === 'playing' || state.status === 'paused'
         ? { status: 'waiting' }
         : undefined;
-    case 'finish':
-      return isRunning(state) ? IDLE : undefined;
-    case 'stop':
-      return isRunning(state) ? { status: 'stopping' } : undefined;
-    case 'stopped':
-      return state.status === 'stopping' ? IDLE : undefined;
+    }
   }
 }
 

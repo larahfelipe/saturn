@@ -14,26 +14,26 @@ import { makeTrack } from '../../../fixtures/tracks.ts';
 
 const NOW = new Date('2026-11-14T12:00:00.000Z');
 const GUILD_ID = '123456789012345678';
-const BOT = { username: 'Saturn', avatarUrl: 'https://cdn.discordapp.com/avatars/1/a.png' };
+const BOT = { avatarUrl: 'https://cdn.discordapp.com/avatars/1/a.png', username: 'Saturn' };
 
 describe('embeds', () => {
   it('builds the standard embed', () => {
     expect(standardEmbed(BOT, 'Hello', NOW)).toEqual({
-      author: { name: 'Saturn', icon_url: BOT.avatarUrl },
+      author: { icon_url: BOT.avatarUrl, name: 'Saturn' },
+      color: 0x6e_76_e5,
       description: 'Hello',
       footer: { text: 'From space' },
       timestamp: '2026-11-14T12:00:00.000Z',
-      color: 0x6e76e5,
     });
   });
 
   it('builds the error embed', () => {
-    expect(errorEmbed({ username: 'Saturn', avatarUrl: undefined }, 'Nope', NOW)).toEqual({
+    expect(errorEmbed({ avatarUrl: undefined, username: 'Saturn' }, 'Nope', NOW)).toEqual({
       author: { name: '❌ Oops, a wild error appeared! 😱' },
+      color: 0xfb_36_40,
       description: 'Nope',
       footer: { text: 'Please try again later' },
       timestamp: '2026-11-14T12:00:00.000Z',
-      color: 0xfb3640,
     });
   });
 
@@ -42,16 +42,16 @@ describe('embeds', () => {
 
     expect(nowPlayingEmbed(track)).toEqual({
       author: {
-        name: 'Now playing',
         icon_url:
           'https://github.com/larahfelipe/saturn/blob/04d648edc74dcac7089d665e297b68c767b6ada3/src/assets/cd.gif?raw=true',
+        name: 'Now playing',
       },
-      title: track.title,
-      url: track.url,
-      thumbnail: { url: track.artworkUrl },
+      color: 0x1e_d7_60,
       description: 'Requested by <@42> Enjoy!',
       footer: { text: 'Duration: 3:33' },
-      color: 0x1ed760,
+      thumbnail: { url: track.artworkUrl },
+      title: track.title,
+      url: track.url,
     });
   });
 
@@ -60,17 +60,17 @@ describe('embeds', () => {
 
     expect(queuedEmbed(track, 3, NOW)).toEqual({
       author: { name: 'Queued' },
-      title: track.title,
-      url: track.url,
+      color: 0xff_b3_19,
       description: 'Added to the queue by <@42> at position 3',
       footer: { text: 'Duration: 1:01' },
       timestamp: '2026-11-14T12:00:00.000Z',
-      color: 0xffb319,
+      title: track.title,
+      url: track.url,
     });
   });
 });
 
-describe('formatDuration', () => {
+describe(formatDuration, () => {
   it.each([
     [0, '0:00'],
     [999, '0:00'],
@@ -86,19 +86,19 @@ describe('formatDuration', () => {
 describe('playback controls', () => {
   it('renders the four controls for the guild', () => {
     expect(playbackControls(GUILD_ID)).toEqual({
-      type: ComponentType.ActionRow,
       components: [
         ['pause', 'Pause', '⏸️', ButtonStyle.Secondary],
         ['unpause', 'Resume', '▶️', ButtonStyle.Success],
         ['skip', 'Skip', '⏭️', ButtonStyle.Primary],
         ['stop', 'Stop', '🛑', ButtonStyle.Danger],
       ].map(([control, label, emoji, style]) => ({
-        type: ComponentType.Button,
         custom_id: `${String(control)}_${GUILD_ID}`,
-        label,
         emoji: { name: emoji },
+        label,
         style,
+        type: ComponentType.Button,
       })),
+      type: ComponentType.ActionRow,
     });
   });
 
@@ -107,7 +107,7 @@ describe('playback controls', () => {
       'custom_id' in button ? button.custom_id : '',
     );
 
-    expect(ids.map(parseControlId)).toEqual([
+    expect(ids.map((id) => parseControlId(id))).toEqual([
       { control: 'pause', guildId: GUILD_ID },
       { control: 'unpause', guildId: GUILD_ID },
       { control: 'skip', guildId: GUILD_ID },

@@ -14,30 +14,26 @@ import {
   TrackUnavailableError,
   VoiceChannelUnusableError,
   VoiceConnectionError,
-} from '../../../src/application/errors.ts';
-import { PlaybackService } from '../../../src/application/music/PlaybackService.ts';
-import { PlayerRegistry } from '../../../src/application/music/PlayerRegistry.ts';
-import { CommandRegistry } from '../../../src/infrastructure/discord/CommandRegistry.ts';
-import {
-  COMMAND_DEFINITIONS,
-  type CommandName,
-} from '../../../src/infrastructure/discord/commandDefinitions.ts';
-import {
-  createCommandHandlers,
-  type CommandHandler,
-} from '../../../src/infrastructure/discord/commands.ts';
+} from '../../../../src/application/errors.ts';
+import { PlaybackService } from '../../../../src/application/music/PlaybackService.ts';
+import { PlayerRegistry } from '../../../../src/application/music/PlayerRegistry.ts';
+import { COMMAND_DEFINITIONS } from '../../../../src/infrastructure/discord/commandDefinitions.ts';
+import type { CommandName } from '../../../../src/infrastructure/discord/commandDefinitions.ts';
+import { CommandRegistry } from '../../../../src/infrastructure/discord/CommandRegistry.ts';
+import { createCommandHandlers } from '../../../../src/infrastructure/discord/commands.ts';
+import type { CommandHandler } from '../../../../src/infrastructure/discord/commands.ts';
 import {
   InteractionHandler,
   userErrorMessage,
-} from '../../../src/infrastructure/discord/InteractionHandler.ts';
-import { playbackControls } from '../../../src/infrastructure/discord/replies.ts';
+} from '../../../../src/infrastructure/discord/InteractionHandler.ts';
+import { playbackControls } from '../../../../src/infrastructure/discord/replies.ts';
 import {
   FakeResolver,
   FakeVoiceConnector,
   flush,
   RecordingLogger,
   trackUrl,
-} from '../../fixtures/fakes.ts';
+} from '../../../fixtures/fakes.ts';
 import {
   FakeButtonInteraction,
   FakeCommandInteraction,
@@ -46,16 +42,16 @@ import {
   OTHER_GUILD_ID,
   USER_ID,
   VOICE_CHANNEL_ID,
-} from '../../fixtures/interactions.ts';
+} from '../../../fixtures/interactions.ts';
 
-const BOT = { username: 'Saturn', avatarUrl: undefined };
+const BOT = { avatarUrl: undefined, username: 'Saturn' };
 const EPHEMERAL = MessageFlags.Ephemeral;
 
 function playInteraction(id = 'aaaaaaaaaaa', guildId = GUILD_ID): FakeCommandInteraction {
-  return new FakeCommandInteraction('play', { options: { url: trackUrl(id) }, guildId });
+  return new FakeCommandInteraction('play', { guildId, options: { url: trackUrl(id) } });
 }
 
-describe('InteractionHandler', () => {
+describe(InteractionHandler, () => {
   let resolver: FakeResolver;
   let voice: FakeVoiceConnector;
   let registry: PlayerRegistry;
@@ -68,23 +64,27 @@ describe('InteractionHandler', () => {
     resolver = new FakeResolver();
     voice = new FakeVoiceConnector();
     logger = new RecordingLogger();
-    registry = new PlayerRegistry({ resolver, voice, logger });
+    registry = new PlayerRegistry({ logger, resolver, voice });
     const playback = new PlaybackService(registry);
     recorded = [];
     handlers = {
       ...createCommandHandlers({
-        playback,
-        definitions: COMMAND_DEFINITIONS,
         bot: () => BOT,
+        definitions: COMMAND_DEFINITIONS,
         heartbeatLatency: () => 37,
+        playback,
       }),
     };
     handler = new InteractionHandler({
-      commands: new CommandRegistry(COMMAND_DEFINITIONS, handlers),
-      playback,
       bot: () => BOT,
-      metrics: { recordCommand: (name) => recorded.push(name) },
+      commands: new CommandRegistry(COMMAND_DEFINITIONS, handlers),
       logger,
+      metrics: {
+        recordCommand: (name) => {
+          recorded.push(name);
+        },
+      },
+      playback,
     });
   });
 
@@ -99,12 +99,12 @@ describe('InteractionHandler', () => {
         {
           method: 'editReply',
           options: {
-            embeds: [expect.objectContaining({ description: `Requested by <@${USER_ID}> Enjoy!` })],
             components: [playbackControls(GUILD_ID)],
+            embeds: [expect.objectContaining({ description: `Requested by <@${USER_ID}> Enjoy!` })],
           },
         },
       ]);
-      expect(voice.calls[0]?.target).toEqual({ guildId: GUILD_ID, channelId: VOICE_CHANNEL_ID });
+      expect(voice.calls[0]?.target).toEqual({ channelId: VOICE_CHANNEL_ID, guildId: GUILD_ID });
       expect(recorded).toEqual(['play']);
     });
 
@@ -184,6 +184,26 @@ describe('InteractionHandler', () => {
         await handler.handle(playInteraction('ccccccccccc').asInteraction());
         expect(resolver.calls).toHaveLength(2);
       });
+
+      it('drops a command whose acknowledgement fails while it waits for its turn', async () => {
+        const slow = Promise.withResolvers<undefined>();
+        const failing = Promise.withResolvers<undefined>();
+        const first = playInteraction('aaaaaaaaaaa');
+        first.acknowledgement = slow.promise;
+        const second = playInteraction('bbbbbbbbbbb');
+        second.acknowledgement = failing.promise;
+
+        const handled = [first, second].map((interaction) =>
+          handler.handle(interaction.asInteraction()),
+        );
+        await flush();
+        failing.reject(new Error('Unknown interaction'));
+        await flush();
+        slow.resolve(undefined);
+        await Promise.all(handled);
+
+        expect(resolver.calls.map(({ request }) => request.url)).toEqual([trackUrl('aaaaaaaaaaa')]);
+      });
     });
 
     it('replies directly to commands that do not defer', async () => {
@@ -255,11 +275,11 @@ describe('InteractionHandler', () => {
         },
       };
       handler = new InteractionHandler({
-        commands: new CommandRegistry(COMMAND_DEFINITIONS, handlers),
-        playback: new PlaybackService(registry),
         bot: () => BOT,
-        metrics: { recordCommand: () => undefined },
+        commands: new CommandRegistry(COMMAND_DEFINITIONS, handlers),
         logger,
+        metrics: { recordCommand: () => undefined },
+        playback: new PlaybackService(registry),
       });
       const interaction = new FakeCommandInteraction('ping');
 
@@ -305,9 +325,9 @@ describe('InteractionHandler', () => {
 
     it('rejects commands outside a cached guild without running them', async () => {
       const interaction = new FakeCommandInteraction('play', {
-        options: { url: trackUrl('aaaaaaaaaaa') },
-        guildId: null,
         cached: false,
+        guildId: null,
+        options: { url: trackUrl('aaaaaaaaaaa') },
       });
 
       await handler.handle(interaction.asInteraction());
@@ -373,8 +393,8 @@ describe('InteractionHandler', () => {
         { method: 'reply', options: { content: message, flags: EPHEMERAL } },
       ]);
       expect(registry.get(OTHER_GUILD_ID)?.state).toMatchObject({
-        status: 'playing',
         current: { id: 'ccccccccccc' },
+        status: 'playing',
       });
       expect(recorded).toEqual([]);
     });
@@ -473,7 +493,7 @@ describe('InteractionHandler', () => {
   });
 });
 
-describe('userErrorMessage', () => {
+describe(userErrorMessage, () => {
   it.each([
     [new InvalidTrackUrlError(), 'Invalid YouTube URL. Please provide a valid YouTube link'],
     [new NoAudioFormatError(), 'No suitable audio track was found for this video'],
@@ -508,12 +528,9 @@ describe('userErrorMessage', () => {
     ],
     [new QueueFullError(100), 'The queue is full (100 songs). Please, try again later'],
     [new NotListeningError(), 'You need to be in my voice channel to do that'],
+    [new RateLimitedError(1000), 'You are adding songs too quickly. Please, try again in 1 second'],
     [
-      new RateLimitedError(1_000),
-      'You are adding songs too quickly. Please, try again in 1 second',
-    ],
-    [
-      new RateLimitedError(4_200),
+      new RateLimitedError(4200),
       'You are adding songs too quickly. Please, try again in 5 seconds',
     ],
     [new PlaybackCancelledError(), 'Playback was stopped before your song could be added'],

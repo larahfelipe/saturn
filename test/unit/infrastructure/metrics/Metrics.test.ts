@@ -7,9 +7,9 @@ function sample(text: string, series: string): number | undefined {
   return line === undefined ? undefined : Number(line.slice(series.length + 1));
 }
 
-describe('Metrics', () => {
+describe(Metrics, () => {
   it('exports every command counter at zero before its first use', async () => {
-    const metrics = new Metrics({ commands: ['play', 'stop'], activePlayers: () => 0 });
+    const metrics = new Metrics({ activePlayers: () => 0, commands: ['play', 'stop'] });
 
     const text = await metrics.render();
 
@@ -22,7 +22,7 @@ describe('Metrics', () => {
   });
 
   it('counts commands by name', async () => {
-    const metrics = new Metrics({ commands: ['play', 'stop'], activePlayers: () => 0 });
+    const metrics = new Metrics({ activePlayers: () => 0, commands: ['play', 'stop'] });
 
     metrics.recordCommand('play');
     metrics.recordCommand('play');
@@ -36,7 +36,7 @@ describe('Metrics', () => {
 
   it('reads the active players at scrape time', async () => {
     let active = 3;
-    const metrics = new Metrics({ commands: [], activePlayers: () => active });
+    const metrics = new Metrics({ activePlayers: () => active, commands: [] });
 
     const first = await metrics.render();
     active = 1;
@@ -51,13 +51,13 @@ describe('Metrics', () => {
   });
 
   it('never exports a negative player count', async () => {
-    const metrics = new Metrics({ commands: [], activePlayers: () => -1 });
+    const metrics = new Metrics({ activePlayers: () => -1, commands: [] });
 
     expect(sample(await metrics.render(), 'saturn_active_players')).toBe(0);
   });
 
   it('includes runtime and process metrics', async () => {
-    const metrics = new Metrics({ commands: [], activePlayers: () => 0 });
+    const metrics = new Metrics({ activePlayers: () => 0, commands: [] });
 
     const text = await metrics.render();
 
@@ -67,13 +67,13 @@ describe('Metrics', () => {
   });
 
   it('keeps instances independent', async () => {
-    const first = new Metrics({ commands: [], activePlayers: () => 0 });
-    const second = new Metrics({ commands: [], activePlayers: () => 0 });
+    const first = new Metrics({ activePlayers: () => 0, commands: [] });
+    const second = new Metrics({ activePlayers: () => 0, commands: [] });
 
     first.recordCommand('ping');
 
-    expect(sample(await second.render(), 'saturn_commands_processed_total{command="ping"}')).toBe(
-      undefined,
-    );
+    expect(
+      sample(await second.render(), 'saturn_commands_processed_total{command="ping"}'),
+    ).toBeUndefined();
   });
 });

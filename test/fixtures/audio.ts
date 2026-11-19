@@ -1,48 +1,34 @@
 import { fileURLToPath } from 'node:url';
 
-export type FakeFfmpeg = 'passthrough' | 'failing' | 'stalled' | 'no-opus';
+export type FakeFfmpeg = 'failing' | 'no-opus' | 'passthrough' | 'stalled';
 
-/** Path of an executable FFmpeg stand-in from `test/fixtures/ffmpeg`. */
 export function fakeFfmpeg(name: FakeFfmpeg): string {
   return fileURLToPath(new URL(`ffmpeg/${name}.ts`, import.meta.url));
 }
 
 export const FRAME_MS = 20;
 const SAMPLES_PER_FRAME = 960;
-const SERIAL = 0x5a7e;
+const SERIAL = 0x5a_7e;
 const SILENT_FRAME = Buffer.from([0xf8, 0xff, 0xfe]);
 
 const CRC_TABLE = Uint32Array.from({ length: 256 }, (_, index) => {
   let crc = index << 24;
-  for (let bit = 0; bit < 8; bit++) crc = crc & 0x80000000 ? (crc << 1) ^ 0x04c11db7 : crc << 1;
+  for (let bit = 0; bit < 8; bit++)
+    crc = crc & 0x80_00_00_00 ? (crc << 1) ^ 0x04_c1_1d_b7 : crc << 1;
   return crc >>> 0;
 });
 
-function oggCrc(data: Uint8Array): number {
-  let crc = 0;
-  for (const byte of data)
-    crc = ((crc << 8) ^ (CRC_TABLE[((crc >>> 24) ^ byte) & 0xff] ?? 0)) >>> 0;
-  return crc;
+export function oggOpus(frames: number): Buffer {
+  const pages = [oggOpusHeaders()];
+  for (let sequence = 2, start = 0; start < frames; start += 50, sequence++) {
+    const count = Math.min(50, frames - start);
+    const last = start + count >= frames;
+    const packets = Array.from({ length: count }, () => SILENT_FRAME);
+    pages.push(oggPage(packets, sequence, (start + count) * SAMPLES_PER_FRAME, last ? 0x04 : 0));
+  }
+  return Buffer.concat(pages);
 }
 
-function oggPage(packets: readonly Buffer[], sequence: number, granule: number, flags = 0): Buffer {
-  const lacing = packets.flatMap((packet) => [
-    ...Array<number>(Math.floor(packet.length / 255)).fill(255),
-    packet.length % 255,
-  ]);
-  const header = Buffer.alloc(27);
-  header.write('OggS', 0, 'latin1');
-  header.writeUInt8(flags, 5);
-  header.writeBigInt64LE(BigInt(granule), 6);
-  header.writeUInt32LE(SERIAL, 14);
-  header.writeUInt32LE(sequence, 18);
-  header.writeUInt8(lacing.length, 26);
-  const page = Buffer.concat([header, Buffer.from(lacing), ...packets]);
-  page.writeUInt32LE(oggCrc(page), 22);
-  return page;
-}
-
-/** The identification and comment pages of a 48 kHz stereo Ogg/Opus stream. */
 export function oggOpusHeaders(): Buffer {
   const head = Buffer.alloc(19);
   head.write('OpusHead', 0, 'latin1');
@@ -58,14 +44,26 @@ export function oggOpusHeaders(): Buffer {
   return Buffer.concat([oggPage([head], 0, 0, 0x02), oggPage([tags], 1, 0)]);
 }
 
-/** A complete Ogg/Opus stream of `frames` silent 20 ms frames. */
-export function oggOpus(frames: number): Buffer {
-  const pages = [oggOpusHeaders()];
-  for (let start = 0, sequence = 2; start < frames; start += 50, sequence++) {
-    const count = Math.min(50, frames - start);
-    const last = start + count >= frames;
-    const packets = Array.from({ length: count }, () => SILENT_FRAME);
-    pages.push(oggPage(packets, sequence, (start + count) * SAMPLES_PER_FRAME, last ? 0x04 : 0));
-  }
-  return Buffer.concat(pages);
+function oggCrc(data: Uint8Array): number {
+  let crc = 0;
+  for (const byte of data)
+    crc = ((crc << 8) ^ (CRC_TABLE[((crc >>> 24) ^ byte) & 0xff] ?? 0)) >>> 0;
+  return crc;
+}
+
+function oggPage(packets: readonly Buffer[], sequence: number, granule: number, flags = 0): Buffer {
+  const lacing = packets.flatMap((packet) => [
+    ...Array.from({ length: Math.floor(packet.length / 255) }, () => 255),
+    packet.length % 255,
+  ]);
+  const header = Buffer.alloc(27);
+  header.write('OggS', 0, 'latin1');
+  header.writeUInt8(flags, 5);
+  header.writeBigInt64LE(BigInt(granule), 6);
+  header.writeUInt32LE(SERIAL, 14);
+  header.writeUInt32LE(sequence, 18);
+  header.writeUInt8(lacing.length, 26);
+  const page = Buffer.concat([header, Buffer.from(lacing), ...packets]);
+  page.writeUInt32LE(oggCrc(page), 22);
+  return page;
 }

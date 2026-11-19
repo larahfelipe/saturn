@@ -1,11 +1,9 @@
-import {
-  createAudioPlayer,
-  joinVoiceChannel,
-  VoiceConnectionStatus,
-  type CreateVoiceConnectionOptions,
-  type DiscordGatewayAdapterCreator,
-  type JoinVoiceChannelOptions,
-  type VoiceConnection,
+import { createAudioPlayer, joinVoiceChannel, VoiceConnectionStatus } from '@discordjs/voice';
+import type {
+  CreateVoiceConnectionOptions,
+  DiscordGatewayAdapterCreator,
+  JoinVoiceChannelOptions,
+  VoiceConnection,
 } from '@discordjs/voice';
 
 import { VoiceConnectionError } from '../../application/errors.ts';
@@ -20,67 +18,62 @@ import { DiscordAudioSession } from './DiscordAudioSession.ts';
 import { opusBitrateKbps } from './ffmpeg.ts';
 import { waitForStatus } from './waitForStatus.ts';
 
-/** 5 s of 20 ms frames: tolerates network stalls before a track is considered stuck. */
 const MAX_MISSED_FRAMES = 250;
-
-export interface VoiceChannelInfo {
-  readonly adapterCreator: DiscordGatewayAdapterCreator;
-  /** Channel bitrate in bit/s. */
-  readonly bitrate: number;
-}
-
-/** Returns the voice channel behind `target`, or `undefined` if it is not a reachable voice channel. */
-/** @throws VoiceChannelUnusableError when the bot could not join or be heard there. */
-export type VoiceChannelLookup = (target: VoiceTarget) => VoiceChannelInfo | undefined;
 
 export type JoinVoiceChannel = (
   options: CreateVoiceConnectionOptions & JoinVoiceChannelOptions,
 ) => VoiceConnection;
 
+export interface VoiceChannelInfo {
+  readonly adapterCreator: DiscordGatewayAdapterCreator;
+  readonly bitrate: number;
+}
+
+export type VoiceChannelLookup = (target: VoiceTarget) => VoiceChannelInfo | undefined;
+
 export interface VoiceConnectionManagerOptions {
   readonly channels: VoiceChannelLookup;
   readonly ffmpegPath: string;
-  readonly logger: Logger;
+  readonly join?: JoinVoiceChannel;
   readonly joinTimeoutMs?: number;
+  readonly logger: Logger;
   readonly reconnectTimeoutMs?: number;
   readonly rejoinDelayMs?: number;
   readonly trackStartTimeoutMs?: number;
-  readonly join?: JoinVoiceChannel;
 }
 
-/** Joins voice channels with @discordjs/voice and hands each connection to an audio session. */
 export class VoiceConnectionManager implements VoiceConnector {
   readonly #channels: VoiceChannelLookup;
   readonly #ffmpegPath: string;
-  readonly #logger: Logger;
+  readonly #join: JoinVoiceChannel;
   readonly #joinTimeoutMs: number;
+  readonly #logger: Logger;
   readonly #reconnectTimeoutMs: number;
   readonly #rejoinDelayMs: number;
   readonly #trackStartTimeoutMs: number;
-  readonly #join: JoinVoiceChannel;
 
   constructor(options: VoiceConnectionManagerOptions) {
     this.#channels = options.channels;
     this.#ffmpegPath = options.ffmpegPath;
     this.#logger = options.logger;
     this.#joinTimeoutMs = options.joinTimeoutMs ?? 15_000;
-    this.#reconnectTimeoutMs = options.reconnectTimeoutMs ?? 5_000;
-    this.#rejoinDelayMs = options.rejoinDelayMs ?? 2_000;
+    this.#reconnectTimeoutMs = options.reconnectTimeoutMs ?? 5000;
+    this.#rejoinDelayMs = options.rejoinDelayMs ?? 2000;
     this.#trackStartTimeoutMs = options.trackStartTimeoutMs ?? 20_000;
     this.#join = options.join ?? joinVoiceChannel;
   }
 
   async connect(target: VoiceTarget, options: ConnectOptions): Promise<AudioSession> {
-    const { signal, onLost } = options;
+    const { onLost, signal } = options;
     signal.throwIfAborted();
     const channel = this.#channels(target);
     if (channel === undefined) throw new VoiceConnectionError('Voice channel is not available');
 
-    const logger = this.#logger.child({ guildId: target.guildId, channelId: target.channelId });
+    const logger = this.#logger.child({ channelId: target.channelId, guildId: target.guildId });
     const connection = this.#join({
-      guildId: target.guildId,
-      channelId: target.channelId,
       adapterCreator: channel.adapterCreator,
+      channelId: target.channelId,
+      guildId: target.guildId,
       selfDeaf: true,
       selfMute: false,
     });
@@ -95,14 +88,14 @@ export class VoiceConnectionManager implements VoiceConnector {
         AbortSignal.any([signal, AbortSignal.timeout(this.#joinTimeoutMs)]),
       );
       return new DiscordAudioSession({
-        connection,
-        player: createAudioPlayer({ behaviors: { maxMissedFrames: MAX_MISSED_FRAMES } }),
-        ffmpegPath: this.#ffmpegPath,
         bitrateKbps: opusBitrateKbps(channel.bitrate),
+        connection,
+        ffmpegPath: this.#ffmpegPath,
         logger,
         onLost,
-        reconnectTimeoutMs: this.#reconnectTimeoutMs,
+        player: createAudioPlayer({ behaviors: { maxMissedFrames: MAX_MISSED_FRAMES } }),
         readyTimeoutMs: this.#joinTimeoutMs,
+        reconnectTimeoutMs: this.#reconnectTimeoutMs,
         rejoinDelayMs: this.#rejoinDelayMs,
         startTimeoutMs: this.#trackStartTimeoutMs,
       });

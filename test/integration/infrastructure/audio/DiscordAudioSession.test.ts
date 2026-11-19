@@ -7,29 +7,29 @@ import {
   NoSubscriberBehavior,
   VoiceConnectionDisconnectReason,
   VoiceConnectionStatus,
-  type AudioPlayer,
-  type AudioPlayerPlayingState,
 } from '@discordjs/voice';
+import type { AudioPlayer, AudioPlayerPlayingState } from '@discordjs/voice';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AudioStreamError, VoiceConnectionError } from '../../../src/application/errors.ts';
-import { DiscordAudioSession } from '../../../src/infrastructure/audio/DiscordAudioSession.ts';
-import {
-  fakeFfmpeg,
-  FRAME_MS,
-  oggOpus,
-  oggOpusHeaders,
-  type FakeFfmpeg,
-} from '../../fixtures/audio.ts';
-import { RecordingLogger } from '../../fixtures/fakes.ts';
-import { FakeVoiceConnection, StreamSource } from '../../fixtures/voice.ts';
+import { AudioStreamError, VoiceConnectionError } from '../../../../src/application/errors.ts';
+import { DiscordAudioSession } from '../../../../src/infrastructure/audio/DiscordAudioSession.ts';
+import { fakeFfmpeg, FRAME_MS, oggOpus, oggOpusHeaders } from '../../../fixtures/audio.ts';
+import type { FakeFfmpeg } from '../../../fixtures/audio.ts';
+import { RecordingLogger } from '../../../fixtures/fakes.ts';
+import { FakeVoiceConnection, StreamSource } from '../../../fixtures/voice.ts';
 
 const RECONNECT_TIMEOUT_MS = 50;
 const READY_TIMEOUT_MS = 100;
 const REJOIN_DELAY_MS = 10;
-const START_TIMEOUT_MS = 200;
+const START_TIMEOUT_MS = 1000;
 
-describe('DiscordAudioSession', () => {
+function expectGrowingGaps(times: readonly number[]): void {
+  for (const [index, time] of times.slice(1).entries()) {
+    expect(time - (times[index] ?? 0)).toBeGreaterThanOrEqual((index + 2) * REJOIN_DELAY_MS - 2);
+  }
+}
+
+describe(DiscordAudioSession, () => {
   let connection: FakeVoiceConnection;
   let player: AudioPlayer;
   let statuses: AudioPlayerStatus[];
@@ -39,14 +39,16 @@ describe('DiscordAudioSession', () => {
 
   function createSession(ffmpeg: FakeFfmpeg = 'passthrough'): DiscordAudioSession {
     const session = new DiscordAudioSession({
-      connection: connection.asConnection(),
-      player,
-      ffmpegPath: fakeFfmpeg(ffmpeg),
       bitrateKbps: 64,
+      connection: connection.asConnection(),
+      ffmpegPath: fakeFfmpeg(ffmpeg),
       logger,
-      onLost: (error) => lost.push(error),
-      reconnectTimeoutMs: RECONNECT_TIMEOUT_MS,
+      onLost: (error) => {
+        lost.push(error);
+      },
+      player,
       readyTimeoutMs: READY_TIMEOUT_MS,
+      reconnectTimeoutMs: RECONNECT_TIMEOUT_MS,
       rejoinDelayMs: REJOIN_DELAY_MS,
       startTimeoutMs: START_TIMEOUT_MS,
     });
@@ -57,12 +59,13 @@ describe('DiscordAudioSession', () => {
   beforeEach(() => {
     connection = new FakeVoiceConnection();
     connection.setStatus(VoiceConnectionStatus.Ready);
-    // No real connection subscribes, so let the player consume frames anyway.
     player = createAudioPlayer({
-      behaviors: { noSubscriber: NoSubscriberBehavior.Play, maxMissedFrames: 5 },
+      behaviors: { maxMissedFrames: 5, noSubscriber: NoSubscriberBehavior.Play },
     });
     statuses = [];
-    player.on('stateChange', (_, next) => statuses.push(next.status));
+    player.on('stateChange', (_, next) => {
+      statuses.push(next.status);
+    });
     lost = [];
     sessions = [];
     logger = new RecordingLogger();
@@ -256,7 +259,7 @@ describe('DiscordAudioSession', () => {
 
     it('keeps playing past the start deadline once audio arrived', async () => {
       const session = createSession();
-      const source = new StreamSource(oggOpus(25));
+      const source = new StreamSource(oggOpus(START_TIMEOUT_MS / FRAME_MS + 25));
 
       await expect(session.play(source, new AbortController().signal)).resolves.toBeUndefined();
     });
@@ -310,19 +313,10 @@ describe('DiscordAudioSession', () => {
 
   describe('connection recovery', () => {
     const closedByDiscord = {
-      reason: VoiceConnectionDisconnectReason.WebSocketClose,
       closeCode: 4014,
+      reason: VoiceConnectionDisconnectReason.WebSocketClose,
     };
     const gatewayUnavailable = { reason: VoiceConnectionDisconnectReason.AdapterUnavailable };
-
-    /** Lower bounds only: timers never fire early, but may fire late under load. */
-    function expectGrowingGaps(times: readonly number[]): void {
-      times.slice(1).forEach((time, index) => {
-        expect(time - (times[index] ?? 0)).toBeGreaterThanOrEqual(
-          (index + 2) * REJOIN_DELAY_MS - 2,
-        );
-      });
-    }
 
     it('keeps the session when Discord moves it to another channel', async () => {
       const session = createSession();
@@ -385,7 +379,7 @@ describe('DiscordAudioSession', () => {
       expect(connection.rejoins).toHaveLength(4);
       expectGrowingGaps(connection.rejoins);
       expect(lost).toEqual([]);
-      expect(logger.at('warn').map(({ message, context }) => [message, context])).toEqual(
+      expect(logger.at('warn').map(({ context, message }) => [message, context])).toEqual(
         [1, 2, 3, 4].map((attempt) => ['voice connection rejoining', { attempt }]),
       );
     });

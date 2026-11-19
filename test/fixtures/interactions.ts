@@ -5,35 +5,33 @@ export const OTHER_GUILD_ID = '876543210987654321';
 export const USER_ID = '100000000000000001';
 export const VOICE_CHANNEL_ID = '200000000000000001';
 
+export interface CommandInteractionOptions {
+  readonly cached?: boolean;
+  readonly guildId?: string | null;
+  readonly options?: Readonly<Record<string, string>>;
+  readonly voiceChannelId?: string | null;
+}
+
 export type ResponseCall =
   | { readonly method: 'deferReply' }
-  | { readonly method: 'reply' | 'editReply'; readonly options: unknown };
+  | { readonly method: 'editReply' | 'reply'; readonly options: unknown };
 
-/**
- * Records how an interaction is acknowledged and enforces Discord's rules:
- * one initial response, and edits only after one.
- */
 abstract class FakeRepliableInteraction {
-  readonly id = '300000000000000001';
-  readonly user = { id: USER_ID };
-  readonly guildId: string | null;
-  readonly responses: ResponseCall[] = [];
-  deferred = false;
-  replied = false;
-  failResponsesWith: Error | undefined;
-  /** When set, `deferReply` completes once it settles, like a slow request to Discord. */
   acknowledgement: Promise<void> | undefined;
+  deferred = false;
+  failResponsesWith: Error | undefined;
+  readonly guildId: string | null;
+  readonly id = '300000000000000001';
+  replied = false;
+  readonly responses: ResponseCall[] = [];
+  readonly user = { id: USER_ID };
 
   constructor(guildId: string | null) {
     this.guildId = guildId;
   }
 
-  isChatInputCommand(): boolean {
-    return false;
-  }
-
-  isButton(): boolean {
-    return false;
+  asInteraction(): Interaction {
+    return this as unknown as Interaction;
   }
 
   async deferReply(): Promise<void> {
@@ -41,13 +39,6 @@ abstract class FakeRepliableInteraction {
     this.responses.push({ method: 'deferReply' });
     await this.acknowledgement;
     this.deferred = true;
-  }
-
-  reply(options: unknown): Promise<void> {
-    this.#acknowledge();
-    this.responses.push({ method: 'reply', options });
-    this.replied = true;
-    return Promise.resolve();
   }
 
   editReply(options: unknown): Promise<void> {
@@ -58,8 +49,19 @@ abstract class FakeRepliableInteraction {
     return Promise.resolve();
   }
 
-  asInteraction(): Interaction {
-    return this as unknown as Interaction;
+  isButton(): boolean {
+    return false;
+  }
+
+  isChatInputCommand(): boolean {
+    return false;
+  }
+
+  reply(options: unknown): Promise<void> {
+    this.#acknowledge();
+    this.responses.push({ method: 'reply', options });
+    this.replied = true;
+    return Promise.resolve();
   }
 
   #acknowledge(): void {
@@ -69,41 +71,6 @@ abstract class FakeRepliableInteraction {
 
   #fail(): void {
     if (this.failResponsesWith !== undefined) throw this.failResponsesWith;
-  }
-}
-
-export interface CommandInteractionOptions {
-  readonly options?: Readonly<Record<string, string>>;
-  readonly guildId?: string | null;
-  readonly voiceChannelId?: string | null;
-  readonly cached?: boolean;
-}
-
-export class FakeCommandInteraction extends FakeRepliableInteraction {
-  readonly commandName: string;
-  readonly member: { readonly voice: { readonly channelId: string | null } };
-  readonly options: { getString(name: string): string | null };
-  readonly #cached: boolean;
-
-  constructor(commandName: string, init: CommandInteractionOptions = {}) {
-    super(init.guildId === undefined ? GUILD_ID : init.guildId);
-    const values = init.options ?? {};
-    this.commandName = commandName;
-    this.member = {
-      voice: {
-        channelId: init.voiceChannelId === undefined ? VOICE_CHANNEL_ID : init.voiceChannelId,
-      },
-    };
-    this.options = { getString: (name) => values[name] ?? null };
-    this.#cached = init.cached ?? true;
-  }
-
-  override isChatInputCommand(): boolean {
-    return true;
-  }
-
-  inCachedGuild(): boolean {
-    return this.#cached;
   }
 }
 
@@ -121,16 +88,44 @@ export class FakeButtonInteraction extends FakeRepliableInteraction {
     this.member = { voice: { channelId: voiceChannelId } };
   }
 
-  override isButton(): boolean {
-    return true;
-  }
-
   inCachedGuild(): boolean {
     return this.guildId !== null;
   }
+
+  override isButton(): boolean {
+    return true;
+  }
 }
 
-/** An interaction type the handler does not route, such as autocomplete. */
+export class FakeCommandInteraction extends FakeRepliableInteraction {
+  readonly commandName: string;
+  readonly member: { readonly voice: { readonly channelId: string | null } };
+  readonly options: { getString(name: string): string | null };
+
+  readonly #cached: boolean;
+
+  constructor(commandName: string, init: CommandInteractionOptions = {}) {
+    super(init.guildId === undefined ? GUILD_ID : init.guildId);
+    const values = init.options ?? {};
+    this.commandName = commandName;
+    this.member = {
+      voice: {
+        channelId: init.voiceChannelId === undefined ? VOICE_CHANNEL_ID : init.voiceChannelId,
+      },
+    };
+    this.options = { getString: (name) => values[name] ?? null };
+    this.#cached = init.cached ?? true;
+  }
+
+  inCachedGuild(): boolean {
+    return this.#cached;
+  }
+
+  override isChatInputCommand(): boolean {
+    return true;
+  }
+}
+
 export class FakeOtherInteraction extends FakeRepliableInteraction {
   constructor() {
     super(GUILD_ID);

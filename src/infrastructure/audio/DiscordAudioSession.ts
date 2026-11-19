@@ -7,13 +7,15 @@ import {
   StreamType,
   VoiceConnectionDisconnectReason,
   VoiceConnectionStatus,
-  type AudioPlayer,
-  type AudioPlayerError,
-  type AudioPlayerState,
-  type AudioResource,
-  type PlayerSubscription,
-  type VoiceConnection,
-  type VoiceConnectionState,
+} from '@discordjs/voice';
+import type {
+  AudioPlayer,
+  AudioPlayerError,
+  AudioPlayerState,
+  AudioResource,
+  PlayerSubscription,
+  VoiceConnection,
+  VoiceConnectionState,
 } from '@discordjs/voice';
 
 import { AudioStreamError, VoiceConnectionError } from '../../application/errors.ts';
@@ -24,60 +26,49 @@ import { encodeOggOpus } from './ffmpeg.ts';
 import { waitForStatus } from './waitForStatus.ts';
 
 export interface DiscordAudioSessionOptions {
-  /** A ready connection; the session takes ownership of it. */
-  readonly connection: VoiceConnection;
-  readonly player: AudioPlayer;
-  readonly ffmpegPath: string;
   readonly bitrateKbps: number;
+  readonly connection: VoiceConnection;
+  readonly ffmpegPath: string;
   readonly logger: Logger;
   readonly onLost: (error: Error) => void;
-  /** How long Discord may take to reconnect a connection it closed (moved channel). */
-  readonly reconnectTimeoutMs: number;
-  /** How long a reconnecting connection may take to become ready again. */
+  readonly player: AudioPlayer;
   readonly readyTimeoutMs: number;
-  /** Wait before the first rejoin; each further attempt waits that much longer. */
+  readonly reconnectTimeoutMs: number;
   readonly rejoinDelayMs: number;
-  /** How long a track may take to deliver its first audio. */
   readonly startTimeoutMs: number;
 }
 
-/** Disconnects in a row a recovery handles before the session is lost. */
 const MAX_RECONNECT_ATTEMPTS = 5;
-/** Discord closed the connection: kicked, moved to another channel, or channel deleted. */
 const CLOSE_CODE_DISCONNECTED = 4014;
 
 interface ActiveTrack {
-  readonly resource: AudioResource;
-  started(): void;
   ended(): void;
   failed(error: AudioPlayerError): void;
+  readonly resource: AudioResource;
+  started(): void;
 }
 
-/**
- * Plays tracks on one voice connection: each track is a source stream piped
- * through FFmpeg into an Ogg/Opus audio resource. Owns the connection and
- * recovers it from transient disconnects.
- */
 export class DiscordAudioSession implements AudioSession {
-  readonly #connection: VoiceConnection;
-  readonly #player: AudioPlayer;
-  readonly #subscription: PlayerSubscription;
-  readonly #ffmpegPath: string;
+  get channelId(): string | undefined {
+    return this.#connection.joinConfig.channelId ?? undefined;
+  }
+
+  #active: ActiveTrack | undefined;
   readonly #bitrateKbps: number;
+  readonly #connection: VoiceConnection;
+  readonly #ffmpegPath: string;
+  readonly #lifetime = new AbortController();
   readonly #logger: Logger;
   readonly #onLost: (error: Error) => void;
-  readonly #reconnectTimeoutMs: number;
+  #paused = false;
+  readonly #player: AudioPlayer;
   readonly #readyTimeoutMs: number;
+  readonly #reconnectTimeoutMs: number;
+  #recovering = false;
   readonly #rejoinDelayMs: number;
   readonly #startTimeoutMs: number;
+  readonly #subscription: PlayerSubscription;
 
-  readonly #lifetime = new AbortController();
-  #active: ActiveTrack | undefined;
-  #recovering = false;
-  /** Requested pause; reapplied when the player (re)enters the playing state. */
-  #paused = false;
-
-  /** @throws VoiceConnectionError when the connection was already destroyed. */
   constructor(options: DiscordAudioSessionOptions) {
     this.#connection = options.connection;
     this.#player = options.player;
@@ -100,9 +91,24 @@ export class DiscordAudioSession implements AudioSession {
     this.#player.on('error', this.#onPlayerError);
   }
 
-  /** @throws VoiceConnectionError once destroyed, or AudioStreamError on stream failure. */
-  get channelId(): string | undefined {
-    return this.#connection.joinConfig.channelId ?? undefined;
+  destroy(): void {
+    if (this.#lifetime.signal.aborted) return;
+    this.#lifetime.abort(new VoiceConnectionError('Audio session destroyed'));
+    this.#connection.off('stateChange', this.#onConnectionState);
+    this.#player.off('stateChange', this.#onPlayerState);
+    this.#player.off('error', this.#onPlayerError);
+    this.#player.stop(true);
+    this.#subscription.unsubscribe();
+    if (this.#connection.state.status !== VoiceConnectionStatus.Destroyed) {
+      this.#connection.destroy();
+    }
+  }
+
+  pause(): boolean {
+    if (!this.#inProgress()) return false;
+    this.#paused = true;
+    this.#player.pause();
+    return true;
   }
 
   async play(source: AudioSource, signal: AbortSignal): Promise<void> {
@@ -113,14 +119,12 @@ export class DiscordAudioSession implements AudioSession {
 
     const track = new AbortController();
     const stop = AbortSignal.any([signal, this.#lifetime.signal]);
-    const { promise, resolve, reject } = Promise.withResolvers<undefined>();
+    const { promise, reject, resolve } = Promise.withResolvers<undefined>();
     const finish = (): void => {
       resolve(undefined);
     };
     stop.addEventListener('abort', finish, { once: true });
 
-    // The player counts missed frames only once playing, so a stream that
-    // never delivers its first packet would otherwise buffer forever.
     const startTimer = setTimeout(() => {
       reject(new AudioStreamError('Audio stream did not start'));
     }, this.#startTimeoutMs);
@@ -130,30 +134,28 @@ export class DiscordAudioSession implements AudioSession {
     let resource: AudioResource | undefined;
     try {
       input = source.open(track.signal);
-      const { output, completion } = encodeOggOpus(input, {
-        ffmpegPath: this.#ffmpegPath,
+      const { completion, output } = encodeOggOpus(input, {
         bitrateKbps: this.#bitrateKbps,
+        ffmpegPath: this.#ffmpegPath,
         signal: track.signal,
       });
       completion.catch((error: unknown) => {
-        // Once audio plays, the player drains what is buffered and `ended`
-        // reports the failure.
         if (!started) reject(error);
       });
       const playing = createAudioResource(output, { inputType: StreamType.OggOpus });
       resource = playing;
       this.#active = {
-        resource: playing,
-        started: () => {
-          started = true;
-          clearTimeout(startTimer);
-        },
         ended: () => {
           if (playing.playStream.readableEnded) completion.then(finish, reject);
           else reject(new AudioStreamError('Audio stream stalled'));
         },
         failed: (error) => {
           reject(new AudioStreamError('Audio playback failed', { cause: error }));
+        },
+        resource: playing,
+        started: () => {
+          started = true;
+          clearTimeout(startTimer);
         },
       };
       this.#player.play(playing);
@@ -171,13 +173,6 @@ export class DiscordAudioSession implements AudioSession {
     }
   }
 
-  pause(): boolean {
-    if (!this.#inProgress()) return false;
-    this.#paused = true;
-    this.#player.pause();
-    return true;
-  }
-
   resume(): boolean {
     if (!this.#inProgress()) return false;
     this.#paused = false;
@@ -185,20 +180,6 @@ export class DiscordAudioSession implements AudioSession {
     return true;
   }
 
-  destroy(): void {
-    if (this.#lifetime.signal.aborted) return;
-    this.#lifetime.abort(new VoiceConnectionError('Audio session destroyed'));
-    this.#connection.off('stateChange', this.#onConnectionState);
-    this.#player.off('stateChange', this.#onPlayerState);
-    this.#player.off('error', this.#onPlayerError);
-    this.#player.stop(true);
-    this.#subscription.unsubscribe();
-    if (this.#connection.state.status !== VoiceConnectionStatus.Destroyed) {
-      this.#connection.destroy();
-    }
-  }
-
-  /** Whether a track is buffering or playing; it ends once the player is done with it. */
   #inProgress(): boolean {
     const state = this.#player.state;
     return (
@@ -207,6 +188,25 @@ export class DiscordAudioSession implements AudioSession {
       state.resource === this.#active.resource
     );
   }
+
+  #lose(error: Error): void {
+    if (this.#lifetime.signal.aborted) return;
+    this.destroy();
+    this.#onLost(error);
+  }
+
+  readonly #onConnectionState = (_: VoiceConnectionState, next: VoiceConnectionState): void => {
+    if (next.status === VoiceConnectionStatus.Destroyed) {
+      this.#lose(new VoiceConnectionError('Voice connection was destroyed'));
+    } else if (next.status !== VoiceConnectionStatus.Ready && !this.#recovering) {
+      void this.#recover();
+    }
+  };
+
+  readonly #onPlayerError = (error: AudioPlayerError): void => {
+    if (error.resource === this.#active?.resource) this.#active.failed(error);
+    else this.#logger.warn({ err: error }, 'audio player error');
+  };
 
   readonly #onPlayerState = (previous: AudioPlayerState, next: AudioPlayerState): void => {
     if (next.status === AudioPlayerStatus.Playing) {
@@ -219,19 +219,6 @@ export class DiscordAudioSession implements AudioSession {
       previous.resource === this.#active?.resource
     ) {
       this.#active.ended();
-    }
-  };
-
-  readonly #onPlayerError = (error: AudioPlayerError): void => {
-    if (error.resource === this.#active?.resource) this.#active.failed(error);
-    else this.#logger.warn({ err: error }, 'audio player error');
-  };
-
-  readonly #onConnectionState = (_: VoiceConnectionState, next: VoiceConnectionState): void => {
-    if (next.status === VoiceConnectionStatus.Destroyed) {
-      this.#lose(new VoiceConnectionError('Voice connection was destroyed'));
-    } else if (next.status !== VoiceConnectionStatus.Ready && !this.#recovering) {
-      void this.#recover();
     }
   };
 
@@ -288,11 +275,5 @@ export class DiscordAudioSession implements AudioSession {
     } finally {
       this.#recovering = false;
     }
-  }
-
-  #lose(error: Error): void {
-    if (this.#lifetime.signal.aborted) return;
-    this.destroy();
-    this.#onLost(error);
   }
 }

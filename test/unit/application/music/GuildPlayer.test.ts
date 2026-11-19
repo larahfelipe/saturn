@@ -7,21 +7,22 @@ import {
   QueueFullError,
   TrackUnavailableError,
   VoiceConnectionError,
-} from '../../../src/application/errors.ts';
-import { GuildPlayer, type PlayRequest } from '../../../src/application/music/GuildPlayer.ts';
+} from '../../../../src/application/errors.ts';
+import { GuildPlayer } from '../../../../src/application/music/GuildPlayer.ts';
+import type { PlayRequest } from '../../../../src/application/music/GuildPlayer.ts';
 import {
   FakeResolver,
   FakeVoiceConnector,
   flush,
   RecordingLogger,
   trackUrl,
-} from '../../fixtures/fakes.ts';
+} from '../../../fixtures/fakes.ts';
 
 function request(id: string): PlayRequest {
-  return { url: trackUrl(id), requestedBy: 'user', voiceChannelId: 'voice-1' };
+  return { requestedBy: 'user', url: trackUrl(id), voiceChannelId: 'voice-1' };
 }
 
-describe('GuildPlayer', () => {
+describe(GuildPlayer, () => {
   let resolver: FakeResolver;
   let voice: FakeVoiceConnector;
   let logger: RecordingLogger;
@@ -33,7 +34,7 @@ describe('GuildPlayer', () => {
     voice = new FakeVoiceConnector();
     logger = new RecordingLogger();
     onIdle = vi.fn<() => void>();
-    player = new GuildPlayer({ guildId: 'guild-1', resolver, voice, logger, onIdle });
+    player = new GuildPlayer({ guildId: 'guild-1', logger, onIdle, resolver, voice });
   });
 
   function session() {
@@ -42,7 +43,6 @@ describe('GuildPlayer', () => {
     return current;
   }
 
-  /** Ends the only track while a second request is still resolving. */
   async function drainWhileResolving(): Promise<{ second: Promise<unknown> }> {
     await player.play(request('aaaaaaaaaaa'));
     await flush();
@@ -66,21 +66,21 @@ describe('GuildPlayer', () => {
       await flush();
 
       expect(result).toMatchObject({ status: 'playing', track: { id: 'aaaaaaaaaaa' } });
-      expect(voice.calls[0]?.target).toEqual({ guildId: 'guild-1', channelId: 'voice-1' });
+      expect(voice.calls[0]?.target).toEqual({ channelId: 'voice-1', guildId: 'guild-1' });
       expect(session().playbacks).toHaveLength(1);
-      expect(player.state).toMatchObject({ status: 'playing', current: { id: 'aaaaaaaaaaa' } });
+      expect(player.state).toMatchObject({ current: { id: 'aaaaaaaaaaa' }, status: 'playing' });
     });
 
     it('queues later tracks with their positions and reuses the connection', async () => {
       await player.play(request('aaaaaaaaaaa'));
 
       await expect(player.play(request('bbbbbbbbbbb'))).resolves.toMatchObject({
-        status: 'queued',
         position: 1,
+        status: 'queued',
       });
       await expect(player.play(request('ccccccccccc'))).resolves.toMatchObject({
-        status: 'queued',
         position: 2,
+        status: 'queued',
       });
       expect(voice.calls).toHaveLength(1);
       expect(player.upcoming.map(({ id }) => id)).toEqual(['bbbbbbbbbbb', 'ccccccccccc']);
@@ -151,8 +151,8 @@ describe('GuildPlayer', () => {
 
       await expect(Promise.all(results)).resolves.toMatchObject([
         { status: 'playing', track: { id: 'aaaaaaaaaaa' } },
-        { status: 'queued', position: 1, track: { id: 'bbbbbbbbbbb' } },
-        { status: 'queued', position: 2, track: { id: 'ccccccccccc' } },
+        { position: 1, status: 'queued', track: { id: 'bbbbbbbbbbb' } },
+        { position: 2, status: 'queued', track: { id: 'ccccccccccc' } },
       ]);
       expect(voice.calls).toHaveLength(1);
     });
@@ -183,7 +183,7 @@ describe('GuildPlayer', () => {
 
       expect(playingId()).toBe('bbbbbbbbbbb');
       expect(logger.at('error')).toMatchObject([
-        { message: 'track playback failed', context: { trackId: 'aaaaaaaaaaa' } },
+        { context: { trackId: 'aaaaaaaaaaa' }, message: 'track playback failed' },
       ]);
     });
   });
@@ -192,11 +192,11 @@ describe('GuildPlayer', () => {
     beforeEach(() => {
       player = new GuildPlayer({
         guildId: 'guild-1',
+        logger,
+        maxQueueLength: 2,
+        onIdle,
         resolver,
         voice,
-        logger,
-        onIdle,
-        maxQueueLength: 2,
       });
     });
 
@@ -230,14 +230,14 @@ describe('GuildPlayer', () => {
       await flush();
 
       await expect(player.play(request('ddddddddddd'))).resolves.toMatchObject({
-        status: 'queued',
         position: 2,
+        status: 'queued',
       });
     });
   });
 
   describe('voice channel', () => {
-    const elsewhere = (id: string): PlayRequest => ({ ...request(id), voiceChannelId: 'voice-2' });
+    const elsewhere: PlayRequest = { ...request('bbbbbbbbbbb'), voiceChannelId: 'voice-2' };
 
     it('reports the channel it is connecting to, then the one it is in', async () => {
       voice.manual = true;
@@ -258,7 +258,7 @@ describe('GuildPlayer', () => {
       const play = player.play(request('aaaaaaaaaaa'));
       await flush();
 
-      await expect(player.play(elsewhere('bbbbbbbbbbb'))).rejects.toThrow(NotListeningError);
+      await expect(player.play(elsewhere)).rejects.toThrow(NotListeningError);
       expect(resolver.calls).toHaveLength(1);
       player.stop();
       await expect(play).rejects.toThrow(PlaybackCancelledError);
@@ -267,7 +267,7 @@ describe('GuildPlayer', () => {
     it('refuses a request whose turn comes after an earlier one joined another channel', async () => {
       resolver.manual = true;
       const first = player.play(request('aaaaaaaaaaa'));
-      const second = player.play(elsewhere('bbbbbbbbbbb'));
+      const second = player.play(elsewhere);
       for (const call of resolver.calls) call.deferred.resolve(call.result);
 
       await expect(first).resolves.toMatchObject({ status: 'playing' });
@@ -347,7 +347,7 @@ describe('GuildPlayer', () => {
       expect(player.resume()).toBe(false);
       expect(player.state.status).toBe('paused');
       await flush();
-      expect(player.state).toMatchObject({ status: 'playing', current: { id: 'bbbbbbbbbbb' } });
+      expect(player.state).toMatchObject({ current: { id: 'bbbbbbbbbbb' }, status: 'playing' });
       expect(session().paused).toBe(false);
     });
 
@@ -384,7 +384,7 @@ describe('GuildPlayer', () => {
       player.skip();
       await flush();
 
-      expect(player.state).toMatchObject({ status: 'playing', current: { id: 'bbbbbbbbbbb' } });
+      expect(player.state).toMatchObject({ current: { id: 'bbbbbbbbbbb' }, status: 'playing' });
     });
 
     it('goes idle and disconnects when skipping the last track', async () => {

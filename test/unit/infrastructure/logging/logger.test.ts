@@ -4,20 +4,20 @@ import { VoiceConnectionError } from '../../../../src/application/errors.ts';
 import { createLogger, flushLogger } from '../../../../src/infrastructure/logging/logger.ts';
 
 class MemoryDestination {
-  readonly lines: Record<string, unknown>[] = [];
   flushCount = 0;
-
-  write(line: string): void {
-    this.lines.push(JSON.parse(line) as Record<string, unknown>);
-  }
+  readonly lines: Record<string, unknown>[] = [];
 
   flush(callback: () => void): void {
     this.flushCount++;
     callback();
   }
+
+  write(line: string): void {
+    this.lines.push(JSON.parse(line) as Record<string, unknown>);
+  }
 }
 
-describe('createLogger', () => {
+describe(createLogger, () => {
   it('logs info and above as JSON in production', () => {
     const destination = new MemoryDestination();
     const logger = createLogger('production', destination);
@@ -26,7 +26,7 @@ describe('createLogger', () => {
     logger.info({ guildId: '1' }, 'visible');
 
     expect(destination.lines).toEqual([
-      expect.objectContaining({ level: 30, guildId: '1', msg: 'visible' }),
+      expect.objectContaining({ guildId: '1', level: 30, msg: 'visible' }),
     ]);
   });
 
@@ -45,23 +45,23 @@ describe('createLogger', () => {
 
     logger.info(
       {
-        token: 'a',
-        botToken: 'b',
         authorization: 'c',
-        cookie: 'f',
+        botToken: 'b',
         config: { botToken: 'd', environment: 'production' },
+        cookie: 'f',
         headers: { authorization: 'e', cookie: 'g' },
+        token: 'a',
       },
       'secrets',
     );
 
     expect(destination.lines[0]).toMatchObject({
-      token: '[Redacted]',
-      botToken: '[Redacted]',
       authorization: '[Redacted]',
-      cookie: '[Redacted]',
+      botToken: '[Redacted]',
       config: { botToken: '[Redacted]', environment: 'production' },
+      cookie: '[Redacted]',
       headers: { authorization: '[Redacted]', cookie: '[Redacted]' },
+      token: '[Redacted]',
     });
     expect(JSON.stringify(destination.lines)).not.toMatch(/"[a-g]"/);
   });
@@ -76,18 +76,18 @@ describe('createLogger', () => {
     logger.child({ guildId: '1' }).error({ err: error }, 'playback halted');
 
     expect(destination.lines[0]).toMatchObject({
-      level: 50,
-      guildId: '1',
-      msg: 'playback halted',
       err: {
-        type: 'VoiceConnectionError',
         message: 'Voice connection lost: socket closed',
+        type: 'VoiceConnectionError',
       },
+      guildId: '1',
+      level: 50,
+      msg: 'playback halted',
     });
   });
 });
 
-describe('flushLogger', () => {
+describe(flushLogger, () => {
   it('flushes the destination', async () => {
     const destination = new MemoryDestination();
 

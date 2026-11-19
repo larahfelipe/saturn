@@ -1,17 +1,10 @@
 import { once } from 'node:events';
 
-import {
-  ActivityType,
-  ChannelType,
-  Client,
-  Events,
-  GatewayIntentBits,
-  type Guild,
-  type Interaction,
-  type VoiceBasedChannel,
-} from 'discord.js';
+import { ActivityType, ChannelType, Client, Events, GatewayIntentBits } from 'discord.js';
+import type { Guild, Interaction, VoiceBasedChannel } from 'discord.js';
 
-import { VoiceChannelUnusableError, type VoiceChannelProblem } from '../../application/errors.ts';
+import { VoiceChannelUnusableError } from '../../application/errors.ts';
+import type { VoiceChannelProblem } from '../../application/errors.ts';
 import type { Logger } from '../../application/ports/Logger.ts';
 import type { VoiceTarget } from '../../application/ports/Voice.ts';
 import type { VoiceChannelInfo } from '../audio/VoiceConnectionManager.ts';
@@ -19,21 +12,31 @@ import type { CommandRegistry } from './CommandRegistry.ts';
 import type { BotProfile } from './replies.ts';
 
 export interface DiscordClientOptions {
-  readonly token: string;
   readonly activityStatus: string | undefined;
   readonly logger: Logger;
+  readonly token: string;
 }
 
-/** Owns the discord.js gateway client: login, command synchronization, presence and shutdown. */
 export class DiscordClient {
+  get botProfile(): BotProfile {
+    const user = this.#client.user;
+    return {
+      avatarUrl: user?.displayAvatarURL({ size: 256 }),
+      username: user?.username ?? 'Saturn',
+    };
+  }
+  get heartbeatLatency(): number {
+    return this.#client.ws.ping;
+  }
+
+  readonly #activityStatus: string | undefined;
   readonly #client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
   });
-  readonly #token: string;
-  readonly #activityStatus: string | undefined;
   readonly #logger: Logger;
   #onGatewayLost: ((code: number) => void) | undefined;
   #stopping = false;
+  readonly #token: string;
 
   constructor(options: DiscordClientOptions) {
     this.#token = options.token;
@@ -45,10 +48,9 @@ export class DiscordClient {
     this.#client.on(Events.Warn, (message) => {
       this.#logger.warn({ detail: message }, 'discord client warning');
     });
-    // discord.js emits this only for close codes it does not reconnect from.
     this.#client.on(Events.ShardDisconnect, (event, shardId) => {
       if (this.#stopping) return;
-      this.#logger.error({ shardId, code: event.code }, 'discord gateway closed permanently');
+      this.#logger.error({ code: event.code, shardId }, 'discord gateway closed permanently');
       this.#onGatewayLost?.(event.code);
     });
     this.#client.on(Events.ShardReconnecting, (shardId) => {
@@ -60,17 +62,8 @@ export class DiscordClient {
     });
   }
 
-  get botProfile(): BotProfile {
-    const user = this.#client.user;
-    return {
-      username: user?.username ?? 'Saturn',
-      avatarUrl: user?.displayAvatarURL({ size: 256 }),
-    };
-  }
-
-  /** Gateway heartbeat round trip in milliseconds, or -1 before the first heartbeat. */
-  get heartbeatLatency(): number {
-    return this.#client.ws.ping;
+  onGatewayLost(handler: (code: number) => void): void {
+    this.#onGatewayLost = handler;
   }
 
   onInteraction(handler: (interaction: Interaction) => Promise<void>): void {
@@ -79,26 +72,9 @@ export class DiscordClient {
     });
   }
 
-  /** Called when the gateway closes with a code that rules out reconnecting, such as an invalid token. */
-  onGatewayLost(handler: (code: number) => void): void {
-    this.#onGatewayLost = handler;
-  }
-
-  /** @throws VoiceChannelUnusableError when the bot could not join or be heard there. */
-  voiceChannel(target: VoiceTarget): VoiceChannelInfo | undefined {
-    const guild = this.#client.guilds.cache.get(target.guildId);
-    const channel = guild?.channels.cache.get(target.channelId);
-    if (guild === undefined || channel?.isVoiceBased() !== true) return undefined;
-    const problem = voiceChannelProblem(guild, channel);
-    if (problem !== undefined) throw new VoiceChannelUnusableError(problem);
-    return { adapterCreator: guild.voiceAdapterCreator, bitrate: channel.bitrate };
-  }
-
-  /** Connects to the gateway, then synchronizes slash commands and sets the custom status. */
   async start(commands: CommandRegistry): Promise<void> {
     const login = new AbortController();
     const ready = once(this.#client, Events.ClientReady, { signal: login.signal });
-    // Observed here so that abandoning it after a failed login is not an unhandled rejection.
     ready.catch(() => undefined);
     try {
       await this.#client.login(this.#token);
@@ -109,7 +85,7 @@ export class DiscordClient {
     }
     const client = this.#client;
     if (!client.isReady()) throw new Error('Discord client is not ready');
-    this.#logger.info({ user: client.user.tag, guilds: client.guilds.cache.size }, 'discord ready');
+    this.#logger.info({ guilds: client.guilds.cache.size, user: client.user.tag }, 'discord ready');
 
     await commands.sync(client.application.commands);
     this.#logger.info({ count: commands.definitions.length }, 'slash commands synchronized');
@@ -119,24 +95,27 @@ export class DiscordClient {
     }
   }
 
-  /** Closes the gateway connection. Idempotent. */
   async stop(): Promise<void> {
     this.#stopping = true;
     await this.#client.destroy();
   }
+
+  voiceChannel(target: VoiceTarget): VoiceChannelInfo | undefined {
+    const guild = this.#client.guilds.cache.get(target.guildId);
+    const channel = guild?.channels.cache.get(target.channelId);
+    if (guild === undefined || channel?.isVoiceBased() !== true) return undefined;
+    const problem = voiceChannelProblem(guild, channel);
+    if (problem !== undefined) throw new VoiceChannelUnusableError(problem);
+    return { adapterCreator: guild.voiceAdapterCreator, bitrate: channel.bitrate };
+  }
 }
 
-/**
- * Stage channels join the bot as a suppressed listener and the AFK channel
- * mutes everyone, so neither can play audio.
- */
 function voiceChannelProblem(
   guild: Guild,
   channel: VoiceBasedChannel,
 ): VoiceChannelProblem | undefined {
   if (channel.type === ChannelType.GuildStageVoice) return 'stage';
   if (channel.id === guild.afkChannelId) return 'afk';
-  // The permission getters read the bot's own member; without it, let the join decide.
   if (guild.members.me === null) return undefined;
   if (!channel.joinable) return channel.full ? 'full' : 'missing-permissions';
   if (!channel.speakable) return 'missing-permissions';

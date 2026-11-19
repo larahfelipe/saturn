@@ -1,14 +1,12 @@
 import type { Readable } from 'node:stream';
 
-import {
-  parseVideoId,
-  YtdlError,
-  YtdlErrorCode,
-  type DownloadOptions,
-  type LookupOptions,
-  type Thumbnail,
-  type VideoFormat,
-  type VideoInfo,
+import { parseVideoId, YtdlError, YtdlErrorCode } from '@distube/ytdl-core';
+import type {
+  DownloadOptions,
+  LookupOptions,
+  Thumbnail,
+  VideoFormat,
+  VideoInfo,
 } from '@distube/ytdl-core';
 
 import {
@@ -24,33 +22,26 @@ import type {
 } from '../../application/ports/TrackResolver.ts';
 import { createTrack } from '../../domain/music/Track.ts';
 
-/** The subset of `Ytdl` the resolver depends on. */
 export interface YouTubeClient {
-  getInfo(video: string, options?: LookupOptions): Promise<VideoInfo>;
   download(video: VideoInfo, options?: DownloadOptions): Readable;
+  getInfo(video: string, options?: LookupOptions): Promise<VideoInfo>;
 }
 
 const SUPPORTED_HOSTS: ReadonlySet<string> = new Set([
-  'youtube.com',
-  'www.youtube.com',
   'm.youtube.com',
+  'www.youtube.com',
   'youtu.be',
+  'youtube.com',
 ]);
 
 /**
- * Source audio buffered ahead of playback: about a minute at YouTube's audio
- * bitrates, so playback continues while ytdl resumes a stalled download.
+ * About a minute of audio at YouTube's bitrates, so playback continues while
+ * ytdl resumes a stalled download once `YOUTUBE_REQUEST_TIMEOUT_MS` expires.
  */
 export const READ_AHEAD_BYTES = 1024 * 1024;
 
-/**
- * ytdl's limit for a response's headers or next body chunk. ytdl resumes a
- * download from where it stopped once this expires, well before
- * `READ_AHEAD_BYTES` of audio runs out.
- */
 export const YOUTUBE_REQUEST_TIMEOUT_MS = 10_000;
 
-/** Limit for a whole lookup, which can take several requests. */
 export const RESOLVE_TIMEOUT_MS = 20_000;
 
 export interface YouTubeTrackResolverOptions {
@@ -58,29 +49,14 @@ export interface YouTubeTrackResolverOptions {
 }
 
 const UNAVAILABLE_CODES: ReadonlySet<YtdlErrorCode> = new Set([
-  YtdlErrorCode.NOT_FOUND,
-  YtdlErrorCode.PRIVATE,
   YtdlErrorCode.AGE_RESTRICTED,
   YtdlErrorCode.MEMBERS_ONLY,
-  YtdlErrorCode.PREMIUM_ONLY,
-  YtdlErrorCode.REGION_BLOCKED,
+  YtdlErrorCode.NOT_FOUND,
   YtdlErrorCode.NOT_STARTED,
+  YtdlErrorCode.PREMIUM_ONLY,
+  YtdlErrorCode.PRIVATE,
+  YtdlErrorCode.REGION_BLOCKED,
 ]);
-
-/**
- * Returns the video ID of an `https` YouTube video URL on a supported host.
- *
- * @throws InvalidTrackUrlError
- */
-export function parseYouTubeVideoUrl(input: string): string {
-  const url = URL.parse(input.trim());
-  const videoId =
-    url?.protocol === 'https:' && SUPPORTED_HOSTS.has(url.hostname)
-      ? parseVideoId(url.href)
-      : undefined;
-  if (videoId === undefined) throw new InvalidTrackUrlError();
-  return videoId;
-}
 
 export class YouTubeTrackResolver implements TrackResolver {
   readonly #client: YouTubeClient;
@@ -107,36 +83,40 @@ export class YouTubeTrackResolver implements TrackResolver {
     const format = selectAudioFormat(info.formats);
     const details = info.videoDetails;
     const track = createTrack({
-      id: videoId,
-      title: details.title.trim() || `YouTube video ${videoId}`,
-      url: `https://www.youtube.com/watch?v=${videoId}`,
       artworkUrl: selectArtwork(details.thumbnails),
       durationMs: Number.isFinite(details.lengthSeconds)
         ? Math.max(0, Math.round(details.lengthSeconds * 1000))
         : 0,
+      id: videoId,
       requestedBy: request.requestedBy,
+      title: details.title.trim() || `YouTube video ${videoId}`,
+      url: `https://www.youtube.com/watch?v=${videoId}`,
     });
 
     return {
-      track,
       source: {
         open: (streamSignal) =>
           this.#client.download(info, {
             format,
-            signal: streamSignal,
             highWaterMark: READ_AHEAD_BYTES,
+            signal: streamSignal,
           }),
       },
+      track,
     };
   }
 }
 
-/**
- * Prefers audio-only over muxed formats, then Opus (no transcoding loss when
- * re-encoding to Opus), then the highest audio bitrate.
- *
- * @throws NoAudioFormatError
- */
+export function parseYouTubeVideoUrl(input: string): string {
+  const url = URL.parse(input.trim());
+  const videoId =
+    url?.protocol === 'https:' && SUPPORTED_HOSTS.has(url.hostname)
+      ? parseVideoId(url.href)
+      : undefined;
+  if (videoId === undefined) throw new InvalidTrackUrlError();
+  return videoId;
+}
+
 export function selectAudioFormat(formats: readonly VideoFormat[]): VideoFormat {
   const score = (format: VideoFormat): number[] => [
     format.hasVideo ? 0 : 1,
@@ -146,7 +126,7 @@ export function selectAudioFormat(formats: readonly VideoFormat[]): VideoFormat 
   const [best] = formats
     .filter((format) => format.hasAudio && !format.isDrm)
     .map((format) => ({ format, score: score(format) }))
-    .sort((a, b) => compareScores(b.score, a.score));
+    .toSorted((a, b) => compareScores(b.score, a.score));
   if (best === undefined) throw new NoAudioFormatError();
   return best.format;
 }
@@ -171,7 +151,6 @@ function selectArtwork(thumbnails: readonly Thumbnail[]): string | undefined {
 
 function toResolutionError(error: unknown): Error {
   if (!YtdlError.is(error)) return new TrackResolutionError('request failed', { cause: error });
-  // ytdl reports the signed-out clients' verdict, so a rejected cookie only shows in the attempts.
   if (error.attempts.some(({ code }) => code === YtdlErrorCode.AUTH_FAILED))
     return new TrackResolutionError(YtdlErrorCode.AUTH_FAILED, { cause: error });
   if (UNAVAILABLE_CODES.has(error.code))

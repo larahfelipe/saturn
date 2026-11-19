@@ -2,12 +2,11 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    restoreMocks: true,
     projects: [
-      { extends: true, test: { name: 'unit', include: ['test/unit/**/*.test.ts'] } },
-      { extends: true, test: { name: 'integration', include: ['test/integration/**/*.test.ts'] } },
-      // Needs a real FFmpeg build with libopus (FFMPEG_PATH, or ffmpeg on the PATH).
-      { extends: true, test: { name: 'ffmpeg', include: ['test/ffmpeg/**/*.test.ts'] } },
+      { extends: true, test: { include: ['test/unit/**/*.test.ts'], name: 'unit' } },
+      { extends: true, test: { include: ['test/integration/**/*.test.ts'], name: 'integration' } },
+      { extends: true, test: { include: ['test/ffmpeg/**/*.test.ts'], name: 'ffmpeg' } },
     ],
+    restoreMocks: true,
   },
 });

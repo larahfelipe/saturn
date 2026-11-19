@@ -1,12 +1,12 @@
 import { InvalidTrackError } from './errors.ts';
 
 export interface Track {
-  readonly id: string;
-  readonly title: string;
-  readonly url: string;
   readonly artworkUrl: string | undefined;
   readonly durationMs: number;
+  readonly id: string;
   readonly requestedBy: string;
+  readonly title: string;
+  readonly url: string;
 }
 
 export function createTrack(props: Track): Track {

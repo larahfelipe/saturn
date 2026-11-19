@@ -1,21 +1,22 @@
 export interface RateLimiterOptions {
-  /** Actions allowed per key within `windowMs`. */
   readonly limit: number;
-  readonly windowMs: number;
   readonly now?: () => number;
+  readonly windowMs: number;
 }
 
 export type RateLimitResult =
-  { readonly allowed: true } | { readonly allowed: false; readonly retryAfterMs: number };
+  { readonly allowed: false; readonly retryAfterMs: number } | { readonly allowed: true };
 
-/** Sliding-window limit on actions per key, such as requests per user. */
 export class RateLimiter {
-  readonly #limit: number;
-  readonly #windowMs: number;
-  readonly #now: () => number;
-  /** Times of the actions inside the window, oldest first. */
+  get size(): number {
+    return this.#actions.size;
+  }
+
   readonly #actions = new Map<string, number[]>();
   #lastSweep: number;
+  readonly #limit: number;
+  readonly #now: () => number;
+  readonly #windowMs: number;
 
   constructor(options: RateLimiterOptions) {
     this.#limit = options.limit;
@@ -24,12 +25,6 @@ export class RateLimiter {
     this.#lastSweep = this.#now();
   }
 
-  /** Number of keys with actions still inside the window, at the last sweep. */
-  get size(): number {
-    return this.#actions.size;
-  }
-
-  /** Records an action for `key` if the limit allows it. */
   tryAcquire(key: string): RateLimitResult {
     const now = this.#now();
     this.#sweep(now);
@@ -44,7 +39,6 @@ export class RateLimiter {
     return { allowed: true };
   }
 
-  /** Forgets keys whose actions all left the window, at most once per window. */
   #sweep(now: number): void {
     if (now - this.#lastSweep < this.#windowMs) return;
     this.#lastSweep = now;

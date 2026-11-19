@@ -3,10 +3,8 @@ import { EventEmitter } from 'node:events';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { PlayerUnavailableError } from '../../../src/application/errors.ts';
-import {
-  PlaybackService,
-  type PlayCommand,
-} from '../../../src/application/music/PlaybackService.ts';
+import { PlaybackService } from '../../../src/application/music/PlaybackService.ts';
+import type { PlayCommand } from '../../../src/application/music/PlaybackService.ts';
 import { PlayerRegistry } from '../../../src/application/music/PlayerRegistry.ts';
 import { Metrics } from '../../../src/infrastructure/metrics/Metrics.ts';
 import { MetricsServer } from '../../../src/infrastructure/metrics/MetricsServer.ts';
@@ -20,7 +18,7 @@ import {
 } from '../../fixtures/fakes.ts';
 
 function command(guildId: string): PlayCommand {
-  return { guildId, url: trackUrl('aaaaaaaaaaa'), requestedBy: 'user', voiceChannelId: 'voice-1' };
+  return { guildId, requestedBy: 'user', url: trackUrl('aaaaaaaaaaa'), voiceChannelId: 'voice-1' };
 }
 
 describe('graceful shutdown', () => {
@@ -34,13 +32,13 @@ describe('graceful shutdown', () => {
   beforeEach(async () => {
     voice = new FakeVoiceConnector();
     logger = new RecordingLogger();
-    registry = new PlayerRegistry({ resolver: new FakeResolver(), voice, logger });
+    registry = new PlayerRegistry({ logger, resolver: new FakeResolver(), voice });
     playback = new PlaybackService(registry);
     const metrics = new Metrics({
-      commands: ['play'],
       activePlayers: () => registry.activeCount(),
+      commands: ['play'],
     });
-    metricsServer = new MetricsServer({ source: metrics, logger });
+    metricsServer = new MetricsServer({ logger, source: metrics });
     const { port } = await metricsServer.listen(0);
     metricsUrl = `http://127.0.0.1:${port}/metrics`;
   });
@@ -50,15 +48,19 @@ describe('graceful shutdown', () => {
   });
 
   async function activePlayers(): Promise<number> {
-    const body = await (await fetch(metricsUrl)).text();
+    const response = await fetch(metricsUrl);
+    const body = await response.text();
     return Number(/^saturn_active_players (\d+)$/m.exec(body)?.[1]);
   }
 
   it('releases playback before closing the gateway, then stops serving metrics', async () => {
     const process = new EventEmitter();
     const { promise: exited, resolve: exit } = Promise.withResolvers<number>();
-    let gatewayClosedWith: { destroyed: boolean[]; aborted: boolean[] } | undefined;
+    let gatewayClosedWith: { aborted: boolean[]; destroyed: boolean[] } | undefined;
     new GracefulShutdown({
+      exit,
+      finalize: () => Promise.resolve(),
+      logger,
       steps: [
         {
           name: 'players',
@@ -70,26 +72,23 @@ describe('graceful shutdown', () => {
           name: 'discord gateway',
           run: () => {
             gatewayClosedWith = {
-              destroyed: voice.sessions.map(({ destroyed }) => destroyed),
               aborted: voice.sessions.map(({ current }) => current?.signal.aborted === true),
+              destroyed: voice.sessions.map(({ destroyed }) => destroyed),
             };
           },
         },
         { name: 'metrics server', run: () => metricsServer.close() },
       ],
-      logger,
-      finalize: () => Promise.resolve(),
-      exit,
     }).install(process);
 
     await Promise.all([playback.play(command('guild-1')), playback.play(command('guild-2'))]);
     await flush();
-    expect(await activePlayers()).toBe(2);
+    await expect(activePlayers()).resolves.toBe(2);
 
     process.emit('SIGTERM');
 
-    expect(await exited).toBe(0);
-    expect(gatewayClosedWith).toEqual({ destroyed: [true, true], aborted: [true, true] });
+    await expect(exited).resolves.toBe(0);
+    expect(gatewayClosedWith).toEqual({ aborted: [true, true], destroyed: [true, true] });
     expect(registry.activeCount()).toBe(0);
     await expect(playback.play(command('guild-1'))).rejects.toThrow(PlayerUnavailableError);
     await expect(fetch(metricsUrl)).rejects.toThrow(TypeError);

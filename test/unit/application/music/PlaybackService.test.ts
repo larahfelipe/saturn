@@ -4,32 +4,30 @@ import {
   NotInVoiceChannelError,
   NotListeningError,
   RateLimitedError,
-} from '../../../src/application/errors.ts';
-import {
-  PlaybackService,
-  type PlayCommand,
-} from '../../../src/application/music/PlaybackService.ts';
-import { PlayerRegistry } from '../../../src/application/music/PlayerRegistry.ts';
-import { RateLimiter } from '../../../src/application/RateLimiter.ts';
+} from '../../../../src/application/errors.ts';
+import { PlaybackService } from '../../../../src/application/music/PlaybackService.ts';
+import type { PlayCommand } from '../../../../src/application/music/PlaybackService.ts';
+import { PlayerRegistry } from '../../../../src/application/music/PlayerRegistry.ts';
+import { RateLimiter } from '../../../../src/application/RateLimiter.ts';
 import {
   FakeResolver,
   FakeVoiceConnector,
   flush,
   RecordingLogger,
   trackUrl,
-} from '../../fixtures/fakes.ts';
+} from '../../../fixtures/fakes.ts';
 
 function command(guildId: string, overrides: Partial<PlayCommand> = {}): PlayCommand {
   return {
     guildId,
-    url: trackUrl('aaaaaaaaaaa'),
     requestedBy: 'user',
+    url: trackUrl('aaaaaaaaaaa'),
     voiceChannelId: `voice-${guildId}`,
     ...overrides,
   };
 }
 
-describe('PlaybackService', () => {
+describe(PlaybackService, () => {
   let resolver: FakeResolver;
   let voice: FakeVoiceConnector;
   let registry: PlayerRegistry;
@@ -38,7 +36,7 @@ describe('PlaybackService', () => {
   beforeEach(() => {
     resolver = new FakeResolver();
     voice = new FakeVoiceConnector();
-    registry = new PlayerRegistry({ resolver, voice, logger: new RecordingLogger() });
+    registry = new PlayerRegistry({ logger: new RecordingLogger(), resolver, voice });
     service = new PlaybackService(registry);
   });
 
@@ -56,17 +54,17 @@ describe('PlaybackService', () => {
     beforeEach(() => {
       now = 0;
       service = new PlaybackService(registry, {
-        playLimiter: new RateLimiter({ limit: 2, windowMs: 10_000, now: () => now }),
+        playLimiter: new RateLimiter({ limit: 2, now: () => now, windowMs: 10_000 }),
       });
     });
 
     it('refuses a user who requests too often, before any lookup', async () => {
       await service.play(command('guild-1'));
-      now += 4_000;
+      now += 4000;
       await service.play(command('guild-1'));
 
       await expect(service.play(command('guild-2'))).rejects.toThrow(
-        expect.objectContaining({ name: RateLimitedError.name, retryAfterMs: 6_000 }),
+        expect.objectContaining({ name: RateLimitedError.name, retryAfterMs: 6000 }),
       );
       expect(resolver.calls).toHaveLength(2);
       await expect(
@@ -87,10 +85,10 @@ describe('PlaybackService', () => {
     await expect(service.play(command('guild-1'))).resolves.toMatchObject({ status: 'playing' });
 
     expect(resolver.calls[0]?.request).toEqual({
-      url: trackUrl('aaaaaaaaaaa'),
       requestedBy: 'user',
+      url: trackUrl('aaaaaaaaaaa'),
     });
-    expect(voice.calls[0]?.target).toEqual({ guildId: 'guild-1', channelId: 'voice-guild-1' });
+    expect(voice.calls[0]?.target).toEqual({ channelId: 'voice-guild-1', guildId: 'guild-1' });
   });
 
   it('reports controls on guilds without a player as unsuccessful', () => {
@@ -155,7 +153,7 @@ describe('PlaybackService', () => {
       expect(service.stop('guild-1', 'voice-guild-1')).toBe(true);
 
       await service.play(command('guild-1', { voiceChannelId: 'voice-other' }));
-      expect(voice.calls.at(-1)?.target).toEqual({ guildId: 'guild-1', channelId: 'voice-other' });
+      expect(voice.calls.at(-1)?.target).toEqual({ channelId: 'voice-other', guildId: 'guild-1' });
     });
   });
 

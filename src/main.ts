@@ -2,11 +2,12 @@ import type { Ytdl } from '@distube/ytdl-core';
 
 import { PlaybackService } from './application/music/PlaybackService.ts';
 import { PlayerRegistry } from './application/music/PlayerRegistry.ts';
-import { ConfigurationError, loadConfig, type Config } from './config/environment.ts';
+import { ConfigurationError, loadConfig } from './config/environment.ts';
+import type { Config } from './config/environment.ts';
 import { verifyFfmpeg } from './infrastructure/audio/ffmpeg.ts';
 import { VoiceConnectionManager } from './infrastructure/audio/VoiceConnectionManager.ts';
-import { CommandRegistry } from './infrastructure/discord/CommandRegistry.ts';
 import { COMMAND_DEFINITIONS } from './infrastructure/discord/commandDefinitions.ts';
+import { CommandRegistry } from './infrastructure/discord/CommandRegistry.ts';
 import { createCommandHandlers } from './infrastructure/discord/commands.ts';
 import { DiscordClient } from './infrastructure/discord/DiscordClient.ts';
 import { InteractionHandler } from './infrastructure/discord/InteractionHandler.ts';
@@ -49,41 +50,42 @@ async function main(): Promise<void> {
   if (config.youtubeCookieFile !== undefined) logger.info({}, 'youtube cookie loaded');
 
   const discord = new DiscordClient({
-    token: config.botToken,
     activityStatus: config.activityStatus,
     logger,
+    token: config.botToken,
   });
   const registry = new PlayerRegistry({
+    logger,
     resolver: new YouTubeTrackResolver(youtube),
     voice: new VoiceConnectionManager({
       channels: (target) => discord.voiceChannel(target),
       ffmpegPath: config.ffmpegPath,
       logger,
     }),
-    logger,
   });
   const playback = new PlaybackService(registry);
   const bot = () => discord.botProfile;
   const commands = new CommandRegistry(
     COMMAND_DEFINITIONS,
     createCommandHandlers({
-      playback,
-      definitions: COMMAND_DEFINITIONS,
       bot,
+      definitions: COMMAND_DEFINITIONS,
       heartbeatLatency: () => discord.heartbeatLatency,
+      playback,
     }),
   );
   const metrics = new Metrics({
-    commands: COMMAND_DEFINITIONS.map(({ name }) => name),
     activePlayers: () => registry.activeCount(),
+    commands: COMMAND_DEFINITIONS.map(({ name }) => name),
   });
-  const metricsServer = new MetricsServer({ source: metrics, logger });
-  const interactions = new InteractionHandler({ commands, playback, bot, metrics, logger });
+  const metricsServer = new MetricsServer({ logger, source: metrics });
+  const interactions = new InteractionHandler({ bot, commands, logger, metrics, playback });
   discord.onInteraction((interaction) => interactions.handle(interaction));
 
-  // Players go first: closing the registry rejects new playback requests,
-  // aborts streams, kills FFmpeg and leaves voice while the gateway is still up.
   const shutdown = new GracefulShutdown({
+    exit: (code) => process.exit(code),
+    finalize: () => flushLogger(logger),
+    logger,
     steps: [
       {
         name: 'players',
@@ -94,9 +96,6 @@ async function main(): Promise<void> {
       { name: 'discord gateway', run: () => discord.stop() },
       { name: 'metrics server', run: () => metricsServer.close() },
     ],
-    logger,
-    finalize: () => flushLogger(logger),
-    exit: (code) => process.exit(code),
   });
   shutdown.install(process);
   discord.onGatewayLost(() => {
@@ -108,7 +107,6 @@ async function main(): Promise<void> {
     await metricsServer.listen(METRICS_PORT);
     await discord.start(commands);
   } catch (error) {
-    // A signal during startup is already shutting down, which can fail the step in progress.
     if (shutdown.isRunning) return;
     logger.error({ err: error }, 'startup failed');
     await shutdown.run('startup failed', 1);

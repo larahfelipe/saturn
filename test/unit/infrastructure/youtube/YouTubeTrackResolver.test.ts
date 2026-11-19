@@ -6,19 +6,19 @@ import {
   NoAudioFormatError,
   TrackResolutionError,
   TrackUnavailableError,
-} from '../../../src/application/errors.ts';
+} from '../../../../src/application/errors.ts';
 import {
-  READ_AHEAD_BYTES,
   parseYouTubeVideoUrl,
+  READ_AHEAD_BYTES,
   selectAudioFormat,
   YouTubeTrackResolver,
-} from '../../../src/infrastructure/youtube/YouTubeTrackResolver.ts';
-import { FakeYouTubeClient, makeFormat, makeVideoInfo } from '../../fixtures/youtube.ts';
+} from '../../../../src/infrastructure/youtube/YouTubeTrackResolver.ts';
+import { FakeYouTubeClient, makeFormat, makeVideoInfo } from '../../../fixtures/youtube.ts';
 
 const URL_OK = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
-const request = { url: URL_OK, requestedBy: '42' };
+const REQUEST = { requestedBy: '42', url: URL_OK };
 
-describe('parseYouTubeVideoUrl', () => {
+describe(parseYouTubeVideoUrl, () => {
   it.each([
     'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     'https://youtube.com/watch?v=dQw4w9WgXcQ&t=30',
@@ -33,6 +33,7 @@ describe('parseYouTubeVideoUrl', () => {
   it.each([
     ['empty input', ''],
     ['not a URL', 'never gonna give you up'],
+    // eslint-disable-next-line unicorn/prefer-https -- rejecting plain HTTP is the behavior under test
     ['http scheme', 'http://www.youtube.com/watch?v=dQw4w9WgXcQ'],
     ['unsupported host', 'https://music.youtube.com/watch?v=dQw4w9WgXcQ'],
     ['look-alike host', 'https://youtube.com.example.org/watch?v=dQw4w9WgXcQ'],
@@ -45,12 +46,12 @@ describe('parseYouTubeVideoUrl', () => {
   });
 });
 
-describe('selectAudioFormat', () => {
+describe(selectAudioFormat, () => {
   it('prefers audio-only, then Opus, then bitrate', () => {
-    const muxed = makeFormat({ itag: 18, hasVideo: true, audioCodec: 'mp4a', audioBitrate: 320 });
-    const aac = makeFormat({ itag: 140, audioCodec: 'mp4a.40.2', audioBitrate: 256 });
-    const opusLow = makeFormat({ itag: 250, audioBitrate: 64 });
-    const opusHigh = makeFormat({ itag: 251, audioBitrate: 160 });
+    const muxed = makeFormat({ audioBitrate: 320, audioCodec: 'mp4a', hasVideo: true, itag: 18 });
+    const aac = makeFormat({ audioBitrate: 256, audioCodec: 'mp4a.40.2', itag: 140 });
+    const opusLow = makeFormat({ audioBitrate: 64, itag: 250 });
+    const opusHigh = makeFormat({ audioBitrate: 160, itag: 251 });
 
     expect(selectAudioFormat([muxed, aac, opusLow, opusHigh]).itag).toBe(251);
     expect(selectAudioFormat([muxed, aac]).itag).toBe(140);
@@ -59,8 +60,8 @@ describe('selectAudioFormat', () => {
 
   it('ignores formats without audio and DRM formats', () => {
     const formats = [
-      makeFormat({ itag: 137, hasAudio: false, hasVideo: true, audioCodec: undefined }),
-      makeFormat({ itag: 251, isDrm: true }),
+      makeFormat({ audioCodec: undefined, hasAudio: false, hasVideo: true, itag: 137 }),
+      makeFormat({ isDrm: true, itag: 251 }),
     ];
 
     expect(() => selectAudioFormat(formats)).toThrow(NoAudioFormatError);
@@ -68,14 +69,14 @@ describe('selectAudioFormat', () => {
   });
 
   it('treats an unknown bitrate as the lowest', () => {
-    const unknown = makeFormat({ itag: 1, audioBitrate: undefined });
-    const known = makeFormat({ itag: 2, audioBitrate: 48 });
+    const unknown = makeFormat({ audioBitrate: undefined, itag: 1 });
+    const known = makeFormat({ audioBitrate: 48, itag: 2 });
 
     expect(selectAudioFormat([unknown, known]).itag).toBe(2);
   });
 });
 
-describe('YouTubeTrackResolver', () => {
+describe(YouTubeTrackResolver, () => {
   let client: FakeYouTubeClient;
   let resolver: YouTubeTrackResolver;
 
@@ -86,17 +87,17 @@ describe('YouTubeTrackResolver', () => {
 
   it('normalizes metadata into a track', async () => {
     const { track } = await resolver.resolve(
-      { url: 'https://youtu.be/dQw4w9WgXcQ?t=3', requestedBy: '42' },
+      { requestedBy: '42', url: 'https://youtu.be/dQw4w9WgXcQ?t=3' },
       AbortSignal.timeout(1000),
     );
 
     expect(track).toEqual({
-      id: 'dQw4w9WgXcQ',
-      title: 'Never Gonna Give You Up',
-      url: URL_OK,
       artworkUrl: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
       durationMs: 213_000,
+      id: 'dQw4w9WgXcQ',
       requestedBy: '42',
+      title: 'Never Gonna Give You Up',
+      url: URL_OK,
     });
     expect(client.infoCalls[0]?.video).toBe('dQw4w9WgXcQ');
   });
@@ -104,7 +105,7 @@ describe('YouTubeTrackResolver', () => {
   it('does not call YouTube for an invalid URL', async () => {
     await expect(
       resolver.resolve(
-        { url: 'https://example.com', requestedBy: '42' },
+        { requestedBy: '42', url: 'https://example.com' },
         new AbortController().signal,
       ),
     ).rejects.toThrow(InvalidTrackUrlError);
@@ -115,13 +116,13 @@ describe('YouTubeTrackResolver', () => {
     client.getInfoImpl = () =>
       Promise.resolve(
         makeVideoInfo({
+          lengthSeconds: NaN,
+          thumbnails: [{ height: 1, url: '//broken', width: 1 }],
           title: '  ',
-          lengthSeconds: Number.NaN,
-          thumbnails: [{ url: '//broken', width: 1, height: 1 }],
         }),
       );
 
-    const { track } = await resolver.resolve(request, new AbortController().signal);
+    const { track } = await resolver.resolve(REQUEST, new AbortController().signal);
 
     expect(track.artworkUrl).toBeUndefined();
     expect(track.title).toBe('YouTube video dQw4w9WgXcQ');
@@ -131,7 +132,7 @@ describe('YouTubeTrackResolver', () => {
   it('rejects videos without an audio format', async () => {
     client.getInfoImpl = () => Promise.resolve(makeVideoInfo({ formats: [] }));
 
-    await expect(resolver.resolve(request, new AbortController().signal)).rejects.toThrow(
+    await expect(resolver.resolve(REQUEST, new AbortController().signal)).rejects.toThrow(
       NoAudioFormatError,
     );
   });
@@ -151,7 +152,7 @@ describe('YouTubeTrackResolver', () => {
     client.getInfoImpl = () => Promise.reject(cause);
 
     const error: unknown = await resolver
-      .resolve(request, new AbortController().signal)
+      .resolve(REQUEST, new AbortController().signal)
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(expected);
@@ -163,20 +164,20 @@ describe('YouTubeTrackResolver', () => {
     async (code) => {
       const cause = new YtdlError(code, 'upstream', {
         attempts: [
-          { client: 'visionos', signedIn: false, step: 'playability', code, reason: 'refused' },
+          { client: 'visionos', code, reason: 'refused', signedIn: false, step: 'playability' },
           {
             client: 'tv',
-            signedIn: true,
-            step: 'playability',
             code: YtdlErrorCode.AUTH_FAILED,
             reason: 'treated as logged out',
+            signedIn: true,
+            step: 'playability',
           },
         ],
       });
       client.getInfoImpl = () => Promise.reject(cause);
 
       const error: unknown = await resolver
-        .resolve(request, new AbortController().signal)
+        .resolve(REQUEST, new AbortController().signal)
         .catch((caught: unknown) => caught);
 
       expect(error).toBeInstanceOf(TrackResolutionError);
@@ -185,13 +186,13 @@ describe('YouTubeTrackResolver', () => {
     },
   );
 
-  it('wraps unexpected request failures', async () => {
+  it('wraps unexpected REQUEST failures', async () => {
     const cause = new TypeError('fetch failed');
     client.getInfoImpl = () => Promise.reject(cause);
 
-    await expect(resolver.resolve(request, new AbortController().signal)).rejects.toMatchObject({
-      name: 'TrackResolutionError',
+    await expect(resolver.resolve(REQUEST, new AbortController().signal)).rejects.toMatchObject({
       cause,
+      name: 'TrackResolutionError',
     });
   });
 
@@ -205,7 +206,7 @@ describe('YouTubeTrackResolver', () => {
         });
       });
 
-    const pending = resolver.resolve(request, controller.signal);
+    const pending = resolver.resolve(REQUEST, controller.signal);
     controller.abort(reason);
 
     await expect(pending).rejects.toBe(reason);
@@ -221,16 +222,16 @@ describe('YouTubeTrackResolver', () => {
         });
       });
 
-    await expect(resolver.resolve(request, new AbortController().signal)).rejects.toMatchObject({
+    await expect(resolver.resolve(REQUEST, new AbortController().signal)).rejects.toMatchObject({
       name: 'TrackResolutionError',
       reason: 'timed out',
     });
   });
 
   it('opens a stream of the selected format on demand', async () => {
-    const formats = [makeFormat({ itag: 140, audioCodec: 'mp4a' }), makeFormat({ itag: 251 })];
+    const formats = [makeFormat({ audioCodec: 'mp4a', itag: 140 }), makeFormat({ itag: 251 })];
     client.getInfoImpl = () => Promise.resolve(makeVideoInfo({ formats }));
-    const { source } = await resolver.resolve(request, new AbortController().signal);
+    const { source } = await resolver.resolve(REQUEST, new AbortController().signal);
 
     expect(client.downloads).toHaveLength(0);
 
@@ -239,15 +240,15 @@ describe('YouTubeTrackResolver', () => {
 
     expect(client.downloads[0]?.options).toMatchObject({
       format: { itag: 251 },
-      signal: streamController.signal,
       highWaterMark: READ_AHEAD_BYTES,
+      signal: streamController.signal,
     });
     streamController.abort();
     expect(stream.destroyed).toBe(true);
   });
 
   it('opens an independent stream per call', async () => {
-    const { source } = await resolver.resolve(request, new AbortController().signal);
+    const { source } = await resolver.resolve(REQUEST, new AbortController().signal);
 
     const first = source.open(new AbortController().signal);
     const second = source.open(new AbortController().signal);

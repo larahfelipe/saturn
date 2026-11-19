@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// Stand-in for FFmpeg: copies stdin to stdout and reports a libopus encoder.
 import { pipeline } from 'node:stream/promises';
 
 if (process.argv.includes('-encoders')) {

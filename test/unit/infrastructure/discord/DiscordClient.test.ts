@@ -1,12 +1,11 @@
-import { ChannelType, Client, Collection, Events, type Guild } from 'discord.js';
+import { ChannelType, Client, Collection, Events } from 'discord.js';
+import type { Guild } from 'discord.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { VoiceChannelUnusableError } from '../../../../src/application/errors.ts';
+import { COMMAND_DEFINITIONS } from '../../../../src/infrastructure/discord/commandDefinitions.ts';
+import type { CommandName } from '../../../../src/infrastructure/discord/commandDefinitions.ts';
 import { CommandRegistry } from '../../../../src/infrastructure/discord/CommandRegistry.ts';
-import {
-  COMMAND_DEFINITIONS,
-  type CommandName,
-} from '../../../../src/infrastructure/discord/commandDefinitions.ts';
 import type { CommandHandler } from '../../../../src/infrastructure/discord/commands.ts';
 import { DiscordClient } from '../../../../src/infrastructure/discord/DiscordClient.ts';
 import { RecordingLogger } from '../../../fixtures/fakes.ts';
@@ -18,7 +17,7 @@ function commands(): CommandRegistry {
   return new CommandRegistry(COMMAND_DEFINITIONS, handlers as Record<CommandName, CommandHandler>);
 }
 
-describe('DiscordClient', () => {
+describe(DiscordClient, () => {
   let discord: DiscordClient;
   let client: Client;
   let logger: RecordingLogger;
@@ -26,7 +25,7 @@ describe('DiscordClient', () => {
   function create(): DiscordClient {
     const on = vi.spyOn(Client.prototype, 'on');
     logger = new RecordingLogger();
-    discord = new DiscordClient({ token: 'test-token', activityStatus: undefined, logger });
+    discord = new DiscordClient({ activityStatus: undefined, logger, token: 'test-token' });
     client = on.mock.contexts[0] as Client;
     on.mockRestore();
     return discord;
@@ -37,45 +36,45 @@ describe('DiscordClient', () => {
   });
 
   it('falls back to the default profile before connecting', () => {
-    expect(create().botProfile).toEqual({ username: 'Saturn', avatarUrl: undefined });
+    expect(create().botProfile).toEqual({ avatarUrl: undefined, username: 'Saturn' });
   });
 
   it('finds no voice channel in a guild it is not in', () => {
-    expect(create().voiceChannel({ guildId: GUILD_ID, channelId: VOICE_CHANNEL_ID })).toBe(
-      undefined,
-    );
+    expect(
+      create().voiceChannel({ channelId: VOICE_CHANNEL_ID, guildId: GUILD_ID }),
+    ).toBeUndefined();
   });
 
   describe('voice channel checks', () => {
-    const target = { guildId: GUILD_ID, channelId: VOICE_CHANNEL_ID };
+    const target = { channelId: VOICE_CHANNEL_ID, guildId: GUILD_ID };
     const adapterCreator = vi.fn();
 
     interface ChannelSetup {
-      readonly type?: ChannelType;
       readonly afk?: boolean;
-      readonly joinable?: boolean;
       readonly full?: boolean;
-      readonly speakable?: boolean;
+      readonly joinable?: boolean;
       readonly memberCached?: boolean;
+      readonly speakable?: boolean;
+      readonly type?: ChannelType;
     }
 
     function withChannel(setup: ChannelSetup = {}): DiscordClient {
       const discord = create();
       const channel = {
-        id: VOICE_CHANNEL_ID,
-        type: setup.type ?? ChannelType.GuildVoice,
         bitrate: 96_000,
-        joinable: setup.joinable ?? true,
         full: setup.full ?? false,
-        speakable: setup.speakable ?? true,
+        id: VOICE_CHANNEL_ID,
         isVoiceBased: () => true,
+        joinable: setup.joinable ?? true,
+        speakable: setup.speakable ?? true,
+        type: setup.type ?? ChannelType.GuildVoice,
       };
       const guild = {
-        id: GUILD_ID,
         afkChannelId: setup.afk === true ? VOICE_CHANNEL_ID : null,
+        channels: { cache: new Collection([[VOICE_CHANNEL_ID, channel]]) },
+        id: GUILD_ID,
         members: { me: setup.memberCached === false ? null : {} },
         voiceAdapterCreator: adapterCreator,
-        channels: { cache: new Collection([[VOICE_CHANNEL_ID, channel]]) },
       };
       client.guilds.cache.set(GUILD_ID, guild as unknown as Guild);
       return discord;
@@ -88,7 +87,7 @@ describe('DiscordClient', () => {
     it.each([
       ['a stage channel', { type: ChannelType.GuildStageVoice }, 'stage'],
       ['the AFK channel', { afk: true }, 'afk'],
-      ['a full channel', { joinable: false, full: true }, 'full'],
+      ['a full channel', { full: true, joinable: false }, 'full'],
       ['a channel it cannot join', { joinable: false }, 'missing-permissions'],
       ['a channel it cannot speak in', { speakable: false }, 'missing-permissions'],
     ] as const)('refuses %s', (_, setup, problem) => {
@@ -99,7 +98,7 @@ describe('DiscordClient', () => {
     });
 
     it('leaves permissions to the join while its own member is not cached', () => {
-      expect(withChannel({ memberCached: false, joinable: false }).voiceChannel(target)).toEqual({
+      expect(withChannel({ joinable: false, memberCached: false }).voiceChannel(target)).toEqual({
         adapterCreator,
         bitrate: 96_000,
       });
@@ -120,14 +119,16 @@ describe('DiscordClient', () => {
 
   it('reports a gateway close that discord.js will not reconnect from', () => {
     const lost: number[] = [];
-    create().onGatewayLost((code) => lost.push(code));
+    create().onGatewayLost((code) => {
+      lost.push(code);
+    });
 
     client.emit(Events.ShardDisconnect, new CloseEvent('close', { code: 4004 }), 0);
 
     expect(lost).toEqual([4004]);
     expect(logger.contextOf('error', 'discord gateway closed permanently')).toEqual({
-      shardId: 0,
       code: 4004,
+      shardId: 0,
     });
   });
 
@@ -141,7 +142,9 @@ describe('DiscordClient', () => {
 
   it('ignores gateway closes caused by stopping', async () => {
     const lost: number[] = [];
-    create().onGatewayLost((code) => lost.push(code));
+    create().onGatewayLost((code) => {
+      lost.push(code);
+    });
     await discord.stop();
 
     client.emit(Events.ShardReconnecting, 0);

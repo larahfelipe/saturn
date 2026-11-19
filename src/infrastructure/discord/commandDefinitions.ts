@@ -1,21 +1,17 @@
-import {
-  InteractionContextType,
-  SlashCommandBuilder,
-  type RESTPostAPIChatInputApplicationCommandsJSONBody,
-} from 'discord.js';
-
-export type CommandName =
-  'play' | 'pause' | 'unpause' | 'skip' | 'stop' | 'ping' | 'health' | 'help';
+import { InteractionContextType, SlashCommandBuilder } from 'discord.js';
+import type { RESTPostAPIChatInputApplicationCommandsJSONBody } from 'discord.js';
 
 export type CommandDefinition = RESTPostAPIChatInputApplicationCommandsJSONBody & {
   readonly name: CommandName;
 };
 
+export type CommandName =
+  'health' | 'help' | 'pause' | 'ping' | 'play' | 'skip' | 'stop' | 'unpause';
+
 type Configure = (builder: SlashCommandBuilder) => {
   toJSON(): RESTPostAPIChatInputApplicationCommandsJSONBody;
 };
 
-/** A guild-only chat input command. */
 function define(
   name: CommandName,
   description: string,
@@ -28,7 +24,6 @@ function define(
   return { ...configure(builder).toJSON(), name };
 }
 
-/** Slash command definitions, in registration and help order. */
 export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
   define('play', 'Play a YouTube video audio', (builder) =>
     builder.addStringOption((option) =>

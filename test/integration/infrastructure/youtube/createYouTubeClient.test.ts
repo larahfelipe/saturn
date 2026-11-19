@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   createYouTubeClient,
   YouTubeCookieError,
-} from '../../../src/infrastructure/youtube/createYouTubeClient.ts';
+} from '../../../../src/infrastructure/youtube/createYouTubeClient.ts';
 
 const SAPISID = 'placeholder-sapisid-value';
 const SESSION = 'placeholder-session-value';
@@ -25,7 +25,7 @@ const SIGNED_IN_EXPORT = [
   '',
 ].join('\n');
 
-describe('createYouTubeClient', () => {
+describe(createYouTubeClient, () => {
   let directory: string;
 
   beforeEach(async () => {
@@ -33,7 +33,7 @@ describe('createYouTubeClient', () => {
   });
 
   afterEach(async () => {
-    await rm(directory, { recursive: true, force: true });
+    await rm(directory, { force: true, recursive: true });
   });
 
   async function cookieFile(content: string): Promise<string> {
@@ -80,17 +80,19 @@ describe('createYouTubeClient', () => {
       netscapeLine('.google.com', 'SAPISID', SAPISID),
     ],
   ])('refuses %s without revealing it', async (_, content) => {
-    expect(await rejection(await cookieFile(content))).toBe(
+    await expect(rejection(await cookieFile(content))).resolves.toBe(
       'YOUTUBE_COOKIE_FILE holds no signed-in YouTube session (no SAPISID or __Secure-3PAPISID cookie)',
     );
   });
 
   it.each(['', ' \n\t\n', 'Cookie:\n'])('refuses an empty file (%j)', async (content) => {
-    expect(await rejection(await cookieFile(content))).toBe('YOUTUBE_COOKIE_FILE is empty');
+    await expect(rejection(await cookieFile(content))).resolves.toBe(
+      'YOUTUBE_COOKIE_FILE is empty',
+    );
   });
 
   it('refuses a missing file without revealing its path', async () => {
-    expect(await rejection(join(directory, 'missing.txt'))).toBe(
+    await expect(rejection(join(directory, 'missing.txt'))).resolves.toBe(
       'YOUTUBE_COOKIE_FILE could not be read (ENOENT)',
     );
   });
@@ -99,6 +101,6 @@ describe('createYouTubeClient', () => {
     const path = join(directory, 'cookies');
     await mkdir(path);
 
-    expect(await rejection(path)).toBe('YOUTUBE_COOKIE_FILE could not be read (EISDIR)');
+    await expect(rejection(path)).resolves.toBe('YOUTUBE_COOKIE_FILE could not be read (EISDIR)');
   });
 });

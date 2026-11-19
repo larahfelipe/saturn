@@ -1,4 +1,3 @@
-# Allow-list: only what the image build needs, so .env files and other secrets never enter the context.
 *
 !package.json
 !package-lock.json

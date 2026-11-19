@@ -2,22 +2,22 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { RateLimiter } from '../../../src/application/RateLimiter.ts';
 
-describe('RateLimiter', () => {
+describe(RateLimiter, () => {
   let now: number;
   let limiter: RateLimiter;
 
   beforeEach(() => {
     now = 1_000_000;
-    limiter = new RateLimiter({ limit: 2, windowMs: 10_000, now: () => now });
+    limiter = new RateLimiter({ limit: 2, now: () => now, windowMs: 10_000 });
   });
 
   it('allows up to the limit within the window', () => {
     expect(limiter.tryAcquire('alice')).toEqual({ allowed: true });
-    now += 3_000;
+    now += 3000;
     expect(limiter.tryAcquire('alice')).toEqual({ allowed: true });
-    now += 1_000;
+    now += 1000;
 
-    expect(limiter.tryAcquire('alice')).toEqual({ allowed: false, retryAfterMs: 6_000 });
+    expect(limiter.tryAcquire('alice')).toEqual({ allowed: false, retryAfterMs: 6000 });
   });
 
   it('does not count refused attempts', () => {
@@ -33,14 +33,14 @@ describe('RateLimiter', () => {
 
   it('frees capacity as actions leave the window', () => {
     limiter.tryAcquire('alice');
-    now += 5_000;
+    now += 5000;
     limiter.tryAcquire('alice');
 
-    now += 4_999;
+    now += 4999;
     expect(limiter.tryAcquire('alice')).toMatchObject({ allowed: false, retryAfterMs: 1 });
     now += 1;
     expect(limiter.tryAcquire('alice')).toEqual({ allowed: true });
-    expect(limiter.tryAcquire('alice')).toMatchObject({ allowed: false, retryAfterMs: 5_000 });
+    expect(limiter.tryAcquire('alice')).toMatchObject({ allowed: false, retryAfterMs: 5000 });
   });
 
   it('limits each key separately', () => {

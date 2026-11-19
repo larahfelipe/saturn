@@ -1,23 +1,26 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { PlayerUnavailableError, TrackUnavailableError } from '../../../src/application/errors.ts';
-import type { PlayRequest } from '../../../src/application/music/GuildPlayer.ts';
-import { PlayerRegistry } from '../../../src/application/music/PlayerRegistry.ts';
+import {
+  PlayerUnavailableError,
+  TrackUnavailableError,
+} from '../../../../src/application/errors.ts';
+import type { PlayRequest } from '../../../../src/application/music/GuildPlayer.ts';
+import { PlayerRegistry } from '../../../../src/application/music/PlayerRegistry.ts';
 import {
   FakeResolver,
   FakeVoiceConnector,
   flush,
   RecordingLogger,
   trackUrl,
-} from '../../fixtures/fakes.ts';
+} from '../../../fixtures/fakes.ts';
 
 const REQUEST: PlayRequest = {
-  url: trackUrl('aaaaaaaaaaa'),
   requestedBy: 'user',
+  url: trackUrl('aaaaaaaaaaa'),
   voiceChannelId: 'voice-1',
 };
 
-describe('PlayerRegistry', () => {
+describe(PlayerRegistry, () => {
   let resolver: FakeResolver;
   let voice: FakeVoiceConnector;
   let logger: RecordingLogger;
@@ -27,7 +30,7 @@ describe('PlayerRegistry', () => {
     resolver = new FakeResolver();
     voice = new FakeVoiceConnector();
     logger = new RecordingLogger();
-    registry = new PlayerRegistry({ resolver, voice, logger });
+    registry = new PlayerRegistry({ logger, resolver, voice });
   });
 
   it('keeps one player per guild', () => {

@@ -14,7 +14,6 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  # Keep in sync with the Dockerfile's NODE_IMAGE.
   NODE_VERSION: 26.13.1
 
 jobs:
@@ -82,7 +81,6 @@ jobs:
           docker run --rm --entrypoint ffmpeg saturn:ci -hide_banner -encoders | grep libopus
           test -z "$(docker run --rm --entrypoint find saturn:ci . -name '.env*' -not -path './node_modules/*')"
 
-          # The lockfile flags packages that only development needs, transitive ones included.
           docker run --rm --volume "$PWD/package-lock.json:/tmp/package-lock.json:ro" --entrypoint node saturn:ci -e "
             const { existsSync, readFileSync } = require('node:fs');
             const { packages } = JSON.parse(readFileSync('/tmp/package-lock.json', 'utf8'));
@@ -96,8 +94,6 @@ jobs:
           docker run --rm saturn:ci || status=$?
           test "$status" -eq 1
 
-          # Without network access, startup gets past configuration and FFmpeg
-          # verification, then fails to reach Discord.
           status=0
           docker run --rm --network none --env BOT_TOKEN=ci-placeholder-token saturn:ci > startup.log 2>&1 || status=$?
           cat startup.log
@@ -114,7 +110,6 @@ jobs:
           printf 'SAPISID=ci-placeholder-sapisid; SID=ci-placeholder-sid\n' > "$RUNNER_TEMP/signed-in.txt"
           chmod a+r "$RUNNER_TEMP"/signed-*.txt
 
-          # Exits with 1 and logs each expected message, but no cookie value, token or file path.
           check_cookie() {
             status=0
             docker run --rm --network none --env BOT_TOKEN=ci-placeholder-token \

@@ -6,7 +6,7 @@ import { ConfigurationError, loadConfig } from '../../../src/config/environment.
 
 const TOKEN = 'MTA0.test-token.value';
 
-describe('loadConfig', () => {
+describe(loadConfig, () => {
   it('applies defaults for optional settings', () => {
     const config = loadConfig({ BOT_TOKEN: TOKEN });
 
@@ -21,9 +21,9 @@ describe('loadConfig', () => {
 
   it('reads every supported variable', () => {
     const config = loadConfig({
-      BOT_TOKEN: ` ${TOKEN}\n`,
-      BOT_ACTIVITY_STATUS: ' Hello, earth! ',
       APP_ENVIRONMENT: 'development',
+      BOT_ACTIVITY_STATUS: ' Hello, earth! ',
+      BOT_TOKEN: ` ${TOKEN}\n`,
       FFMPEG_PATH: '/usr/bin/ffmpeg',
       YOUTUBE_COOKIE_FILE: ' /run/secrets/youtube-cookies.txt ',
     });
@@ -39,9 +39,9 @@ describe('loadConfig', () => {
 
   it('treats blank optional values as unset', () => {
     const config = loadConfig({
-      BOT_TOKEN: TOKEN,
-      BOT_ACTIVITY_STATUS: '  ',
       APP_ENVIRONMENT: '',
+      BOT_ACTIVITY_STATUS: '  ',
+      BOT_TOKEN: TOKEN,
       FFMPEG_PATH: ' ',
       YOUTUBE_COOKIE_FILE: '',
     });
@@ -54,14 +54,14 @@ describe('loadConfig', () => {
     });
   });
 
-  it.each([undefined, '', '   '])('requires BOT_TOKEN (%j)', (token) => {
+  it.each([undefined, '', ' '.repeat(3)])('requires BOT_TOKEN (%j)', (token) => {
     expect(() => loadConfig({ BOT_TOKEN: token })).toThrow(
       new ConfigurationError('Invalid configuration: BOT_TOKEN is required'),
     );
   });
 
   it.each(['staging', 'Production', 'dev'])('rejects APP_ENVIRONMENT=%s', (environment) => {
-    expect(() => loadConfig({ BOT_TOKEN: TOKEN, APP_ENVIRONMENT: environment })).toThrow(
+    expect(() => loadConfig({ APP_ENVIRONMENT: environment, BOT_TOKEN: TOKEN })).toThrow(
       'APP_ENVIRONMENT must be one of: development, production',
     );
   });

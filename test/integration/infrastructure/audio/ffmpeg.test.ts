@@ -3,22 +3,22 @@ import { buffer } from 'node:stream/consumers';
 
 import { describe, expect, it } from 'vitest';
 
-import { AudioStreamError } from '../../../src/application/errors.ts';
+import { AudioStreamError } from '../../../../src/application/errors.ts';
 import {
   encodeOggOpus,
   FfmpegUnavailableError,
   verifyFfmpeg,
-} from '../../../src/infrastructure/audio/ffmpeg.ts';
-import { fakeFfmpeg } from '../../fixtures/audio.ts';
+} from '../../../../src/infrastructure/audio/ffmpeg.ts';
+import { fakeFfmpeg } from '../../../fixtures/audio.ts';
 
 function encode(ffmpegPath: string, input: Readable, signal = new AbortController().signal) {
-  return encodeOggOpus(input, { ffmpegPath, bitrateKbps: 64, signal });
+  return encodeOggOpus(input, { bitrateKbps: 64, ffmpegPath, signal });
 }
 
-describe('encodeOggOpus', () => {
+describe(encodeOggOpus, () => {
   it('streams the encoder output and resolves on a clean exit', async () => {
     const audio = Buffer.from('encoded audio bytes'.repeat(1000));
-    const { output, completion } = encode(fakeFfmpeg('passthrough'), Readable.from([audio]));
+    const { completion, output } = encode(fakeFfmpeg('passthrough'), Readable.from([audio]));
 
     await expect(buffer(output)).resolves.toEqual(audio);
     await expect(completion).resolves.toBeUndefined();
@@ -47,7 +47,7 @@ describe('encodeOggOpus', () => {
   it('kills FFmpeg and releases the input when aborted', async () => {
     const input = new PassThrough();
     const controller = new AbortController();
-    const { output, completion } = encode(fakeFfmpeg('stalled'), input, controller.signal);
+    const { completion, output } = encode(fakeFfmpeg('stalled'), input, controller.signal);
     input.write('some audio');
     output.resume();
 
@@ -70,7 +70,7 @@ describe('encodeOggOpus', () => {
 
   it('fails when the source stream fails, even if FFmpeg exits cleanly', async () => {
     const input = new PassThrough();
-    const { output, completion } = encode(fakeFfmpeg('passthrough'), input);
+    const { completion, output } = encode(fakeFfmpeg('passthrough'), input);
     output.resume();
     const cause = new Error('connection reset');
 
@@ -79,7 +79,7 @@ describe('encodeOggOpus', () => {
 
     const error: unknown = await completion.catch((error: unknown) => error);
     expect(error).toBeInstanceOf(AudioStreamError);
-    expect(error).toMatchObject({ message: 'Audio source stream failed', cause });
+    expect(error).toMatchObject({ cause, message: 'Audio source stream failed' });
   });
 
   it('fails when FFmpeg cannot be started', async () => {
@@ -89,7 +89,7 @@ describe('encodeOggOpus', () => {
   });
 });
 
-describe('verifyFfmpeg', () => {
+describe(verifyFfmpeg, () => {
   it('accepts an FFmpeg build with libopus', async () => {
     await expect(verifyFfmpeg(fakeFfmpeg('passthrough'))).resolves.toBeUndefined();
   });

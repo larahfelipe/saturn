@@ -2,9 +2,9 @@ import { setImmediate as nextMacrotask } from 'node:timers/promises';
 
 import { describe, expect, it } from 'vitest';
 
-import { TrackQueue } from '../../../src/domain/music/TrackQueue.ts';
+import { TrackQueue } from '../../../../src/domain/music/TrackQueue.ts';
 
-describe('TrackQueue', () => {
+describe(TrackQueue, () => {
   it('dequeues in FIFO order', () => {
     const queue = new TrackQueue<string>();
     queue.enqueue('a');

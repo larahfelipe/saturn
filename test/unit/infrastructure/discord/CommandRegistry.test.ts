@@ -1,30 +1,28 @@
 import { ApplicationCommandOptionType, InteractionContextType } from 'discord.js';
 import { describe, expect, it } from 'vitest';
 
+import { COMMAND_DEFINITIONS } from '../../../../src/infrastructure/discord/commandDefinitions.ts';
+import type { CommandName } from '../../../../src/infrastructure/discord/commandDefinitions.ts';
 import { CommandRegistry } from '../../../../src/infrastructure/discord/CommandRegistry.ts';
-import {
-  COMMAND_DEFINITIONS,
-  type CommandName,
-} from '../../../../src/infrastructure/discord/commandDefinitions.ts';
 import type { CommandHandler } from '../../../../src/infrastructure/discord/commands.ts';
 
 function handlers(): Record<CommandName, CommandHandler> {
   const reply = (content: string): CommandHandler => ({ execute: () => ({ content }) });
   return {
-    play: { defer: true, execute: () => ({ content: 'play' }) },
-    pause: reply('pause'),
-    unpause: reply('unpause'),
-    skip: reply('skip'),
-    stop: reply('stop'),
-    ping: reply('ping'),
     health: reply('health'),
     help: reply('help'),
+    pause: reply('pause'),
+    ping: reply('ping'),
+    play: { defer: true, execute: () => ({ content: 'play' }) },
+    skip: reply('skip'),
+    stop: reply('stop'),
+    unpause: reply('unpause'),
   };
 }
 
 describe('command definitions', () => {
   it('defines the eight Go commands in registration order', () => {
-    expect(COMMAND_DEFINITIONS.map(({ name, description }) => [name, description])).toEqual([
+    expect(COMMAND_DEFINITIONS.map(({ description, name }) => [name, description])).toEqual([
       ['play', 'Play a YouTube video audio'],
       ['pause', 'Pause the currently playing song'],
       ['unpause', 'Resume song playback'],
@@ -47,16 +45,16 @@ describe('command definitions', () => {
 
     expect(play?.options).toEqual([
       expect.objectContaining({
-        type: ApplicationCommandOptionType.String,
-        name: 'url',
         description: 'The YouTube video URL',
+        name: 'url',
         required: true,
+        type: ApplicationCommandOptionType.String,
       }),
     ]);
   });
 });
 
-describe('CommandRegistry', () => {
+describe(CommandRegistry, () => {
   it('pairs each definition with its handler', async () => {
     const registry = new CommandRegistry(COMMAND_DEFINITIONS, handlers());
 

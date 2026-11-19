@@ -2,10 +2,11 @@ import { EventEmitter } from 'node:events';
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { GracefulShutdown, type ShutdownStep } from '../../../src/lifecycle/GracefulShutdown.ts';
+import { GracefulShutdown } from '../../../src/lifecycle/GracefulShutdown.ts';
+import type { ShutdownStep } from '../../../src/lifecycle/GracefulShutdown.ts';
 import { flush, RecordingLogger } from '../../fixtures/fakes.ts';
 
-describe('GracefulShutdown', () => {
+describe(GracefulShutdown, () => {
   let events: string[];
   let exits: number[];
   let logger: RecordingLogger;
@@ -28,17 +29,17 @@ describe('GracefulShutdown', () => {
 
   function shutdown(steps: readonly ShutdownStep[], stepTimeoutMs = 1000): GracefulShutdown {
     return new GracefulShutdown({
-      steps,
-      logger,
-      stepTimeoutMs,
-      finalize: () => {
-        events.push('finalize');
-        return Promise.resolve();
-      },
       exit: (code) => {
         events.push('exit');
         exits.push(code);
       },
+      finalize: () => {
+        events.push('finalize');
+        return Promise.resolve();
+      },
+      logger,
+      steps,
+      stepTimeoutMs,
     });
   }
 
@@ -89,8 +90,8 @@ describe('GracefulShutdown', () => {
     expect(events).toEqual(['gateway', 'metrics', 'finalize', 'exit']);
     expect(exits).toEqual([1]);
     expect(logger.contextOf('error', 'shutdown step failed')).toMatchObject({
-      step: 'gateway',
       err: new Error('boom'),
+      step: 'gateway',
     });
   });
 

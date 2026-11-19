@@ -3,33 +3,33 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 import type { Logger } from '../application/ports/Logger.ts';
 
+export interface GracefulShutdownOptions {
+  readonly exit: (code: number) => void;
+  readonly finalize: () => Promise<void>;
+  readonly logger: Logger;
+  readonly steps: readonly ShutdownStep[];
+  readonly stepTimeoutMs?: number;
+}
+
 export interface ShutdownStep {
   readonly name: string;
   run(): Promise<void> | void;
 }
 
-export interface GracefulShutdownOptions {
-  /** Released in order; each step runs even if an earlier one failed or timed out. */
-  readonly steps: readonly ShutdownStep[];
-  readonly logger: Logger;
-  /** Runs after the last step, before exiting. Must not reject. */
-  readonly finalize: () => Promise<void>;
-  readonly exit: (code: number) => void;
-  /** How long a step may take before it is abandoned and the next one starts. */
-  readonly stepTimeoutMs?: number;
-}
-
 const TERMINATION_SIGNALS = ['SIGINT', 'SIGTERM'] as const;
 
-/** Releases the application's resources in order, exactly once, then exits. */
 export class GracefulShutdown {
-  readonly #steps: readonly ShutdownStep[];
-  readonly #logger: Logger;
-  readonly #finalize: () => Promise<void>;
+  get isRunning(): boolean {
+    return this.#running !== undefined;
+  }
+
   readonly #exit: (code: number) => void;
-  readonly #stepTimeoutMs: number;
-  #running: Promise<void> | undefined;
   #fatalError = false;
+  readonly #finalize: () => Promise<void>;
+  readonly #logger: Logger;
+  #running: Promise<void> | undefined;
+  readonly #steps: readonly ShutdownStep[];
+  readonly #stepTimeoutMs: number;
 
   constructor(options: GracefulShutdownOptions) {
     this.#steps = options.steps;
@@ -39,24 +39,6 @@ export class GracefulShutdown {
     this.#stepTimeoutMs = options.stepTimeoutMs ?? 5000;
   }
 
-  get isRunning(): boolean {
-    return this.#running !== undefined;
-  }
-
-  /**
-   * Runs every step, then exits with `exitCode`, or 1 if a step failed.
-   * Later calls return the shutdown already in progress.
-   */
-  run(reason: string, exitCode = 0): Promise<void> {
-    this.#running ??= this.#run(reason, exitCode);
-    return this.#running;
-  }
-
-  /**
-   * Shuts down on SIGINT or SIGTERM, and with exit code 1 on an uncaught
-   * exception or unhandled rejection, including one raised while shutting
-   * down. A second signal exits immediately.
-   */
   install(target: EventEmitter): void {
     for (const signal of TERMINATION_SIGNALS) {
       target.on(signal, () => {
@@ -77,6 +59,11 @@ export class GracefulShutdown {
     target.on('unhandledRejection', fatal('unhandled rejection'));
   }
 
+  run(reason: string, exitCode = 0): Promise<void> {
+    this.#running ??= this.#run(reason, exitCode);
+    return this.#running;
+  }
+
   async #run(reason: string, exitCode: number): Promise<void> {
     this.#logger.info({ reason }, 'shutting down');
     let succeeded = true;
@@ -93,9 +80,7 @@ export class GracefulShutdown {
     const timer = new AbortController();
     try {
       const outcome = await Promise.race([
-        Promise.resolve()
-          .then(() => step.run())
-          .then(() => 'completed' as const),
+        Promise.try(() => step.run()).then(() => 'completed' as const),
         delay(this.#stepTimeoutMs, 'timed out' as const, { signal: timer.signal }),
       ]);
       if (outcome === 'timed out') {
