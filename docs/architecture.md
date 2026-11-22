@@ -50,11 +50,17 @@ module-level mutable state. The ports are where the tests substitute fakes.
   counts active players for the metrics gauge, and disposes all of them on
   shutdown.
 - **`PlaybackService`** is the use-case API the Discord layer calls: `play`,
-  `pause`, `resume`, `skip`, `stop`, addressed by guild ID, with the member's
-  voice channel. Members outside the bot's voice channel are refused.
+  `pause`, `resume`, `skip`, `stop` and the queue edits (`remove`, `move`,
+  `shuffle`, `clear`, `skipTo`), addressed by guild ID, with the member's voice
+  channel. Members outside the bot's voice channel are refused. `nowPlaying`
+  and `upcoming` read the queue for anyone, and `updateListeners` receives
+  listener counts.
 - **`YouTubeTrackResolver`** validates the URL, fetches metadata, picks an audio
   format and returns a `Track` plus an `AudioSource` whose stream is opened
-  only when the track starts.
+  only when the track starts. It throws for an invalid URL before any request,
+  so the player refuses it without joining. Its client answers YouTube's
+  `next` request (related videos, likes, chapters) locally, since Saturn reads
+  none of it; that saves up to a second per lookup.
 - **`VoiceConnectionManager`** joins a voice channel and, once the connection
   is ready, returns a `DiscordAudioSession`.
 - **`DiscordAudioSession`** plays one track at a time: source stream → FFmpeg →
@@ -66,7 +72,7 @@ module-level mutable state. The ports are where the tests substitute fakes.
 - **`CommandRegistry`** pairs the command definitions (data sent to Discord)
   with their handlers (execution) and synchronizes the definitions.
 - **`DiscordClient`** wraps the discord.js `Client`: login, command
-  synchronization, presence, voice channel lookup, shutdown.
+  synchronization, presence, voice channel lookup, listener counts, shutdown.
 - **`Metrics` / `MetricsServer`** hold the Prometheus registry and serve it on
   `GET /metrics`.
 - **`GracefulShutdown`** runs the shutdown steps once, in order, each with a
@@ -84,12 +90,16 @@ Discord ─interaction→ DiscordClient ─→ InteractionHandler
     refuse if the user is in no voice channel or over the request limit
     → PlayerRegistry.acquire(guild) → GuildPlayer.play
       refuse if the bot is in another voice channel or the queue is full
-      1. TrackResolver.resolve(url)          metadata + lazy AudioSource, starts at once
+      1. TrackResolver.resolve(url)          metadata + lazy AudioSource, starts at once;
+                                             an invalid URL is refused here
+      2. VoiceConnector.connect(channel)     starts at once when not connected yet;
+                                             later requests share the join
       ── wait for earlier requests of the guild (arrival order) ──
-      2. VoiceConnector.connect(channel)     only when not connected yet
-      3. refuse if the bot is in another voice channel by now
-      4. TrackQueue.enqueue → position
-      5. start the playback loop if nothing is playing
+      3. wait for the lookup, then the join  a lookup error wins over a join error
+      4. refuse if the bot is in another voice channel by now
+      5. TrackQueue.enqueue → position
+      6. start the playback loop if nothing is playing
+      once the last request failed while joining, leave the channel
   ← "Now playing" or "Queued at position n" embed with control buttons
 ```
 
@@ -113,6 +123,28 @@ These are synchronous state changes, so they never wait behind a slow `play`.
 which also cancels in-flight resolution and connection attempts. Button custom
 IDs carry the guild ID, and the handler acts only when it matches the
 interaction's guild.
+
+The queue edits work the same way. Positions count from 1 for the next track,
+as `queue` shows them; a position outside the queue is refused and nothing
+changes. `skipto` drops the tracks ahead of the chosen one, then skips the
+current track. `playnext` is `play` with the track enqueued at the front.
+
+### Empty channel
+
+```text
+Discord ─voice state update→ DiscordClient
+  ignore it unless someone entered or left the bot's channel
+  count the members in that channel, except the bot and other known bots
+  → PlaybackService.updateListeners → GuildPlayer.updateListeners
+    ignore counts for any other channel
+    0 listeners: start a 30 s timer, unless one is running
+    otherwise:   cancel the timer
+  timer expires → stop, as with the stop command
+```
+
+Discord reports the bot joining or being moved like any other member, so the
+count is also taken when the bot enters a channel that is already empty. The
+timer is cancelled whenever the player releases its session.
 
 ### Shutdown
 

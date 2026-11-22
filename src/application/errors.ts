@@ -53,6 +53,15 @@ export class QueueFullError extends UserInputError {
   }
 }
 
+export class QueuePositionError extends UserInputError {
+  readonly size: number;
+
+  constructor(size: number) {
+    super(`No song at that queue position; the queue holds ${size}`);
+    this.size = size;
+  }
+}
+
 export class RateLimitedError extends UserInputError {
   readonly retryAfterMs: number;
 

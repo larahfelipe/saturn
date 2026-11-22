@@ -93,16 +93,13 @@ describe(PlayerRegistry, () => {
     await expect(second.play(REQUEST)).resolves.toMatchObject({ status: 'playing' });
   });
 
-  it('counts players that hold playback resources', async () => {
+  it('counts players that hold playback resources', () => {
     voice.manual = true;
     void registry
       .acquire('guild-1')
       .play(REQUEST)
       .catch(() => undefined);
     registry.acquire('guild-2');
-    expect(registry.activeCount()).toBe(0);
-
-    await flush();
     expect(registry.activeCount()).toBe(1);
 
     registry.get('guild-1')?.stop();

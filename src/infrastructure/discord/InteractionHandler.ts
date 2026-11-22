@@ -10,6 +10,7 @@ import {
   PlaybackCancelledError,
   PlayerUnavailableError,
   QueueFullError,
+  QueuePositionError,
   RateLimitedError,
   TrackResolutionError,
   TrackUnavailableError,
@@ -22,7 +23,13 @@ import type { PlaybackService } from '../../application/music/PlaybackService.ts
 import type { Logger } from '../../application/ports/Logger.ts';
 import type { CommandRegistry } from './CommandRegistry.ts';
 import { runControl } from './commands.ts';
-import { CONTROL_FAILED_MESSAGE, CONTROL_MESSAGES, errorEmbed, parseControlId } from './replies.ts';
+import {
+  CONTROL_FAILED_MESSAGE,
+  CONTROL_MESSAGES,
+  EMPTY_QUEUE_MESSAGE,
+  errorEmbed,
+  parseControlId,
+} from './replies.ts';
 import type { BotProfile, Reply } from './replies.ts';
 
 export interface CommandMetrics {
@@ -154,6 +161,7 @@ export class InteractionHandler {
     const execute = (): Promise<Reply> | Reply =>
       command.execute({
         guildId: interaction.guildId,
+        integerOption: (name) => interaction.options.getInteger(name) ?? undefined,
         option: (name) => interaction.options.getString(name) ?? undefined,
         userId: interaction.user.id,
         voiceChannelId: interaction.member.voice.channelId ?? undefined,
@@ -208,6 +216,10 @@ export function userErrorMessage(error: unknown): string | undefined {
   }
   if (error instanceof QueueFullError) {
     return `The queue is full (${error.limit} songs). Please, try again later`;
+  }
+  if (error instanceof QueuePositionError) {
+    if (error.size === 0) return EMPTY_QUEUE_MESSAGE;
+    return `There is no song at that position. The queue has ${error.size} ${error.size === 1 ? 'song' : 'songs'}`;
   }
   if (error instanceof PlaybackCancelledError) {
     return 'Playback was stopped before your song could be added';

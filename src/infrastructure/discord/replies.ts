@@ -1,6 +1,7 @@
-import { ButtonStyle, ComponentType } from 'discord.js';
+import { ButtonStyle, ComponentType, escapeMarkdown } from 'discord.js';
 import type { APIActionRowComponent, APIButtonComponent, APIEmbed } from 'discord.js';
 
+import type { NowPlaying } from '../../application/music/GuildPlayer.ts';
 import type { Track } from '../../domain/music/Track.ts';
 
 export interface BotProfile {
@@ -18,6 +19,10 @@ export interface Reply {
 }
 
 export const IDLE_MESSAGE = 'There is no song playing right now';
+export const EMPTY_QUEUE_MESSAGE = 'The queue is empty';
+export const QUEUE_CLEARED_MESSAGE = 'Queue cleared 🧹';
+export const QUEUE_SHUFFLED_MESSAGE = 'Queue shuffled 🔀';
+export const QUEUE_PAGE_SIZE = 10;
 export const CONTROL_FAILED_MESSAGE = 'Command could not be completed (player might be idle)';
 export const CONTROL_MESSAGES: Readonly<Record<PlaybackControl, string>> = {
   pause: 'Playback paused ⏸️',
@@ -32,6 +37,8 @@ const COLORS = {
   queued: 0xff_b3_19,
   standard: 0x6e_76_e5,
 } as const;
+
+const PROGRESS_SEGMENTS = 20;
 
 const NOW_PLAYING_ICON =
   'https://github.com/larahfelipe/saturn/blob/04d648edc74dcac7089d665e297b68c767b6ada3/src/assets/cd.gif?raw=true';
@@ -71,12 +78,37 @@ export function formatDuration(durationMs: number): string {
     : `${minutes}:${seconds}`;
 }
 
+export function formatPosition(elapsedMs: number, durationMs: number): string {
+  if (durationMs <= 0) return formatDuration(elapsedMs);
+  return `${formatDuration(Math.min(elapsedMs, durationMs))} / ${formatDuration(durationMs)}`;
+}
+
+export function formatProgress(elapsedMs: number, durationMs: number): string {
+  if (durationMs <= 0) return formatPosition(elapsedMs, durationMs);
+  const played = Math.min(
+    Math.floor((elapsedMs / durationMs) * PROGRESS_SEGMENTS),
+    PROGRESS_SEGMENTS - 1,
+  );
+  const bar = `${'━'.repeat(played)}●${'─'.repeat(PROGRESS_SEGMENTS - 1 - played)}`;
+  return `${bar} ${formatPosition(elapsedMs, durationMs)}`;
+}
+
 export function nowPlayingEmbed(track: Track): APIEmbed {
   return {
     ...trackDetails(track),
     author: { icon_url: NOW_PLAYING_ICON, name: 'Now playing' },
     color: COLORS.playing,
     description: `Requested by <@${track.requestedBy}> Enjoy!`,
+  };
+}
+
+export function nowPlayingProgressEmbed({ elapsedMs, paused, track }: NowPlaying): APIEmbed {
+  return {
+    ...trackDetails(track),
+    author: { icon_url: NOW_PLAYING_ICON, name: paused ? 'Paused' : 'Now playing' },
+    color: COLORS.playing,
+    description: `Requested by <@${track.requestedBy}>`,
+    footer: { text: formatProgress(elapsedMs, track.durationMs) },
   };
 }
 
@@ -114,6 +146,38 @@ export function queuedEmbed(track: Track, position: number, now = new Date()): A
   };
 }
 
+export function queueEmbed(
+  bot: BotProfile,
+  current: NowPlaying,
+  upcoming: readonly Track[],
+  page: number,
+  now = new Date(),
+): APIEmbed {
+  const pages = Math.max(1, Math.ceil(upcoming.length / QUEUE_PAGE_SIZE));
+  const shown = Math.min(Math.max(1, page), pages);
+  const start = (shown - 1) * QUEUE_PAGE_SIZE;
+  const entries = upcoming
+    .slice(start, start + QUEUE_PAGE_SIZE)
+    .map(
+      (track, index) =>
+        `\`${start + index + 1}.\` ${queueEntry(track, formatDuration(track.durationMs))}`,
+    );
+  const { elapsedMs, paused, track } = current;
+  const description = [
+    `**${paused ? 'Paused' : 'Now playing'}**`,
+    queueEntry(track, formatPosition(elapsedMs, track.durationMs)),
+    '',
+    '**Up next**',
+    ...(entries.length > 0 ? entries : ['Nothing queued']),
+  ].join('\n');
+  const totalMs = upcoming.reduce((sum, { durationMs }) => sum + durationMs, 0);
+  const songs = upcoming.length === 1 ? '1 song' : `${upcoming.length} songs`;
+  return {
+    ...standardEmbed(bot, description, now),
+    footer: { text: `Page ${shown}/${pages} · ${songs} · ${formatDuration(totalMs)} total` },
+  };
+}
+
 export function standardEmbed(bot: BotProfile, description: string, now = new Date()): APIEmbed {
   return {
     author: { name: bot.username, ...avatar(bot) },
@@ -124,12 +188,20 @@ export function standardEmbed(bot: BotProfile, description: string, now = new Da
   };
 }
 
+export function trackLink(track: Track): string {
+  return `[${escapeMarkdown(track.title).replaceAll(/[[\]]/g, String.raw`\$&`)}](${track.url})`;
+}
+
 function avatar(bot: BotProfile): { icon_url?: string } {
   return bot.avatarUrl === undefined ? {} : { icon_url: bot.avatarUrl };
 }
 
 function isControl(value: string): value is PlaybackControl {
   return CONTROLS.has(value);
+}
+
+function queueEntry(track: Track, time: string): string {
+  return `${trackLink(track)} · \`${time}\` · <@${track.requestedBy}>`;
 }
 
 function trackDetails(track: Track): APIEmbed {

@@ -5,6 +5,7 @@ import type { Guild, Interaction, VoiceBasedChannel } from 'discord.js';
 
 import { VoiceChannelUnusableError } from '../../application/errors.ts';
 import type { VoiceChannelProblem } from '../../application/errors.ts';
+import type { ListenerUpdate } from '../../application/music/PlaybackService.ts';
 import type { Logger } from '../../application/ports/Logger.ts';
 import type { VoiceTarget } from '../../application/ports/Voice.ts';
 import type { VoiceChannelInfo } from '../audio/VoiceConnectionManager.ts';
@@ -72,6 +73,19 @@ export class DiscordClient {
     });
   }
 
+  onListenersChange(handler: (update: ListenerUpdate) => void): void {
+    this.#client.on(Events.VoiceStateUpdate, (previous, current) => {
+      const botId = this.#client.user?.id;
+      if (botId === undefined || previous.channelId === current.channelId) return;
+      const { guild } = current;
+      const channelId = guild.voiceStates.cache.get(botId)?.channelId;
+      if (!channelId || (channelId !== previous.channelId && channelId !== current.channelId)) {
+        return;
+      }
+      handler({ channelId, guildId: guild.id, listeners: countListeners(guild, channelId, botId) });
+    });
+  }
+
   async start(commands: CommandRegistry): Promise<void> {
     const login = new AbortController();
     const ready = once(this.#client, Events.ClientReady, { signal: login.signal });
@@ -108,6 +122,13 @@ export class DiscordClient {
     if (problem !== undefined) throw new VoiceChannelUnusableError(problem);
     return { adapterCreator: guild.voiceAdapterCreator, bitrate: channel.bitrate };
   }
+}
+
+function countListeners(guild: Guild, channelId: string, botId: string): number {
+  return guild.voiceStates.cache.filter(
+    (state) =>
+      state.channelId === channelId && state.id !== botId && state.member?.user.bot !== true,
+  ).size;
 }
 
 function voiceChannelProblem(

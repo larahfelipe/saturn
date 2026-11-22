@@ -52,6 +52,9 @@ export class DiscordAudioSession implements AudioSession {
   get channelId(): string | undefined {
     return this.#connection.joinConfig.channelId ?? undefined;
   }
+  get elapsedMs(): number {
+    return this.#active?.resource.playbackDuration ?? 0;
+  }
 
   #active: ActiveTrack | undefined;
   readonly #bitrateKbps: number;
@@ -132,6 +135,7 @@ export class DiscordAudioSession implements AudioSession {
     let started = false;
     let input: Readable | undefined;
     let resource: AudioResource | undefined;
+    const openedAt = performance.now();
     try {
       input = source.open(track.signal);
       const { completion, output } = encodeOggOpus(input, {
@@ -154,8 +158,10 @@ export class DiscordAudioSession implements AudioSession {
         },
         resource: playing,
         started: () => {
+          if (started) return;
           started = true;
           clearTimeout(startTimer);
+          this.#logger.info({ startMs: Math.round(performance.now() - openedAt) }, 'audio started');
         },
       };
       this.#player.play(playing);

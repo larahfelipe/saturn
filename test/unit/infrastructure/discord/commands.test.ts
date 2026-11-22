@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { NotInVoiceChannelError, NotListeningError } from '../../../../src/application/errors.ts';
+import {
+  NotInVoiceChannelError,
+  NotListeningError,
+  QueuePositionError,
+} from '../../../../src/application/errors.ts';
 import { PlaybackService } from '../../../../src/application/music/PlaybackService.ts';
 import { PlayerRegistry } from '../../../../src/application/music/PlayerRegistry.ts';
 import { COMMAND_DEFINITIONS } from '../../../../src/infrastructure/discord/commandDefinitions.ts';
@@ -21,10 +25,16 @@ import {
 const GUILD_ID = '123456789012345678';
 const BOT = { avatarUrl: undefined, username: 'Saturn' };
 
-function context(overrides: Partial<CommandContext> & { url?: string } = {}): CommandContext {
-  const { url = trackUrl('aaaaaaaaaaa'), ...rest } = overrides;
+interface ContextOverrides extends Partial<CommandContext> {
+  readonly integers?: Readonly<Record<string, number>>;
+  readonly url?: string;
+}
+
+function context(overrides: ContextOverrides = {}): CommandContext {
+  const { integers = {}, url = trackUrl('aaaaaaaaaaa'), ...rest } = overrides;
   return {
     guildId: GUILD_ID,
+    integerOption: (name) => integers[name],
     option: (name) => (name === 'url' ? url : undefined),
     userId: '42',
     voiceChannelId: 'voice-1',
@@ -53,6 +63,10 @@ describe('command handlers', () => {
       playback,
     });
   });
+
+  function upcomingIds(): string[] {
+    return playback.upcoming(GUILD_ID).map(({ id }) => id);
+  }
 
   describe('play', () => {
     it('defers, then reports the track that started playing with controls', async () => {
@@ -99,6 +113,185 @@ describe('command handlers', () => {
     it('propagates playback errors to the interaction handler', async () => {
       await expect(handlers.play.execute(context({ voiceChannelId: undefined }))).rejects.toThrow(
         NotInVoiceChannelError,
+      );
+    });
+  });
+
+  describe('playnext', () => {
+    it('defers, then queues the track ahead of the others', async () => {
+      expect(handlers.playnext.defer).toBe(true);
+      await handlers.play.execute(context());
+      await handlers.play.execute(context({ url: trackUrl('bbbbbbbbbbb') }));
+
+      const reply = await handlers.playnext.execute(context({ url: trackUrl('ccccccccccc') }));
+
+      expect(reply).toMatchObject({
+        components: [playbackControls(GUILD_ID)],
+        embeds: [{ description: 'Added to the queue by <@42> at position 1' }],
+      });
+      expect(upcomingIds()).toEqual(['ccccccccccc', 'bbbbbbbbbbb']);
+    });
+
+    it('rejects a missing URL without touching playback', async () => {
+      const reply = await handlers.playnext.execute({ ...context(), option: () => undefined });
+
+      expect(reply.embeds).toEqual([
+        expect.objectContaining({ description: 'Missing song url option' }),
+      ]);
+      expect(registry.size).toBe(0);
+    });
+  });
+
+  describe('nowplaying', () => {
+    it('reports an idle player', async () => {
+      expect(await handlers.nowplaying.execute(context())).toEqual({
+        content: 'There is no song playing right now',
+      });
+    });
+
+    it('shows the current song and its progress to anyone, with controls', async () => {
+      await handlers.play.execute(context());
+      await flush();
+      const session = voice.lastSession;
+      if (session !== undefined) session.elapsedMs = 71_000;
+
+      const reply = await handlers.nowplaying.execute(context({ voiceChannelId: undefined }));
+
+      expect(reply).toMatchObject({
+        components: [playbackControls(GUILD_ID)],
+        embeds: [
+          {
+            author: { name: 'Now playing' },
+            description: 'Requested by <@42>',
+            footer: { text: '━━━━━━●───────────── 1:11 / 3:33' },
+            title: 'Track aaaaaaaaaaa',
+          },
+        ],
+      });
+    });
+  });
+
+  describe('queue', () => {
+    it('reports an empty queue while idle', async () => {
+      expect(await handlers.queue.execute(context())).toEqual({ content: 'The queue is empty' });
+    });
+
+    it('shows the requested page to anyone', async () => {
+      for (let index = 0; index < 12; index++) {
+        const id = `track${String(index).padStart(6, '0')}`;
+        await handlers.play.execute(context({ url: trackUrl(id), userId: `user-${index}` }));
+      }
+
+      const reply = await handlers.queue.execute(
+        context({ integers: { page: 2 }, voiceChannelId: undefined }),
+      );
+
+      expect(reply.embeds?.[0]?.description).toContain(
+        '`11.` [Track track000011](https://www.youtube.com/watch?v=track000011)',
+      );
+      expect(reply.embeds?.[0]?.footer).toEqual({ text: 'Page 2/2 · 11 songs · 39:03 total' });
+    });
+
+    it('starts at the first page', async () => {
+      await handlers.play.execute(context());
+      await handlers.play.execute(context({ url: trackUrl('bbbbbbbbbbb') }));
+
+      const reply = await handlers.queue.execute(context());
+
+      expect(reply.embeds?.[0]?.footer).toEqual({ text: 'Page 1/1 · 1 song · 3:33 total' });
+    });
+  });
+
+  describe('queue edits', () => {
+    beforeEach(async () => {
+      for (const id of ['aaaaaaaaaaa', 'bbbbbbbbbbb', 'ccccccccccc', 'ddddddddddd']) {
+        await handlers.play.execute(context({ url: trackUrl(id) }));
+      }
+      await flush();
+    });
+
+    it('removes a song', async () => {
+      const reply = await handlers.remove.execute(context({ integers: { position: 2 } }));
+
+      expect(reply.embeds).toEqual([
+        expect.objectContaining({
+          description:
+            'Removed [Track ccccccccccc](https://www.youtube.com/watch?v=ccccccccccc) from the queue',
+        }),
+      ]);
+      expect(upcomingIds()).toEqual(['bbbbbbbbbbb', 'ddddddddddd']);
+    });
+
+    it('moves a song', async () => {
+      const reply = await handlers.move.execute(context({ integers: { from: 3, to: 1 } }));
+
+      expect(reply.embeds).toEqual([
+        expect.objectContaining({
+          description:
+            'Moved [Track ddddddddddd](https://www.youtube.com/watch?v=ddddddddddd) to position 1',
+        }),
+      ]);
+      expect(upcomingIds()).toEqual(['ddddddddddd', 'bbbbbbbbbbb', 'ccccccccccc']);
+    });
+
+    it('skips to a song', async () => {
+      const reply = await handlers.skipto.execute(context({ integers: { position: 2 } }));
+      await flush();
+
+      expect(reply.embeds).toEqual([
+        expect.objectContaining({
+          description:
+            'Skipped to [Track ccccccccccc](https://www.youtube.com/watch?v=ccccccccccc) ⏭️',
+        }),
+      ]);
+      expect(registry.get(GUILD_ID)?.state).toMatchObject({ current: { id: 'ccccccccccc' } });
+    });
+
+    it('shuffles the queue', async () => {
+      expect(await handlers.shuffle.execute(context())).toEqual({ content: 'Queue shuffled 🔀' });
+      expect(upcomingIds().toSorted((a, b) => a.localeCompare(b))).toEqual([
+        'bbbbbbbbbbb',
+        'ccccccccccc',
+        'ddddddddddd',
+      ]);
+    });
+
+    it('clears the queue, then reports it empty', async () => {
+      expect(await handlers.clear.execute(context())).toEqual({ content: 'Queue cleared 🧹' });
+      expect(upcomingIds()).toEqual([]);
+
+      expect(await handlers.clear.execute(context())).toEqual({ content: 'The queue is empty' });
+      expect(await handlers.shuffle.execute(context())).toEqual({ content: 'The queue is empty' });
+    });
+
+    it.each(['remove', 'move', 'skipto'] as const)(
+      'rejects %s without its positions',
+      async (name) => {
+        const reply = await handlers[name].execute(context());
+
+        expect(reply.embeds).toEqual([
+          expect.objectContaining({ description: 'Missing position option' }),
+        ]);
+        expect(upcomingIds()).toHaveLength(3);
+      },
+    );
+
+    it.each([
+      ['remove', { position: 1 }],
+      ['move', { from: 1, to: 2 }],
+      ['skipto', { position: 1 }],
+      ['shuffle', {}],
+      ['clear', {}],
+    ] as const)("refuses %s from members outside the bot's voice channel", (name, integers) => {
+      expect(() =>
+        handlers[name].execute(context({ integers, voiceChannelId: 'voice-other' })),
+      ).toThrow(NotListeningError);
+      expect(upcomingIds()).toEqual(['bbbbbbbbbbb', 'ccccccccccc', 'ddddddddddd']);
+    });
+
+    it('propagates positions outside the queue to the interaction handler', () => {
+      expect(() => handlers.remove.execute(context({ integers: { position: 4 } }))).toThrow(
+        QueuePositionError,
       );
     });
   });
@@ -161,10 +354,18 @@ describe('command handlers', () => {
       [
         'Available slash commands:',
         '`/play` - Play a YouTube video audio',
+        '`/playnext` - Queue a YouTube video audio to play next',
         '`/pause` - Pause the currently playing song',
         '`/unpause` - Resume song playback',
         '`/skip` - Skip the currently playing song',
+        '`/skipto` - Skip to a song in the queue',
         '`/stop` - Stop playback and clear the queue',
+        '`/nowplaying` - Show the currently playing song and its progress',
+        '`/queue` - Show the songs in the queue',
+        '`/remove` - Remove a song from the queue',
+        '`/move` - Move a song to another queue position',
+        '`/shuffle` - Shuffle the queue',
+        '`/clear` - Remove every song from the queue, keeping the current one',
         '`/ping` - Verify bot responsiveness',
         '`/health` - Check bot heartbeat latency',
         '`/help` - Show available commands list',

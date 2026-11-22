@@ -3,6 +3,7 @@ import type { AudioSource } from './TrackResolver.ts';
 export interface AudioSession {
   readonly channelId: string | undefined;
   destroy(): void;
+  readonly elapsedMs: number;
   pause(): boolean;
   play(source: AudioSource, signal: AbortSignal): Promise<void>;
   resume(): boolean;

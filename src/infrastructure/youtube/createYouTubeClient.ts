@@ -7,12 +7,15 @@ import { YOUTUBE_REQUEST_TIMEOUT_MS } from './YouTubeTrackResolver.ts';
 
 export class YouTubeCookieError extends SaturnError {}
 
+const WATCH_NEXT_URL = 'https://www.youtube.com/youtubei/v1/next';
+
 export async function createYouTubeClient(cookieFile: string | undefined): Promise<Ytdl> {
-  if (cookieFile === undefined) return new Ytdl({ timeoutMs: YOUTUBE_REQUEST_TIMEOUT_MS });
+  const options = { fetch: fetchWithoutWatchNext, timeoutMs: YOUTUBE_REQUEST_TIMEOUT_MS };
+  if (cookieFile === undefined) return new Ytdl(options);
 
   const cookie = await readCookie(cookieFile);
   try {
-    return new Ytdl({ cookie, timeoutMs: YOUTUBE_REQUEST_TIMEOUT_MS });
+    return new Ytdl({ ...options, cookie });
   } catch (error) {
     if (!YtdlError.is(error, YtdlErrorCode.INVALID_ARGUMENT)) throw error;
     throw invalidCookieFile(
@@ -25,6 +28,21 @@ function errorCode(error: unknown): string {
   return error instanceof Error && 'code' in error && typeof error.code === 'string'
     ? error.code
     : 'unknown error';
+}
+
+/**
+ * Every lookup also asks YouTube's `next` endpoint, only for related videos,
+ * likes and chapters, and reads a failed answer as empty. Saturn uses none of
+ * them, so answering it locally saves a request of up to a second per song.
+ */
+function fetchWithoutWatchNext(
+  input: Request | string | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  const url = new URL(input instanceof Request ? input.url : input);
+  return `${url.origin}${url.pathname}` === WATCH_NEXT_URL
+    ? Promise.resolve(Response.json({}))
+    : fetch(input, init);
 }
 
 function invalidCookieFile(problem: string): YouTubeCookieError {

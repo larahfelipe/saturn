@@ -17,5 +17,6 @@ export interface TrackRequest {
 }
 
 export interface TrackResolver {
+  /** Throws instead of rejecting for a URL it can never resolve, before any I/O. */
   resolve(request: TrackRequest, signal: AbortSignal): Promise<ResolvedTrack>;
 }

@@ -1,14 +1,19 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  InvalidTrackUrlError,
   NotListeningError,
   PlaybackCancelledError,
   PlayerUnavailableError,
   QueueFullError,
+  QueuePositionError,
   TrackUnavailableError,
   VoiceConnectionError,
 } from '../../../../src/application/errors.ts';
-import { GuildPlayer } from '../../../../src/application/music/GuildPlayer.ts';
+import {
+  EMPTY_CHANNEL_TIMEOUT_MS,
+  GuildPlayer,
+} from '../../../../src/application/music/GuildPlayer.ts';
 import type { PlayRequest } from '../../../../src/application/music/GuildPlayer.ts';
 import {
   FakeResolver,
@@ -60,6 +65,15 @@ describe(GuildPlayer, () => {
       : undefined;
   }
 
+  function upcomingIds(): string[] {
+    return player.upcoming.map(({ id }) => id);
+  }
+
+  async function playAll(...ids: string[]): Promise<void> {
+    for (const id of ids) await player.play(request(id));
+    await flush();
+  }
+
   describe('queue processing', () => {
     it('connects to the requester channel and starts the first track', async () => {
       const result = await player.play(request('aaaaaaaaaaa'));
@@ -69,6 +83,53 @@ describe(GuildPlayer, () => {
       expect(voice.calls[0]?.target).toEqual({ channelId: 'voice-1', guildId: 'guild-1' });
       expect(session().playbacks).toHaveLength(1);
       expect(player.state).toMatchObject({ current: { id: 'aaaaaaaaaaa' }, status: 'playing' });
+    });
+
+    it('joins the voice channel while the track is still resolving', async () => {
+      resolver.manual = true;
+      const play = player.play(request('aaaaaaaaaaa'));
+      await flush();
+
+      expect(voice.calls).toHaveLength(1);
+      expect(player.state.status).toBe('connecting');
+      const call = resolver.calls[0];
+      call?.deferred.resolve(call.result);
+
+      await expect(play).resolves.toMatchObject({ status: 'playing' });
+      expect(session().playbacks).toHaveLength(1);
+    });
+
+    it('shares the join with requests made while joining', async () => {
+      voice.manual = true;
+      const first = player.play(request('aaaaaaaaaaa'));
+      const second = player.play(request('bbbbbbbbbbb'));
+      await flush();
+      voice.calls[0]?.deferred.resolve(session());
+
+      await expect(first).resolves.toMatchObject({ status: 'playing' });
+      await expect(second).resolves.toMatchObject({ position: 1, status: 'queued' });
+      expect(voice.calls).toHaveLength(1);
+    });
+
+    it('keeps joining for the requests left when one lookup fails', async () => {
+      resolver.manual = true;
+      voice.manual = true;
+      const first = player.play(request('aaaaaaaaaaa'));
+      const second = player.play(request('bbbbbbbbbbb'));
+      await flush();
+
+      resolver.calls[0]?.deferred.reject(new TrackUnavailableError('PRIVATE'));
+      await expect(first).rejects.toThrow(TrackUnavailableError);
+      expect(voice.calls[0]?.options.signal.aborted).toBe(false);
+
+      voice.calls[0]?.deferred.resolve(session());
+      const call = resolver.calls[1];
+      call?.deferred.resolve(call.result);
+      await expect(second).resolves.toMatchObject({
+        status: 'playing',
+        track: { id: 'bbbbbbbbbbb' },
+      });
+      expect(voice.calls).toHaveLength(1);
     });
 
     it('queues later tracks with their positions and reuses the connection', async () => {
@@ -264,16 +325,33 @@ describe(GuildPlayer, () => {
       await expect(play).rejects.toThrow(PlaybackCancelledError);
     });
 
-    it('refuses a request whose turn comes after an earlier one joined another channel', async () => {
+    it('refuses a request whose channel the bot left while it resolved', async () => {
+      await player.play(request('aaaaaaaaaaa'));
       resolver.manual = true;
-      const first = player.play(request('aaaaaaaaaaa'));
-      const second = player.play(elsewhere);
-      for (const call of resolver.calls) call.deferred.resolve(call.result);
+      const second = player.play(request('bbbbbbbbbbb'));
+      await flush();
 
-      await expect(first).resolves.toMatchObject({ status: 'playing' });
+      session().channelId = 'voice-2';
+      const call = resolver.calls[1];
+      call?.deferred.resolve(call.result);
+
       await expect(second).rejects.toThrow(NotListeningError);
-      expect(voice.calls).toHaveLength(1);
       expect(player.upcoming).toEqual([]);
+    });
+
+    it('leaves when the bot was moved before its first track resolved', async () => {
+      resolver.manual = true;
+      const play = player.play(request('aaaaaaaaaaa'));
+      await flush();
+
+      session().channelId = 'voice-2';
+      const call = resolver.calls[0];
+      call?.deferred.resolve(call.result);
+
+      await expect(play).rejects.toThrow(NotListeningError);
+      expect(session().destroyed).toBe(true);
+      expect(player.isIdle).toBe(true);
+      expect(onIdle).toHaveBeenCalledOnce();
     });
   });
 
@@ -413,6 +491,261 @@ describe(GuildPlayer, () => {
     });
   });
 
+  describe('now playing', () => {
+    it('reports nothing while idle or connecting', async () => {
+      expect(player.nowPlaying).toBeUndefined();
+
+      voice.manual = true;
+      void player.play(request('aaaaaaaaaaa')).catch(() => undefined);
+      await flush();
+
+      expect(player.state.status).toBe('connecting');
+      expect(player.nowPlaying).toBeUndefined();
+    });
+
+    it('reports the current track, its elapsed time and whether it is paused', async () => {
+      await playAll('aaaaaaaaaaa');
+      session().elapsedMs = 42_000;
+
+      expect(player.nowPlaying).toMatchObject({
+        elapsedMs: 42_000,
+        paused: false,
+        track: { id: 'aaaaaaaaaaa' },
+      });
+
+      player.pause();
+      expect(player.nowPlaying).toMatchObject({ paused: true, track: { id: 'aaaaaaaaaaa' } });
+    });
+  });
+
+  describe('queue edits', () => {
+    it('queues a track ahead of the others when requested next', async () => {
+      await playAll('aaaaaaaaaaa', 'bbbbbbbbbbb');
+
+      await expect(player.play({ ...request('ccccccccccc'), next: true })).resolves.toMatchObject({
+        position: 1,
+        status: 'queued',
+      });
+      expect(upcomingIds()).toEqual(['ccccccccccc', 'bbbbbbbbbbb']);
+    });
+
+    it('plays a track requested next at once when nothing is playing', async () => {
+      await expect(player.play({ ...request('aaaaaaaaaaa'), next: true })).resolves.toMatchObject({
+        status: 'playing',
+      });
+    });
+
+    it('removes a queued track', async () => {
+      await playAll('aaaaaaaaaaa', 'bbbbbbbbbbb', 'ccccccccccc');
+
+      expect(player.remove(1)).toMatchObject({ id: 'bbbbbbbbbbb' });
+      expect(upcomingIds()).toEqual(['ccccccccccc']);
+      expect(playingId()).toBe('aaaaaaaaaaa');
+    });
+
+    it('moves a queued track', async () => {
+      await playAll('aaaaaaaaaaa', 'bbbbbbbbbbb', 'ccccccccccc', 'ddddddddddd');
+
+      expect(player.move(3, 1)).toMatchObject({ id: 'ddddddddddd' });
+      expect(upcomingIds()).toEqual(['ddddddddddd', 'bbbbbbbbbbb', 'ccccccccccc']);
+    });
+
+    it('shuffles the queue and reports its size', async () => {
+      await playAll('aaaaaaaaaaa', 'bbbbbbbbbbb', 'ccccccccccc', 'ddddddddddd');
+
+      expect(player.shuffle()).toBe(3);
+      expect(upcomingIds().toSorted((a, b) => a.localeCompare(b))).toEqual([
+        'bbbbbbbbbbb',
+        'ccccccccccc',
+        'ddddddddddd',
+      ]);
+      expect(playingId()).toBe('aaaaaaaaaaa');
+    });
+
+    it('clears the queue but keeps the current track playing', async () => {
+      await playAll('aaaaaaaaaaa', 'bbbbbbbbbbb', 'ccccccccccc');
+
+      expect(player.clear()).toBe(2);
+      expect(upcomingIds()).toEqual([]);
+      expect(playingId()).toBe('aaaaaaaaaaa');
+      expect(session().destroyed).toBe(false);
+
+      session().current?.finish();
+      await flush();
+      expect(player.state.status).toBe('idle');
+    });
+
+    it('skips to a queued track, dropping the tracks ahead of it', async () => {
+      await playAll('aaaaaaaaaaa', 'bbbbbbbbbbb', 'ccccccccccc', 'ddddddddddd');
+      const first = session().current;
+
+      expect(player.skipTo(2)).toMatchObject({ id: 'ccccccccccc' });
+      await flush();
+
+      expect(first?.signal.aborted).toBe(true);
+      expect(playingId()).toBe('ccccccccccc');
+      expect(upcomingIds()).toEqual(['ddddddddddd']);
+    });
+
+    it('rejects positions outside the queue and changes nothing', async () => {
+      await playAll('aaaaaaaaaaa', 'bbbbbbbbbbb', 'ccccccccccc');
+      const current = session().current;
+
+      expect(() => player.remove(3)).toThrow(expect.objectContaining({ size: 2 }));
+      expect(() => player.move(1, 3)).toThrow(QueuePositionError);
+      expect(() => player.move(0, 1)).toThrow(QueuePositionError);
+      expect(() => player.skipTo(3)).toThrow(QueuePositionError);
+      await flush();
+
+      expect(current?.signal.aborted).toBe(false);
+      expect(playingId()).toBe('aaaaaaaaaaa');
+      expect(upcomingIds()).toEqual(['bbbbbbbbbbb', 'ccccccccccc']);
+    });
+
+    it('treats every position as outside an empty queue', async () => {
+      await playAll('aaaaaaaaaaa');
+
+      expect(() => player.remove(1)).toThrow(expect.objectContaining({ size: 0 }));
+      expect(() => player.skipTo(1)).toThrow(QueuePositionError);
+      expect(player.shuffle()).toBe(0);
+      expect(player.clear()).toBe(0);
+    });
+  });
+
+  describe('empty voice channel', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('leaves once the channel has had no listeners for the timeout', async () => {
+      await playAll('aaaaaaaaaaa', 'bbbbbbbbbbb');
+
+      player.updateListeners('voice-1', 0);
+      vi.advanceTimersByTime(EMPTY_CHANNEL_TIMEOUT_MS - 1);
+      expect(playingId()).toBe('aaaaaaaaaaa');
+
+      vi.advanceTimersByTime(1);
+      expect(player.state.status).toBe('idle');
+      expect(player.upcoming).toEqual([]);
+      expect(session().destroyed).toBe(true);
+      expect(onIdle).toHaveBeenCalledOnce();
+      expect(logger.contextOf('info', 'leaving empty voice channel')).toMatchObject({
+        channelId: 'voice-1',
+      });
+    });
+
+    it('stays when a listener returns before the timeout', async () => {
+      await playAll('aaaaaaaaaaa');
+
+      player.updateListeners('voice-1', 0);
+      vi.advanceTimersByTime(EMPTY_CHANNEL_TIMEOUT_MS - 1);
+      player.updateListeners('voice-1', 1);
+      vi.advanceTimersByTime(EMPTY_CHANNEL_TIMEOUT_MS);
+
+      expect(playingId()).toBe('aaaaaaaaaaa');
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('counts the timeout from when the channel first emptied', async () => {
+      await playAll('aaaaaaaaaaa');
+
+      player.updateListeners('voice-1', 0);
+      vi.advanceTimersByTime(EMPTY_CHANNEL_TIMEOUT_MS / 2);
+      player.updateListeners('voice-1', 0);
+      vi.advanceTimersByTime(EMPTY_CHANNEL_TIMEOUT_MS / 2);
+
+      expect(player.state.status).toBe('idle');
+    });
+
+    it('ignores counts for other channels and while idle', async () => {
+      player.updateListeners('voice-1', 0);
+      expect(vi.getTimerCount()).toBe(0);
+
+      await playAll('aaaaaaaaaaa');
+      player.updateListeners('voice-2', 0);
+
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('follows the channel the bot was moved to', async () => {
+      await playAll('aaaaaaaaaaa');
+      player.updateListeners('voice-1', 0);
+
+      session().channelId = 'voice-2';
+      player.updateListeners('voice-2', 2);
+
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('leaves an empty channel it is still joining', async () => {
+      voice.manual = true;
+      const pending = player.play(request('aaaaaaaaaaa'));
+      await flush();
+
+      player.updateListeners('voice-1', 0);
+      vi.advanceTimersByTime(EMPTY_CHANNEL_TIMEOUT_MS);
+
+      await expect(pending).rejects.toThrow(PlaybackCancelledError);
+      expect(player.state.status).toBe('idle');
+    });
+
+    it('cancels the timeout when playback ends on its own', async () => {
+      await playAll('aaaaaaaaaaa');
+      player.updateListeners('voice-1', 0);
+
+      session().current?.finish();
+      await flush();
+      expect(vi.getTimerCount()).toBe(0);
+
+      await playAll('bbbbbbbbbbb');
+      vi.advanceTimersByTime(EMPTY_CHANNEL_TIMEOUT_MS);
+      expect(playingId()).toBe('bbbbbbbbbbb');
+    });
+
+    it('cancels the timeout when stopped', async () => {
+      await playAll('aaaaaaaaaaa');
+      player.updateListeners('voice-1', 0);
+
+      player.stop();
+
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('cancels the timeout when the voice connection is lost', async () => {
+      await playAll('aaaaaaaaaaa');
+      player.updateListeners('voice-1', 0);
+
+      voice.calls[0]?.options.onLost(new Error('disconnected'));
+
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('cancels the timeout when joining fails', async () => {
+      voice.manual = true;
+      const pending = player.play(request('aaaaaaaaaaa'));
+      await flush();
+      player.updateListeners('voice-1', 0);
+
+      voice.calls[0]?.deferred.reject(new VoiceConnectionError('timed out'));
+
+      await expect(pending).rejects.toThrow(VoiceConnectionError);
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('cancels the timeout when disposed', async () => {
+      await playAll('aaaaaaaaaaa');
+      player.updateListeners('voice-1', 0);
+
+      player.dispose();
+
+      expect(vi.getTimerCount()).toBe(0);
+    });
+  });
+
   describe('stop and cancellation', () => {
     it('stops playback, clears the queue and disconnects', async () => {
       await player.play(request('aaaaaaaaaaa'));
@@ -429,8 +762,9 @@ describe(GuildPlayer, () => {
       expect(onIdle).toHaveBeenCalledOnce();
     });
 
-    it('cancels a request that is still resolving', async () => {
+    it('cancels a request that is still resolving and its join', async () => {
       resolver.manual = true;
+      voice.manual = true;
       const pending = player.play(request('aaaaaaaaaaa'));
       await flush();
 
@@ -438,7 +772,7 @@ describe(GuildPlayer, () => {
 
       await expect(pending).rejects.toThrow(PlaybackCancelledError);
       expect(resolver.calls[0]?.signal.aborted).toBe(true);
-      expect(voice.calls).toHaveLength(0);
+      expect(voice.calls[0]?.options.signal.aborted).toBe(true);
       expect(player.state.status).toBe('idle');
     });
 
@@ -532,13 +866,63 @@ describe(GuildPlayer, () => {
   });
 
   describe('failures', () => {
-    it('propagates resolution errors without connecting', async () => {
-      resolver.failWith = new TrackUnavailableError('NOT_FOUND');
+    it('refuses a request the resolver rejects at once without joining', async () => {
+      resolver.refuseWith = new InvalidTrackUrlError();
 
-      await expect(player.play(request('aaaaaaaaaaa'))).rejects.toThrow(TrackUnavailableError);
+      await expect(player.play(request('aaaaaaaaaaa'))).rejects.toThrow(InvalidTrackUrlError);
       expect(voice.calls).toHaveLength(0);
       expect(player.isIdle).toBe(true);
       expect(onIdle).toHaveBeenCalledOnce();
+    });
+
+    it('propagates resolution errors and leaves the voice channel', async () => {
+      resolver.failWith = new TrackUnavailableError('NOT_FOUND');
+
+      await expect(player.play(request('aaaaaaaaaaa'))).rejects.toThrow(TrackUnavailableError);
+      expect(session().destroyed).toBe(true);
+      expect(player.isIdle).toBe(true);
+      expect(onIdle).toHaveBeenCalledOnce();
+    });
+
+    it('cancels the join when the lookup fails first', async () => {
+      resolver.manual = true;
+      voice.manual = true;
+      const play = player.play(request('aaaaaaaaaaa'));
+      await flush();
+
+      resolver.calls[0]?.deferred.reject(new TrackUnavailableError('NOT_FOUND'));
+
+      await expect(play).rejects.toThrow(TrackUnavailableError);
+      expect(voice.calls[0]?.options.signal.aborted).toBe(true);
+      expect(player.isIdle).toBe(true);
+    });
+
+    it('reports the lookup error when joining fails too', async () => {
+      resolver.manual = true;
+      voice.failWith = new VoiceConnectionError('timed out');
+      const play = player.play(request('aaaaaaaaaaa'));
+      await flush();
+
+      resolver.calls[0]?.deferred.reject(new TrackUnavailableError('NOT_FOUND'));
+
+      await expect(play).rejects.toThrow(TrackUnavailableError);
+      expect(voice.calls).toHaveLength(1);
+    });
+
+    it('fails every request waiting on a failed join without joining again', async () => {
+      resolver.manual = true;
+      voice.manual = true;
+      const first = player.play(request('aaaaaaaaaaa'));
+      const second = player.play(request('bbbbbbbbbbb'));
+      await flush();
+
+      voice.calls[0]?.deferred.reject(new VoiceConnectionError('timed out'));
+      for (const call of resolver.calls) call.deferred.resolve(call.result);
+
+      await expect(first).rejects.toThrow(VoiceConnectionError);
+      await expect(second).rejects.toThrow(VoiceConnectionError);
+      expect(voice.calls).toHaveLength(1);
+      expect(player.isIdle).toBe(true);
     });
 
     it('propagates voice connection errors and enqueues nothing', async () => {
@@ -578,6 +962,40 @@ describe(GuildPlayer, () => {
 
       expect(playingId()).toBe('bbbbbbbbbbb');
       expect(logger.at('warn')).toEqual([]);
+    });
+  });
+
+  describe('timing', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['performance'] });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('logs how long the lookup and the join took', async () => {
+      resolver.manual = true;
+      voice.manual = true;
+      const play = player.play(request('aaaaaaaaaaa'));
+      await flush();
+
+      vi.advanceTimersByTime(300);
+      voice.calls[0]?.deferred.resolve(session());
+      await flush();
+      vi.advanceTimersByTime(500);
+      const call = resolver.calls[0];
+      call?.deferred.resolve(call.result);
+      await play;
+
+      expect(logger.contextOf('info', 'voice channel joined')).toEqual({
+        channelId: 'voice-1',
+        joinMs: 300,
+      });
+      expect(logger.contextOf('info', 'track resolved')).toEqual({
+        lookupMs: 800,
+        trackId: 'aaaaaaaaaaa',
+      });
     });
   });
 
