@@ -94,23 +94,32 @@ structurally:
   which Discord delivers the interactions. Each one is acknowledged at once,
   but reaches the player only after the previous one of its guild, however
   long Discord takes to answer each acknowledgement. Lookups then run in
-  parallel, so a slow one does not delay the others. Connecting and enqueueing
-  run one request at a time, in arrival order, chained on a promise tail.
-  Queue positions are assigned atomically by `enqueue`, and guilds never wait
-  on each other.
+  parallel, so a slow one does not delay the others. Enqueueing runs one
+  request at a time, in arrival order, chained on a promise tail. Queue
+  positions are assigned atomically by `enqueue`, and guilds never wait on each
+  other.
+- **The first request joins while its lookup runs.** Joining takes several
+  round trips to Discord's voice server, so a request that finds the bot
+  outside voice starts joining as soon as it arrives, and requests arriving
+  meanwhile wait for that same join. The first song then starts after the
+  slower of the two steps instead of after both. The cost: when YouTube
+  refuses the video, the bot joins and leaves at once. An invalid URL is still
+  refused before joining, and a lookup error is reported ahead of a join
+  error.
 - **Lookups have a deadline.** A YouTube lookup can take several requests, each
   limited to 10 s by ytdl; the whole lookup is limited to 20 s.
-- **Controls are synchronous.** `pause`, `resume`, `skip` and `stop` change
-  state immediately and never queue behind a slow request. A pause or resume
-  that arrives in the moment between two tracks is refused (the user gets the
-  idle reply) instead of being confirmed and lost.
+- **Controls are synchronous.** `pause`, `resume`, `skip`, `stop` and the
+  queue edits change state immediately and never queue behind a slow request.
+  A pause or resume that arrives in the moment between two tracks is refused
+  (the user gets the idle reply) instead of being confirmed and lost.
 - **Listeners only.** While the bot is in a voice channel, or joining one,
-  only members in that channel may add songs or use the controls, commands and
-  buttons alike, so buttons on old messages act only for current listeners.
+  only members in that channel may add songs, use the controls or change the
+  queue, commands and buttons alike, so buttons on old messages act only for
+  current listeners. Viewing the queue and the current song is open to anyone.
   The channel follows moves made through Discord. A `play` request is checked
-  on arrival and again on its turn, since an earlier request may have joined
-  another channel meanwhile. Anyone allowed to move members can still
-  disconnect the bot through Discord, which stops playback.
+  on arrival and again on its turn, since the bot may have been moved
+  meanwhile. Anyone allowed to move members can still disconnect the bot
+  through Discord, which stops playback.
 - **Epochs.** Each activation of a player owns an `AbortController`. `stop`,
   disposal and voice loss abort it, which cancels resolution, connection and
   playback in progress. Every continuation re-checks the signal, so work from a
@@ -124,6 +133,12 @@ structurally:
 - **Players exist only while needed.** The registry drops a player once it
   has no playback and no pending requests. An idle guild holds no memory,
   connection or process.
+- **Empty channels are left.** The player stops 30 s after its channel has
+  no listeners, unless someone joins again. Other bots are not listeners.
+  Members discord.js has no details for count as listeners, so the bot never
+  leaves people behind because of a cache gap; at worst it stays too long. The
+  timer lives in the player and is cancelled with its session, so it cannot
+  act on a later one.
 - **Bounded queues.** A guild holds at most 100 queued songs, counting
   requests still resolving. Further `play` requests are refused before any
   YouTube lookup.

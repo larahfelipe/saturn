@@ -2,17 +2,24 @@ import type { PlaybackService } from '../../application/music/PlaybackService.ts
 import type { CommandDefinition, CommandName } from './commandDefinitions.ts';
 import {
   CONTROL_MESSAGES,
+  EMPTY_QUEUE_MESSAGE,
   errorEmbed,
   IDLE_MESSAGE,
   nowPlayingEmbed,
+  nowPlayingProgressEmbed,
   playbackControls,
+  QUEUE_CLEARED_MESSAGE,
+  QUEUE_SHUFFLED_MESSAGE,
   queuedEmbed,
+  queueEmbed,
   standardEmbed,
+  trackLink,
 } from './replies.ts';
 import type { BotProfile, PlaybackControl, Reply } from './replies.ts';
 
 export interface CommandContext {
   readonly guildId: string;
+  readonly integerOption: (name: string) => number | undefined;
   readonly option: (name: string) => string | undefined;
   readonly userId: string;
   readonly voiceChannelId: string | undefined;
@@ -43,7 +50,42 @@ export function createCommandHandlers(
     }),
   });
 
+  const missingOption = (name: string): Reply => ({
+    embeds: [errorEmbed(bot(), `Missing ${name} option`)],
+  });
+
+  const queueChanged = (description: string): Reply => ({
+    embeds: [standardEmbed(bot(), description)],
+  });
+
+  const play = (next: boolean): CommandHandler => ({
+    defer: true,
+    async execute({ guildId, option, userId, voiceChannelId }) {
+      const url = option('url');
+      if (url === undefined) return missingOption('song url');
+
+      const result = await playback.play({
+        guildId,
+        next,
+        requestedBy: userId,
+        url,
+        voiceChannelId,
+      });
+      const embed =
+        result.status === 'playing'
+          ? nowPlayingEmbed(result.track)
+          : queuedEmbed(result.track, result.position);
+      return { components: [playbackControls(guildId)], embeds: [embed] };
+    },
+  });
+
   return {
+    clear: {
+      execute: ({ guildId, voiceChannelId }) => ({
+        content:
+          playback.clear(guildId, voiceChannelId) > 0 ? QUEUE_CLEARED_MESSAGE : EMPTY_QUEUE_MESSAGE,
+      }),
+    },
     health: {
       execute: () => ({
         embeds: [standardEmbed(bot(), `Heartbeat latency: ${heartbeatLatency()}ms`)],
@@ -57,23 +99,62 @@ export function createCommandHandlers(
         };
       },
     },
-    pause: control('pause'),
-    ping: { execute: () => ({ content: 'Pong! 🏓' }) },
-    play: {
-      defer: true,
-      async execute({ guildId, option, userId, voiceChannelId }) {
-        const url = option('url');
-        if (url === undefined) return { embeds: [errorEmbed(bot(), 'Missing song url option')] };
-
-        const result = await playback.play({ guildId, requestedBy: userId, url, voiceChannelId });
-        const embed =
-          result.status === 'playing'
-            ? nowPlayingEmbed(result.track)
-            : queuedEmbed(result.track, result.position);
-        return { components: [playbackControls(guildId)], embeds: [embed] };
+    move: {
+      execute: ({ guildId, integerOption, voiceChannelId }) => {
+        const from = integerOption('from');
+        const to = integerOption('to');
+        if (from === undefined || to === undefined) return missingOption('position');
+        const track = playback.move(guildId, voiceChannelId, from, to);
+        return queueChanged(`Moved ${trackLink(track)} to position ${to}`);
       },
     },
+    nowplaying: {
+      execute: ({ guildId }) => {
+        const current = playback.nowPlaying(guildId);
+        if (current === undefined) return { content: IDLE_MESSAGE };
+        return {
+          components: [playbackControls(guildId)],
+          embeds: [nowPlayingProgressEmbed(current)],
+        };
+      },
+    },
+    pause: control('pause'),
+    ping: { execute: () => ({ content: 'Pong! 🏓' }) },
+    play: play(false),
+    playnext: play(true),
+    queue: {
+      execute: ({ guildId, integerOption }) => {
+        const current = playback.nowPlaying(guildId);
+        if (current === undefined) return { content: EMPTY_QUEUE_MESSAGE };
+        const page = integerOption('page') ?? 1;
+        return { embeds: [queueEmbed(bot(), current, playback.upcoming(guildId), page)] };
+      },
+    },
+    remove: {
+      execute: ({ guildId, integerOption, voiceChannelId }) => {
+        const position = integerOption('position');
+        if (position === undefined) return missingOption('position');
+        const track = playback.remove(guildId, voiceChannelId, position);
+        return queueChanged(`Removed ${trackLink(track)} from the queue`);
+      },
+    },
+    shuffle: {
+      execute: ({ guildId, voiceChannelId }) => ({
+        content:
+          playback.shuffle(guildId, voiceChannelId) > 0
+            ? QUEUE_SHUFFLED_MESSAGE
+            : EMPTY_QUEUE_MESSAGE,
+      }),
+    },
     skip: control('skip'),
+    skipto: {
+      execute: ({ guildId, integerOption, voiceChannelId }) => {
+        const position = integerOption('position');
+        if (position === undefined) return missingOption('position');
+        const track = playback.skipTo(guildId, voiceChannelId, position);
+        return queueChanged(`Skipped to ${trackLink(track)} ⏭️`);
+      },
+    },
     stop: control('stop'),
     unpause: control('unpause'),
   };

@@ -81,6 +81,9 @@ async function main(): Promise<void> {
   const metricsServer = new MetricsServer({ logger, source: metrics });
   const interactions = new InteractionHandler({ bot, commands, logger, metrics, playback });
   discord.onInteraction((interaction) => interactions.handle(interaction));
+  discord.onListenersChange((update) => {
+    playback.updateListeners(update);
+  });
 
   const shutdown = new GracefulShutdown({
     exit: (code) => process.exit(code),

@@ -102,13 +102,13 @@ describe(YouTubeTrackResolver, () => {
     expect(client.infoCalls[0]?.video).toBe('dQw4w9WgXcQ');
   });
 
-  it('does not call YouTube for an invalid URL', async () => {
-    await expect(
+  it('refuses an invalid URL at once without calling YouTube', () => {
+    expect(() =>
       resolver.resolve(
         { requestedBy: '42', url: 'https://example.com' },
         new AbortController().signal,
       ),
-    ).rejects.toThrow(InvalidTrackUrlError);
+    ).toThrow(InvalidTrackUrlError);
     expect(client.infoCalls).toHaveLength(0);
   });
 

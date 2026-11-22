@@ -118,6 +118,20 @@ describe(DiscordAudioSession, () => {
       await expect(playback).resolves.toBeUndefined();
     });
 
+    it('logs how long the audio took to start, once per track', async () => {
+      const session = createSession();
+      const playback = session.play(new StreamSource(oggOpus(15)), new AbortController().signal);
+      await entersState(player, AudioPlayerStatus.Playing, 2000);
+
+      session.pause();
+      session.resume();
+      await playback;
+
+      const logged = logger.at('info');
+      expect(logged).toMatchObject([{ message: 'audio started' }]);
+      expect(logged[0]?.context.startMs).toBeTypeOf('number');
+    });
+
     it('applies a pause requested before the track starts playing', async () => {
       const session = createSession();
       const playback = session.play(new StreamSource(oggOpus(10)), new AbortController().signal);
@@ -127,6 +141,22 @@ describe(DiscordAudioSession, () => {
 
       session.resume();
       await expect(playback).resolves.toBeUndefined();
+    });
+
+    it('reports how much of the current track has played', async () => {
+      const session = createSession();
+      expect(session.elapsedMs).toBe(0);
+
+      const playback = session.play(new StreamSource(oggOpus(15)), new AbortController().signal);
+      await entersState(player, AudioPlayerStatus.Playing, 2000);
+      const { resource } = player.state as AudioPlayerPlayingState;
+      await vi.waitFor(() => {
+        expect(session.elapsedMs).toBeGreaterThan(0);
+      });
+      expect(session.elapsedMs).toBe(resource.playbackDuration);
+
+      await playback;
+      expect(session.elapsedMs).toBe(0);
     });
 
     it('refuses controls when no track is in progress', async () => {

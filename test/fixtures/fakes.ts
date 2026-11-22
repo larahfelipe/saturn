@@ -53,6 +53,7 @@ interface Deferred<T> {
 export class FakeAudioSession implements AudioSession {
   channelId: string | undefined;
   destroyCount = 0;
+  elapsedMs = 0;
   paused = false;
   readonly playbacks: Playback[] = [];
   readonly settleOnAbort: boolean;
@@ -120,8 +121,10 @@ export class FakeResolver implements TrackResolver {
   readonly calls: ResolveCall[] = [];
   failWith: Error | undefined;
   manual = false;
+  refuseWith: Error | undefined;
 
   resolve(request: TrackRequest, signal: AbortSignal): Promise<ResolvedTrack> {
+    if (this.refuseWith !== undefined) throw this.refuseWith;
     const id = new URL(request.url).searchParams.get('v') ?? 'unknown';
     const result: ResolvedTrack = {
       source: { open: () => new PassThrough() },

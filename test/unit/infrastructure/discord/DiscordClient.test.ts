@@ -1,8 +1,9 @@
 import { ChannelType, Client, Collection, Events } from 'discord.js';
-import type { Guild } from 'discord.js';
+import type { ClientUser, Guild, VoiceState } from 'discord.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { VoiceChannelUnusableError } from '../../../../src/application/errors.ts';
+import type { ListenerUpdate } from '../../../../src/application/music/PlaybackService.ts';
 import { COMMAND_DEFINITIONS } from '../../../../src/infrastructure/discord/commandDefinitions.ts';
 import type { CommandName } from '../../../../src/infrastructure/discord/commandDefinitions.ts';
 import { CommandRegistry } from '../../../../src/infrastructure/discord/CommandRegistry.ts';
@@ -11,10 +12,23 @@ import { DiscordClient } from '../../../../src/infrastructure/discord/DiscordCli
 import { RecordingLogger } from '../../../fixtures/fakes.ts';
 import { GUILD_ID, VOICE_CHANNEL_ID } from '../../../fixtures/interactions.ts';
 
+const BOT_ID = '400000000000000001';
+const OTHER_CHANNEL_ID = '200000000000000002';
+
+interface FakeVoiceState {
+  readonly channelId: string | null;
+  readonly id: string;
+  readonly member: { readonly user: { readonly bot: boolean } } | null;
+}
+
 function commands(): CommandRegistry {
   const handler: CommandHandler = { execute: () => ({ content: 'ok' }) };
   const handlers = Object.fromEntries(COMMAND_DEFINITIONS.map(({ name }) => [name, handler]));
   return new CommandRegistry(COMMAND_DEFINITIONS, handlers as Record<CommandName, CommandHandler>);
+}
+
+function inVoice(id: string, channelId: string | null, bot = false): FakeVoiceState {
+  return { channelId, id, member: { user: { bot } } };
 }
 
 describe(DiscordClient, () => {
@@ -102,6 +116,96 @@ describe(DiscordClient, () => {
         adapterCreator,
         bitrate: 96_000,
       });
+    });
+  });
+
+  describe('listener updates', () => {
+    let updates: ListenerUpdate[];
+    let guild: {
+      readonly id: string;
+      readonly voiceStates: { cache: Collection<string, unknown> };
+    };
+
+    function withVoiceStates(...states: FakeVoiceState[]): void {
+      create();
+      client.user = { id: BOT_ID } as ClientUser;
+      guild = {
+        id: GUILD_ID,
+        voiceStates: { cache: new Collection(states.map((state) => [state.id, state])) },
+      };
+      updates = [];
+      discord.onListenersChange((update) => {
+        updates.push(update);
+      });
+    }
+
+    function emitMove(id: string, from: string | null, to: string | null): void {
+      const state = (channelId: string | null) =>
+        ({ channelId, guild, id }) as unknown as VoiceState;
+      client.emit(Events.VoiceStateUpdate, state(from), state(to));
+    }
+
+    it('reports the listeners left when a member leaves the bot channel', () => {
+      withVoiceStates(
+        inVoice(BOT_ID, VOICE_CHANNEL_ID),
+        inVoice('member-1', VOICE_CHANNEL_ID),
+        inVoice('member-2', null),
+      );
+
+      emitMove('member-2', VOICE_CHANNEL_ID, null);
+
+      expect(updates).toEqual([{ channelId: VOICE_CHANNEL_ID, guildId: GUILD_ID, listeners: 1 }]);
+    });
+
+    it('reports a member joining the bot channel', () => {
+      withVoiceStates(inVoice(BOT_ID, VOICE_CHANNEL_ID), inVoice('member-1', VOICE_CHANNEL_ID));
+
+      emitMove('member-1', OTHER_CHANNEL_ID, VOICE_CHANNEL_ID);
+
+      expect(updates).toEqual([{ channelId: VOICE_CHANNEL_ID, guildId: GUILD_ID, listeners: 1 }]);
+    });
+
+    it('reports the channel the bot joins or is moved to', () => {
+      withVoiceStates(inVoice(BOT_ID, OTHER_CHANNEL_ID), inVoice('member-1', VOICE_CHANNEL_ID));
+
+      emitMove(BOT_ID, VOICE_CHANNEL_ID, OTHER_CHANNEL_ID);
+      emitMove(BOT_ID, null, OTHER_CHANNEL_ID);
+
+      expect(updates).toEqual([
+        { channelId: OTHER_CHANNEL_ID, guildId: GUILD_ID, listeners: 0 },
+        { channelId: OTHER_CHANNEL_ID, guildId: GUILD_ID, listeners: 0 },
+      ]);
+    });
+
+    it('does not count other bots, but counts members it does not know', () => {
+      withVoiceStates(
+        inVoice(BOT_ID, VOICE_CHANNEL_ID),
+        inVoice('other-bot', VOICE_CHANNEL_ID, true),
+        { channelId: VOICE_CHANNEL_ID, id: 'uncached', member: null },
+        inVoice('member-1', null),
+      );
+
+      emitMove('member-1', VOICE_CHANNEL_ID, null);
+
+      expect(updates).toEqual([{ channelId: VOICE_CHANNEL_ID, guildId: GUILD_ID, listeners: 1 }]);
+    });
+
+    it('ignores changes that do not move anyone into or out of the bot channel', () => {
+      withVoiceStates(inVoice(BOT_ID, VOICE_CHANNEL_ID), inVoice('member-1', OTHER_CHANNEL_ID));
+
+      emitMove('member-1', null, OTHER_CHANNEL_ID);
+      emitMove('member-1', VOICE_CHANNEL_ID, VOICE_CHANNEL_ID);
+
+      expect(updates).toEqual([]);
+    });
+
+    it('ignores changes while the bot is in no voice channel', () => {
+      withVoiceStates(inVoice(BOT_ID, null), inVoice('member-1', null));
+
+      emitMove('member-1', VOICE_CHANNEL_ID, null);
+      emitMove(BOT_ID, VOICE_CHANNEL_ID, null);
+
+      expect(updates).toEqual([]);
     });
   });
 

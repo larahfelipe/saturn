@@ -64,6 +64,78 @@ describe(TrackQueue, () => {
     expect(queue.size).toBe(0);
   });
 
+  it('puts an item at the front with enqueueNext', () => {
+    const queue = new TrackQueue<string>();
+    queue.enqueue('a');
+
+    expect(queue.enqueueNext('b')).toBe(1);
+    expect(queue.snapshot()).toEqual(['b', 'a']);
+  });
+
+  it('removes the item at a position', () => {
+    const queue = new TrackQueue<string>();
+    queue.enqueue('a');
+    queue.enqueue('b');
+    queue.enqueue('c');
+
+    expect(queue.remove(2)).toBe('b');
+    expect(queue.snapshot()).toEqual(['a', 'c']);
+  });
+
+  it('moves an item to another position', () => {
+    const queue = new TrackQueue<string>();
+    for (const item of ['a', 'b', 'c', 'd']) queue.enqueue(item);
+
+    expect(queue.move(4, 2)).toBe('d');
+    expect(queue.snapshot()).toEqual(['a', 'd', 'b', 'c']);
+    expect(queue.move(1, 4)).toBe('a');
+    expect(queue.snapshot()).toEqual(['d', 'b', 'c', 'a']);
+    expect(queue.move(2, 2)).toBe('b');
+    expect(queue.snapshot()).toEqual(['d', 'b', 'c', 'a']);
+  });
+
+  it('drops the items ahead of a position with skipTo', () => {
+    const queue = new TrackQueue<string>();
+    for (const item of ['a', 'b', 'c']) queue.enqueue(item);
+
+    expect(queue.skipTo(2)).toBe('b');
+    expect(queue.snapshot()).toEqual(['b', 'c']);
+    expect(queue.skipTo(1)).toBe('b');
+    expect(queue.snapshot()).toEqual(['b', 'c']);
+  });
+
+  it.each([0, -1, 4, 1.5, NaN])('ignores position %s outside the queue', (position) => {
+    const queue = new TrackQueue<string>();
+    for (const item of ['a', 'b', 'c']) queue.enqueue(item);
+
+    expect(queue.remove(position)).toBeUndefined();
+    expect(queue.move(position, 1)).toBeUndefined();
+    expect(queue.move(1, position)).toBeUndefined();
+    expect(queue.skipTo(position)).toBeUndefined();
+    expect(queue.snapshot()).toEqual(['a', 'b', 'c']);
+  });
+
+  it('shuffles the items in the order of their random keys', () => {
+    const queue = new TrackQueue<string>();
+    for (const item of ['a', 'b', 'c', 'd']) queue.enqueue(item);
+    const keys = [0.7, 0.1, 0.9, 0.4];
+
+    queue.shuffle(() => keys.shift() ?? 0);
+
+    expect(queue.snapshot()).toEqual(['b', 'd', 'a', 'c']);
+  });
+
+  it('keeps every item when shuffling with the default random source', () => {
+    const queue = new TrackQueue<number>();
+    for (let item = 0; item < 50; item++) queue.enqueue(item);
+
+    queue.shuffle();
+
+    expect(queue.snapshot().toSorted((a, b) => a - b)).toEqual(
+      Array.from({ length: 50 }, (_, item) => item),
+    );
+  });
+
   it('does not expose its internal storage', () => {
     const queue = new TrackQueue<string>();
     queue.enqueue('a');

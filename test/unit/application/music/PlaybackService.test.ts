@@ -1,10 +1,12 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   NotInVoiceChannelError,
   NotListeningError,
+  QueuePositionError,
   RateLimitedError,
 } from '../../../../src/application/errors.ts';
+import { EMPTY_CHANNEL_TIMEOUT_MS } from '../../../../src/application/music/GuildPlayer.ts';
 import { PlaybackService } from '../../../../src/application/music/PlaybackService.ts';
 import type { PlayCommand } from '../../../../src/application/music/PlaybackService.ts';
 import { PlayerRegistry } from '../../../../src/application/music/PlayerRegistry.ts';
@@ -99,6 +101,44 @@ describe(PlaybackService, () => {
     expect(registry.size).toBe(0);
   });
 
+  it('reports an empty queue on guilds without a player', () => {
+    expect(service.nowPlaying('guild-1')).toBeUndefined();
+    expect(service.upcoming('guild-1')).toEqual([]);
+    expect(service.shuffle('guild-1', 'voice-guild-1')).toBe(0);
+    expect(service.clear('guild-1', 'voice-guild-1')).toBe(0);
+    expect(() => service.remove('guild-1', 'voice-guild-1', 1)).toThrow(
+      expect.objectContaining({ name: QueuePositionError.name, size: 0 }),
+    );
+    expect(() => service.move('guild-1', 'voice-guild-1', 1, 2)).toThrow(QueuePositionError);
+    expect(() => service.skipTo('guild-1', 'voice-guild-1', 1)).toThrow(QueuePositionError);
+    service.updateListeners({ channelId: 'voice-guild-1', guildId: 'guild-1', listeners: 0 });
+    expect(registry.size).toBe(0);
+  });
+
+  it('routes queue reads and edits to the guild player', async () => {
+    for (const id of ['aaaaaaaaaaa', 'bbbbbbbbbbb', 'ccccccccccc', 'ddddddddddd']) {
+      await service.play(command('guild-1', { url: trackUrl(id) }));
+    }
+    await expect(
+      service.play(command('guild-1', { next: true, url: trackUrl('eeeeeeeeeee') })),
+    ).resolves.toMatchObject({ position: 1, status: 'queued' });
+    await flush();
+    const upcoming = (): string[] => service.upcoming('guild-1').map(({ id }) => id);
+
+    expect(service.nowPlaying('guild-1')).toMatchObject({ track: { id: 'aaaaaaaaaaa' } });
+    expect(upcoming()).toEqual(['eeeeeeeeeee', 'bbbbbbbbbbb', 'ccccccccccc', 'ddddddddddd']);
+    expect(service.remove('guild-1', 'voice-guild-1', 1)).toMatchObject({ id: 'eeeeeeeeeee' });
+    expect(service.move('guild-1', 'voice-guild-1', 3, 1)).toMatchObject({ id: 'ddddddddddd' });
+    expect(upcoming()).toEqual(['ddddddddddd', 'bbbbbbbbbbb', 'ccccccccccc']);
+    expect(service.shuffle('guild-1', 'voice-guild-1')).toBe(3);
+    const [, second, third] = upcoming();
+    expect(service.skipTo('guild-1', 'voice-guild-1', 2)).toMatchObject({ id: second });
+    await flush();
+    expect(service.nowPlaying('guild-1')?.track.id).toBe(second);
+    expect(upcoming()).toEqual([third]);
+    expect(service.clear('guild-1', 'voice-guild-1')).toBe(1);
+  });
+
   it('routes controls to the guild player', async () => {
     await service.play(command('guild-1'));
     await service.play(command('guild-1', { url: trackUrl('bbbbbbbbbbb') }));
@@ -124,10 +164,39 @@ describe(PlaybackService, () => {
       ['another channel', 'voice-other'],
       ['no channel', undefined],
     ])('refuses controls from %s and changes nothing', (_, channelId) => {
-      for (const control of ['pause', 'resume', 'skip', 'stop'] as const) {
+      for (const control of ['pause', 'resume', 'skip', 'stop', 'shuffle', 'clear'] as const) {
         expect(() => service[control]('guild-1', channelId)).toThrow(NotListeningError);
       }
+      expect(() => service.remove('guild-1', channelId, 1)).toThrow(NotListeningError);
+      expect(() => service.move('guild-1', channelId, 1, 1)).toThrow(NotListeningError);
+      expect(() => service.skipTo('guild-1', channelId, 1)).toThrow(NotListeningError);
       expect(registry.get('guild-1')?.state.status).toBe('playing');
+    });
+
+    it('shows the queue to anyone', () => {
+      expect(service.nowPlaying('guild-1')).toMatchObject({ track: { id: 'aaaaaaaaaaa' } });
+      expect(service.upcoming('guild-1')).toEqual([]);
+    });
+
+    describe('empty channel', () => {
+      beforeEach(() => {
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      });
+
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      it('routes listener counts to the guild player', () => {
+        service.updateListeners({ channelId: 'voice-guild-1', guildId: 'guild-2', listeners: 0 });
+        expect(vi.getTimerCount()).toBe(0);
+
+        service.updateListeners({ channelId: 'voice-guild-1', guildId: 'guild-1', listeners: 0 });
+        vi.advanceTimersByTime(EMPTY_CHANNEL_TIMEOUT_MS);
+
+        expect(registry.size).toBe(0);
+        expect(voice.lastSession?.destroyed).toBe(true);
+      });
     });
 
     it('refuses songs from another channel before any lookup', async () => {

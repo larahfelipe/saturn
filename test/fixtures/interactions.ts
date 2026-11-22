@@ -8,7 +8,7 @@ export const VOICE_CHANNEL_ID = '200000000000000001';
 export interface CommandInteractionOptions {
   readonly cached?: boolean;
   readonly guildId?: string | null;
-  readonly options?: Readonly<Record<string, string>>;
+  readonly options?: Readonly<Record<string, number | string>>;
   readonly voiceChannelId?: string | null;
 }
 
@@ -100,7 +100,10 @@ export class FakeButtonInteraction extends FakeRepliableInteraction {
 export class FakeCommandInteraction extends FakeRepliableInteraction {
   readonly commandName: string;
   readonly member: { readonly voice: { readonly channelId: string | null } };
-  readonly options: { getString(name: string): string | null };
+  readonly options: {
+    getInteger(name: string): number | null;
+    getString(name: string): string | null;
+  };
 
   readonly #cached: boolean;
 
@@ -113,7 +116,16 @@ export class FakeCommandInteraction extends FakeRepliableInteraction {
         channelId: init.voiceChannelId === undefined ? VOICE_CHANNEL_ID : init.voiceChannelId,
       },
     };
-    this.options = { getString: (name) => values[name] ?? null };
+    this.options = {
+      getInteger: (name) => {
+        const value = values[name];
+        return typeof value === 'number' ? value : null;
+      },
+      getString: (name) => {
+        const value = values[name];
+        return typeof value === 'string' ? value : null;
+      },
+    };
     this.#cached = init.cached ?? true;
   }
 

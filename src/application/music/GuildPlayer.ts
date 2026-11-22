@@ -7,13 +7,21 @@ import {
   PlaybackCancelledError,
   PlayerUnavailableError,
   QueueFullError,
+  QueuePositionError,
   VoiceConnectionError,
 } from '../errors.ts';
 import type { Logger } from '../ports/Logger.ts';
 import type { ResolvedTrack, TrackResolver } from '../ports/TrackResolver.ts';
 import type { AudioSession, VoiceConnector } from '../ports/Voice.ts';
 
+export interface NowPlaying {
+  readonly elapsedMs: number;
+  readonly paused: boolean;
+  readonly track: Track;
+}
+
 export interface PlayRequest {
+  readonly next?: boolean;
   readonly requestedBy: string;
   readonly url: string;
   readonly voiceChannelId: string;
@@ -24,8 +32,10 @@ export type PlayResult =
   | { readonly status: 'playing'; readonly track: Track };
 
 export const MAX_QUEUE_LENGTH = 100;
+export const EMPTY_CHANNEL_TIMEOUT_MS = 30_000;
 
 export interface GuildPlayerOptions {
+  readonly emptyChannelTimeoutMs?: number;
   readonly guildId: string;
   readonly logger: Logger;
   readonly maxQueueLength?: number;
@@ -37,9 +47,11 @@ export interface GuildPlayerOptions {
 /**
  * Playback coordinator for one guild.
  *
- * Play requests resolve concurrently, then connect and enqueue one at a time,
- * in arrival order. Controls are synchronous state changes, so they never wait
- * behind a slow request. Each activation owns an epoch `AbortController`; stopping
+ * Play requests resolve concurrently and enqueue one at a time, in arrival
+ * order. The request that finds no connection joins the voice channel while
+ * its track resolves, and later requests share that join; once the last
+ * request has failed, the player leaves. Controls are synchronous state
+ * changes, so they never wait behind a slow request. Each activation owns an epoch `AbortController`; stopping
  * aborts it, which cancels in-flight resolution, connection and playback, and
  * makes every continuation of that epoch a no-op.
  */
@@ -58,6 +70,15 @@ export class GuildPlayer {
   get isIdle(): boolean {
     return !this.isActive && this.#pending === 0;
   }
+  get nowPlaying(): NowPlaying | undefined {
+    const state = this.#state;
+    if (state.status !== 'playing' && state.status !== 'paused') return undefined;
+    return {
+      elapsedMs: this.#session?.elapsedMs ?? 0,
+      paused: state.status === 'paused',
+      track: state.current,
+    };
+  }
   get state(): PlaybackState<Track> {
     return this.#state;
   }
@@ -66,7 +87,10 @@ export class GuildPlayer {
     return this.#queue.snapshot().map(({ track }) => track);
   }
 
+  #connection: Promise<AudioSession> | undefined;
   #disposed = false;
+  readonly #emptyChannelTimeoutMs: number;
+  #emptyChannelTimer: ReturnType<typeof setTimeout> | undefined;
   #epoch = new AbortController();
   readonly #logger: Logger;
   readonly #maxQueueLength: number;
@@ -88,6 +112,7 @@ export class GuildPlayer {
     this.#voice = options.voice;
     this.#logger = options.logger;
     this.#maxQueueLength = options.maxQueueLength ?? MAX_QUEUE_LENGTH;
+    this.#emptyChannelTimeoutMs = options.emptyChannelTimeoutMs ?? EMPTY_CHANNEL_TIMEOUT_MS;
     this.#onIdle = options.onIdle;
   }
 
@@ -96,10 +121,20 @@ export class GuildPlayer {
     if (channelId !== undefined && channelId !== voiceChannelId) throw new NotListeningError();
   }
 
+  clear(): number {
+    return this.#queue.clear().length;
+  }
+
   dispose(): void {
     if (this.#disposed) return;
     this.#disposed = true;
     if (!this.isIdle) this.#halt(new PlayerUnavailableError());
+  }
+
+  move(from: number, to: number): Track {
+    const entry = this.#queue.move(from, to);
+    if (entry === undefined) throw new QueuePositionError(this.#queue.size);
+    return entry.track;
   }
 
   pause(): boolean {
@@ -115,19 +150,43 @@ export class GuildPlayer {
     const epoch = this.#epoch.signal;
     this.#pending++;
     try {
-      const { requestedBy, url } = request;
+      const { requestedBy, url, voiceChannelId } = request;
+      const requestedAt = performance.now();
       const resolution = this.#resolver.resolve({ requestedBy, url }, epoch);
-      resolution.catch(() => undefined);
-      return await this.#serialize(() => this.#play(request, resolution, epoch));
+      resolution.then(
+        ({ track }) => {
+          this.#logger.info(
+            { lookupMs: millisecondsSince(requestedAt), trackId: track.id },
+            'track resolved',
+          );
+        },
+        () => undefined,
+      );
+      const connection =
+        this.#session === undefined ? this.#join(voiceChannelId, epoch) : undefined;
+      return await this.#serialize(() => this.#play(request, resolution, connection, epoch));
     } finally {
       this.#pending--;
       if (this.#pending === 0 && this.#state.status === 'waiting') this.#finish();
-      else this.#notifyIfIdle();
+      else if (this.#pending === 0 && this.#state.status === 'connecting') {
+        this.#halt(new PlaybackCancelledError());
+      } else this.#notifyIfIdle();
     }
+  }
+
+  remove(position: number): Track {
+    const entry = this.#queue.remove(position);
+    if (entry === undefined) throw new QueuePositionError(this.#queue.size);
+    return entry.track;
   }
 
   resume(): boolean {
     return this.#control({ type: 'resume' }, (session) => session.resume());
+  }
+
+  shuffle(): number {
+    this.#queue.shuffle();
+    return this.#queue.size;
   }
 
   skip(): boolean {
@@ -138,15 +197,35 @@ export class GuildPlayer {
     return true;
   }
 
+  skipTo(position: number): Track {
+    const entry = this.#queue.skipTo(position);
+    if (entry === undefined) throw new QueuePositionError(this.#queue.size);
+    this.#track?.abort();
+    return entry.track;
+  }
+
   stop(): boolean {
     if (this.#disposed || this.isIdle) return false;
     this.#halt(new PlaybackCancelledError());
     return true;
   }
 
+  updateListeners(channelId: string, listeners: number): void {
+    if (this.#disposed || !this.isActive || channelId !== this.channelId) return;
+    if (listeners > 0) {
+      clearTimeout(this.#emptyChannelTimer);
+      this.#emptyChannelTimer = undefined;
+    } else {
+      this.#emptyChannelTimer ??= setTimeout(() => {
+        this.#leaveEmptyChannel();
+      }, this.#emptyChannelTimeoutMs);
+    }
+  }
+
   async #connect(channelId: string, epoch: AbortSignal): Promise<AudioSession> {
     this.#setState({ type: 'connect' });
     this.#target = channelId;
+    const startedAt = performance.now();
     let session: AudioSession;
     try {
       session = await this.#voice.connect(
@@ -160,7 +239,7 @@ export class GuildPlayer {
       );
     } catch (error) {
       epoch.throwIfAborted();
-      this.#target = undefined;
+      this.#disconnect();
       this.#setState({ type: 'finish' });
       throw error;
     }
@@ -169,6 +248,7 @@ export class GuildPlayer {
       epoch.throwIfAborted();
     }
     this.#session = session;
+    this.#logger.info({ channelId, joinMs: millisecondsSince(startedAt) }, 'voice channel joined');
     return session;
   }
 
@@ -184,11 +264,18 @@ export class GuildPlayer {
     return true;
   }
 
-  #finish(): void {
-    this.#track = undefined;
+  #disconnect(): void {
+    clearTimeout(this.#emptyChannelTimer);
+    this.#emptyChannelTimer = undefined;
     this.#session?.destroy();
     this.#session = undefined;
+    this.#connection = undefined;
     this.#target = undefined;
+  }
+
+  #finish(): void {
+    this.#track = undefined;
+    this.#disconnect();
     this.#setState({ type: 'finish' });
     this.#notifyIfIdle();
   }
@@ -201,9 +288,7 @@ export class GuildPlayer {
     this.#queue.clear();
     this.#track = undefined;
     if (canTransition(this.#state, { type: 'stop' })) this.#setState({ type: 'stop' });
-    this.#session?.destroy();
-    this.#session = undefined;
-    this.#target = undefined;
+    this.#disconnect();
     if (this.#state.status === 'stopping') this.#setState({ type: 'stopped' });
     this.#notifyIfIdle();
   }
@@ -214,6 +299,21 @@ export class GuildPlayer {
     this.#halt(new VoiceConnectionError('Voice connection lost', { cause: error }));
   }
 
+  #join(channelId: string, epoch: AbortSignal): Promise<AudioSession> {
+    if (this.#connection === undefined) {
+      this.#connection = this.#connect(channelId, epoch);
+      this.#connection.catch(() => undefined);
+    }
+    return this.#connection;
+  }
+
+  #leaveEmptyChannel(): void {
+    this.#emptyChannelTimer = undefined;
+    if (this.#disposed || !this.isActive) return;
+    this.#logger.info({ channelId: this.channelId }, 'leaving empty voice channel');
+    this.#halt(new PlaybackCancelledError());
+  }
+
   #notifyIfIdle(): void {
     if (!this.#disposed && this.isIdle) this.#onIdle?.();
   }
@@ -221,16 +321,19 @@ export class GuildPlayer {
   async #play(
     request: PlayRequest,
     resolution: Promise<ResolvedTrack>,
+    connection: Promise<AudioSession> | undefined,
     epoch: AbortSignal,
   ): Promise<PlayResult> {
     epoch.throwIfAborted();
     const resolved = await resolution;
     epoch.throwIfAborted();
 
-    const session = this.#session ?? (await this.#connect(request.voiceChannelId, epoch));
+    const session =
+      this.#session ?? (await (connection ?? this.#join(request.voiceChannelId, epoch)));
     epoch.throwIfAborted();
     this.assertListener(request.voiceChannelId);
-    const position = this.#queue.enqueue(resolved);
+    const position =
+      request.next === true ? this.#queue.enqueueNext(resolved) : this.#queue.enqueue(resolved);
 
     if (this.#state.status === 'connecting' || this.#state.status === 'waiting') {
       this.#runQueue(session, epoch).catch((error: unknown) => {
@@ -283,4 +386,8 @@ export class GuildPlayer {
     this.#track = undefined;
     this.#setState({ type: 'wait' });
   }
+}
+
+function millisecondsSince(start: number): number {
+  return Math.round(performance.now() - start);
 }

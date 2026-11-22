@@ -124,6 +124,9 @@ Intentional differences from `stale-go`; see [decisions](decisions.md).
   hosts YouTube answers with `BOT_CHECK`. Go always looked videos up signed out.
 - When the queue runs out while another `play` request is still being looked
   up, the bot stays in the channel for it. Go left and joined again.
+- The first `play` joins the voice channel while the video is looked up, so
+  the song starts sooner. When YouTube refuses the video, the bot joins and
+  leaves at once. Go joined only after a successful lookup.
 - Stream failures surface when a track starts, not at request time: they are
   logged and the queue advances, so the `…while retrieving your song…` reply is
   gone.
@@ -144,6 +147,10 @@ in my voice channel to do that`. Go accepted them from anyone.
   no limit.
 - Every button interaction is acknowledged. Malformed IDs, unsupported actions
   and IDs naming another guild reply with the ephemeral failure text.
+- New commands: `playnext`, `skipto`, `nowplaying`, `queue`, `remove`, `move`,
+  `shuffle` and `clear`. Go only had the eight commands above.
+- The bot leaves its voice channel 30 s after the last listener leaves, and
+  playback stops. Go stayed until the queue ran out.
 - `saturn_commands_processed_total` exports every command at zero from startup,
   and `saturn_active_players` is read from the player registry at scrape time.
   Go runtime metrics are replaced by Node.js runtime and process metrics.
@@ -161,24 +168,26 @@ in my voice channel to do that`. Go accepted them from anyone.
 
 ## Edge cases
 
-| Case                                      | Expected behavior                                                        |
-| ----------------------------------------- | ------------------------------------------------------------------------ |
-| Empty queue on skip                       | Current track stops; player goes idle and disconnects                    |
-| Missing / invalid URL, unsupported host   | User-input error reply, nothing enqueued                                 |
-| Unavailable, private or bot-checked video | Resolution error reply, nothing enqueued                                 |
-| No audio formats                          | `No suitable audio track…` reply                                         |
-| Missing thumbnail                         | Embed without thumbnail                                                  |
-| Stream failure mid-queue                  | Error logged, next track starts                                          |
-| Voice connection failure / disconnect     | Join error reply; on disconnect, up to five rejoins, then playback stops |
-| Concurrent `play` requests                | Looked up in parallel, enqueued in arrival order; unique positions       |
-| Request flood                             | Per-user limit and a 100-song queue limit, refused before any lookup     |
-| Rapid pause/unpause, concurrent controls  | Applied in order; final state matches last operation                     |
-| Pause or resume between two tracks        | Refused with the idle reply                                              |
-| Control from outside the bot's channel    | Refused; only listeners control playback                                 |
-| Stop during resolution                    | Resolution aborted; no track starts afterwards                           |
-| Skip while the track is ending            | Exactly one advancement                                                  |
-| Interaction timeout                       | `play` defers before any I/O                                             |
-| Termination during playback               | Streams aborted, FFmpeg killed, voice disconnected, then gateway closed  |
+| Case                                      | Expected behavior                                                         |
+| ----------------------------------------- | ------------------------------------------------------------------------- |
+| Empty queue on skip                       | Current track stops; player goes idle and disconnects                     |
+| Missing / invalid URL, unsupported host   | User-input error reply, nothing enqueued                                  |
+| Unavailable, private or bot-checked video | Resolution error reply, nothing enqueued; a bot that joined for it leaves |
+| No audio formats                          | `No suitable audio track…` reply                                          |
+| Missing thumbnail                         | Embed without thumbnail                                                   |
+| Stream failure mid-queue                  | Error logged, next track starts                                           |
+| Voice connection failure / disconnect     | Join error reply; on disconnect, up to five rejoins, then playback stops  |
+| Concurrent `play` requests                | Looked up in parallel, enqueued in arrival order; unique positions        |
+| Request flood                             | Per-user limit and a 100-song queue limit, refused before any lookup      |
+| Rapid pause/unpause, concurrent controls  | Applied in order; final state matches last operation                      |
+| Pause or resume between two tracks        | Refused with the idle reply                                               |
+| Control from outside the bot's channel    | Refused; only listeners control playback                                  |
+| Stop during resolution                    | Resolution and join aborted; no track starts afterwards                   |
+| Skip while the track is ending            | Exactly one advancement                                                   |
+| Queue position outside the queue          | Refused with the queue size, or `The queue is empty`; nothing changes     |
+| Last listener leaves the voice channel    | Playback stops after 30 s unless someone joins again                      |
+| Interaction timeout                       | `play` defers before any I/O                                              |
+| Termination during playback               | Streams aborted, FFmpeg killed, voice disconnected, then gateway closed   |
 
 ## Parity matrix
 

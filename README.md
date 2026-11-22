@@ -51,6 +51,8 @@
 - **Multi-Guild Isolation**: Each server has its own queue, playback state and voice connection.
 - **YouTube Playback**: Audio is streamed through FFmpeg and encoded to Opus at the voice channel's bitrate.
 - **Playback Controls**: Slash commands plus Pause, Resume, Skip and Stop buttons on every track.
+- **Queue Management**: Page through the queue, see the current song's progress, and reorder, shuffle or trim the queue.
+- **Leaves Empty Channels**: Playback stops 30 seconds after the last listener leaves the voice channel.
 - **Observability**: Prometheus metrics on `:8080/metrics` and structured JSON logs.
 - **Graceful Shutdown**: Voice connections, streams and FFmpeg processes are released on `SIGTERM`/`SIGINT`.
 - **Hardened Container**: Multi-stage Docker build running as a non-root user with production dependencies only.
@@ -60,18 +62,27 @@
 ## Commands
 
 Commands are registered as native Discord slash commands and work in servers only.
-While the bot is in a voice channel, only members in that channel can add songs or control playback.
+While the bot is in a voice channel, only members in that channel can add songs, control playback or change the queue.
+Anyone can view the queue and the current song.
 
-| Command   | Arguments           | Description                               |
-| :-------- | :------------------ | :---------------------------------------- |
-| `play`    | `url:<youtube-url>` | Play a YouTube video's audio, or queue it |
-| `pause`   | None                | Pause playback                            |
-| `unpause` | None                | Resume playback                           |
-| `skip`    | None                | Skip the current track                    |
-| `stop`    | None                | Stop playback and clear the queue         |
-| `help`    | None                | List the available commands               |
-| `ping`    | None                | Check bot responsiveness                  |
-| `health`  | None                | Show the gateway heartbeat latency        |
+| Command      | Arguments             | Description                                         |
+| :----------- | :-------------------- | :-------------------------------------------------- |
+| `play`       | `url:<youtube-url>`   | Play a YouTube video's audio, or queue it           |
+| `playnext`   | `url:<youtube-url>`   | Queue a YouTube video's audio ahead of the others   |
+| `pause`      | None                  | Pause playback                                      |
+| `unpause`    | None                  | Resume playback                                     |
+| `skip`       | None                  | Skip the current track                              |
+| `skipto`     | `position:<n>`        | Skip to a queued track, dropping the ones before it |
+| `stop`       | None                  | Stop playback and clear the queue                   |
+| `nowplaying` | None                  | Show the current track and its progress             |
+| `queue`      | `page:<n>` (optional) | Show the queue, 10 tracks per page                  |
+| `remove`     | `position:<n>`        | Remove a track from the queue                       |
+| `move`       | `from:<n>` `to:<n>`   | Move a track to another queue position              |
+| `shuffle`    | None                  | Shuffle the queue                                   |
+| `clear`      | None                  | Clear the queue, keeping the current track          |
+| `help`       | None                  | List the available commands                         |
+| `ping`       | None                  | Check bot responsiveness                            |
+| `health`     | None                  | Show the gateway heartbeat latency                  |
 
 ---
 

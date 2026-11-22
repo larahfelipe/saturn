@@ -9,6 +9,7 @@ import {
   PlaybackCancelledError,
   PlayerUnavailableError,
   QueueFullError,
+  QueuePositionError,
   RateLimitedError,
   TrackResolutionError,
   TrackUnavailableError,
@@ -301,6 +302,45 @@ describe(InteractionHandler, () => {
       expect(logger.contextOf('error', 'command failed')?.err).toBe(boom);
     });
 
+    it('passes integer options and reports positions outside the queue', async () => {
+      await handler.handle(playInteraction().asInteraction());
+      await handler.handle(playInteraction('bbbbbbbbbbb').asInteraction());
+      await flush();
+      const outside = new FakeCommandInteraction('remove', { options: { position: 2 } });
+      const inside = new FakeCommandInteraction('remove', { options: { position: 1 } });
+
+      await handler.handle(outside.asInteraction());
+      await handler.handle(inside.asInteraction());
+
+      expect(outside.responses).toEqual([
+        {
+          method: 'reply',
+          options: {
+            embeds: [
+              expect.objectContaining({
+                description: 'There is no song at that position. The queue has 1 song',
+              }),
+            ],
+          },
+        },
+      ]);
+      expect(logger.contextOf('info', 'command rejected')?.err).toBeInstanceOf(QueuePositionError);
+      expect(inside.responses).toEqual([
+        {
+          method: 'reply',
+          options: {
+            embeds: [
+              expect.objectContaining({
+                description:
+                  'Removed [Track bbbbbbbbbbb](https://www.youtube.com/watch?v=bbbbbbbbbbb) from the queue',
+              }),
+            ],
+          },
+        },
+      ]);
+      expect(recorded).toEqual(['play', 'play', 'remove', 'remove']);
+    });
+
     it('reports an idle player for controls', async () => {
       const interaction = new FakeCommandInteraction('skip');
 
@@ -527,6 +567,8 @@ describe(userErrorMessage, () => {
       'I need permission to connect and speak in your voice channel',
     ],
     [new QueueFullError(100), 'The queue is full (100 songs). Please, try again later'],
+    [new QueuePositionError(0), 'The queue is empty'],
+    [new QueuePositionError(3), 'There is no song at that position. The queue has 3 songs'],
     [new NotListeningError(), 'You need to be in my voice channel to do that'],
     [new RateLimitedError(1000), 'You are adding songs too quickly. Please, try again in 1 second'],
     [

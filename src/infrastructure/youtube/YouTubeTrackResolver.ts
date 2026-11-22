@@ -67,9 +67,11 @@ export class YouTubeTrackResolver implements TrackResolver {
     this.#timeoutMs = options.timeoutMs ?? RESOLVE_TIMEOUT_MS;
   }
 
-  async resolve(request: TrackRequest, signal: AbortSignal): Promise<ResolvedTrack> {
-    const videoId = parseYouTubeVideoUrl(request.url);
+  resolve(request: TrackRequest, signal: AbortSignal): Promise<ResolvedTrack> {
+    return this.#lookup(parseYouTubeVideoUrl(request.url), request.requestedBy, signal);
+  }
 
+  async #lookup(videoId: string, requestedBy: string, signal: AbortSignal): Promise<ResolvedTrack> {
     const lookup = AbortSignal.any([signal, AbortSignal.timeout(this.#timeoutMs)]);
     let info: VideoInfo;
     try {
@@ -88,7 +90,7 @@ export class YouTubeTrackResolver implements TrackResolver {
         ? Math.max(0, Math.round(details.lengthSeconds * 1000))
         : 0,
       id: videoId,
-      requestedBy: request.requestedBy,
+      requestedBy,
       title: details.title.trim() || `YouTube video ${videoId}`,
       url: `https://www.youtube.com/watch?v=${videoId}`,
     });

@@ -152,6 +152,9 @@ Messages worth alerting or searching on:
 | `command failed`                                    | warn         | YouTube or voice failure reported to the user                      |
 | `command failed`, `interaction failed`              | error        | Unexpected error; the user got a generic reply                     |
 | `track playback failed`                             | error        | Stream or FFmpeg failure; the track was skipped                    |
+| `track resolved`                                    | info         | YouTube lookup finished after `lookupMs`                           |
+| `voice channel joined`                              | info         | Voice became ready after `joinMs`                                  |
+| `audio started`                                     | info         | First audio of a track played `startMs` after its stream opened    |
 | `voice connection rejoining`                        | warn         | Voice disconnected; retrying (`attempt` 1–5)                       |
 | `voice connection lost`                             | warn         | Voice did not recover; the guild's playback stopped                |
 | `shutting down`, `shutdown complete`                | info         | Shutdown reason and exit code                                      |
@@ -215,6 +218,6 @@ process is needed.
 | `I need permission to connect and speak…`                     | Grant the bot View Channels, Connect and Speak in that channel. Stage, AFK and full channels have their own replies.                                                                                       |
 | `You need to be in my voice channel…`                         | The member is not in the bot's voice channel. Only listeners control playback; disconnect the bot through Discord to stop it from elsewhere.                                                               |
 | Tracks skip right after starting                              | `track playback failed`: the message includes FFmpeg's last error line or the stream error. `Audio stream did not start`: no audio arrived within 20 s.                                                    |
-| Bot leaves voice unexpectedly                                 | `voice connection lost`: kicked, channel deleted, five rejoin attempts over 30 s failed, or a reconnect did not become ready within 15 s.                                                                  |
+| Bot leaves voice unexpectedly                                 | `leaving empty voice channel`: no listeners for 30 s. `voice connection lost`: kicked, channel deleted, five rejoin attempts over 30 s failed, or a reconnect did not become ready within 15 s.            |
 | `/health` shows `-1ms`                                        | No heartbeat acknowledged yet after connecting. Retry after a minute.                                                                                                                                      |
 | Discord shows "The application did not respond"               | Another instance uses the same token, or the process is overloaded or stopped. Check for `failed to respond to interaction`.                                                                               |
